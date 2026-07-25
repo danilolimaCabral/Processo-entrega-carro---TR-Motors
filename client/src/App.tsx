@@ -6,6 +6,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 import ProcessoPublicoPage from "./pages/ProcessoPublicoPage";
+import VendedorDashboard from "./pages/VendedorDashboard";
+import ApprovalPanel from "./pages/ApprovalPanel";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -22,7 +24,12 @@ function Router() {
       <Route path="/" component={Home} />
       {/* Rota pública para acompanhamento de processo pelo cliente (sem autenticação) */}
       <Route path="/processo/:token" component={ProcessoPublicoRoute} />
+      {/* Dashboard para vendedores */}
+      <Route path="/vendedor/dashboard" component={VendedorDashboard} />
+      {/* Painel de aprovação para financeiro e administrativo */}
+      <Route path="/approval" component={ApprovalPanel} />
       <Route path="/404" component={NotFound} />
+      {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );

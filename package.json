@@ -1,5 +1,5 @@
 {
-  "name": "tr-motors",
+  "name": "tr-motors-delivery",
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
@@ -47,7 +47,6 @@
     "@trpc/react-query": "^11.6.0",
     "@trpc/server": "^11.6.0",
     "@types/bcryptjs": "^3.0.0",
-    "@types/multer": "^2.2.0",
     "axios": "^1.12.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -63,7 +62,6 @@
     "input-otp": "^1.4.2",
     "jose": "6.1.0",
     "lucide-react": "^0.453.0",
-    "multer": "^2.2.0",
     "mysql2": "^3.15.0",
     "nanoid": "^5.1.5",
     "next-themes": "^0.4.6",

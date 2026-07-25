@@ -1,69 +1,80 @@
-import { TRPCError } from "@trpc/server";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { getUserByEmail } from "../db";
-import { sdk } from "../_core/sdk";
+import bcryptjs from "bcryptjs";
+import { TRPCError } from "@trpc/server";
 import { publicProcedure, router } from "../_core/trpc";
-import { getSessionCookieOptions } from "../_core/cookies";
+import { getUserByEmail, upsertUser } from "../db";
 import { COOKIE_NAME } from "@shared/const";
+import { getSessionCookieOptions } from "../_core/cookies";
+import { sdk } from "../_core/sdk";
 
-/**
- * Router de autenticação local (usuário/senha).
- * Permite que usuários criados pelo administrador façam login
- * sem necessidade de OAuth externo.
- */
 export const localAuthRouter = router({
   /**
-   * Login com email e senha.
-   * Retorna o usuário autenticado e define o cookie de sessão.
+   * Login with email and password
+   * Returns JWT token that gets set as a session cookie
    */
   login: publicProcedure
     .input(
       z.object({
         email: z.string().email("Email inválido"),
-        password: z.string().min(1, "Senha obrigatória"),
+        password: z.string().min(1, "Senha é obrigatória"),
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const user = await getUserByEmail(input.email);
+      const { email, password } = input;
+
+      // Find user by email
+      const user = await getUserByEmail(email);
 
       if (!user) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Email ou senha incorretos.",
+          message: "Email ou senha incorretos",
         });
       }
 
+      // Check if user is active
       if (!user.isActive) {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Conta desativada. Entre em contato com o administrador.",
+          message: "Usuário foi desativado",
         });
       }
 
+      // Check if user has a password hash (local user)
       if (!user.passwordHash) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Este usuário não possui senha configurada. Use o login OAuth.",
+          message: "Este usuário não pode fazer login com email/senha",
         });
       }
 
-      const passwordValid = await bcrypt.compare(input.password, user.passwordHash);
+      // Verify password
+      const passwordValid = await bcryptjs.compare(password, user.passwordHash);
+
       if (!passwordValid) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Email ou senha incorretos.",
+          message: "Email ou senha incorretos",
         });
       }
 
-      // Gera token de sessão usando o openId do usuário (ou email como fallback)
-      const sessionId = user.openId ?? `local_${user.id}`;
-      const sessionToken = await sdk.createSessionToken(sessionId, {
-        name: user.name ?? user.email ?? "",
+      // Update last signed in
+      await upsertUser({
+        ...user,
+        lastSignedIn: new Date(),
       });
 
+      // Generate JWT token (30 days)
+      // Use email as the unique identifier for local users
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      const token = await sdk.createSessionToken(`local_${user.email}`, {
+        expiresInMs: thirtyDaysMs,
+        name: user.name || "Usuário",
+      });
+
+      // Set session cookie
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, sessionToken, cookieOptions);
+      ctx.res.cookie(COOKIE_NAME, token, cookieOptions);
 
       return {
         success: true,
@@ -73,6 +84,51 @@ export const localAuthRouter = router({
           email: user.email,
           role: user.role,
         },
+      };
+    }),
+
+  /**
+   * Register a new local user (admin only)
+   * This is called by the admin panel to create users
+   */
+  register: publicProcedure
+    .input(
+      z.object({
+        name: z.string().min(1, "Nome é obrigatório"),
+        email: z.string().email("Email inválido"),
+        password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
+        role: z.enum(["vendedor", "financeiro", "administrativo"]),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { name, email, password, role } = input;
+
+      // Check if user already exists
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Este email já está registrado",
+        });
+      }
+
+      // Hash password
+      const passwordHash = await bcryptjs.hash(password, 10);
+
+      // Create user
+      await upsertUser({
+        email,
+        name,
+        passwordHash,
+        role,
+        loginMethod: "local",
+        isActive: true,
+        lastSignedIn: new Date(),
+      });
+
+      return {
+        success: true,
+        message: "Usuário criado com sucesso",
       };
     }),
 });

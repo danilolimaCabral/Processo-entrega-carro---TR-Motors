@@ -1,36 +1,34 @@
-import { bigint, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import {
+  int,
+  mysqlEnum,
+  mysqlTable,
+  text,
+  timestamp,
+  varchar,
+  boolean,
+  decimal,
+} from "drizzle-orm/mysql-core";
 
 /**
- * Core user table backing auth flow.
- * Supports both local password authentication (created by admin)
- * and the legacy Manus OAuth flow.
+ * Users table — handles both OAuth and local authentication
+ * - OAuth users have openId set
+ * - Local users have passwordHash set, openId is null
  */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. Nullable for locally-created users. */
+  /** Manus OAuth identifier (for OAuth users) or null for local users */
   openId: varchar("openId", { length: 64 }).unique(),
+  /** Bcrypt hash of password (for local users only) */
+  passwordHash: text("passwordHash"),
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(),
-  loginMethod: varchar("loginMethod", { length: 64 }),
-  /**
-   * Bcrypt hash of the user's password.
-   * Set when the admin creates a user with local credentials.
-   * Null for users created via OAuth.
-   */
-  passwordHash: varchar("passwordHash", { length: 255 }),
-  /**
-   * Roles do sistema:
-   * - user / admin: papéis padrão do template
-   * - vendedor / financeiro / administrativo: papéis do negócio TR Motors
-   * Extensível: adicionar novos valores conforme necessário.
-   */
-  role: mysqlEnum("role", ["user", "admin", "vendedor", "financeiro", "administrativo"]).default("user").notNull(),
-  /** Whether the user account is active. Admin can deactivate users. */
-  isActive: int("isActive").default(1).notNull(),
+  loginMethod: varchar("loginMethod", { length: 64 }), // "oauth" or "local"
+  /** Role: admin, vendedor, financeiro, administrativo */
+  role: mysqlEnum("role", ["admin", "vendedor", "financeiro", "administrativo"])
+    .default("vendedor")
+    .notNull(),
+  /** Whether the user account is active */
+  isActive: boolean("isActive").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -40,75 +38,75 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
- * Registro de venda criado pelo Vendedor.
- * Cada registro representa uma entrega pendente de aprovação.
- * Projetado para ser extensível: novos campos podem ser adicionados sem reestruturação.
+ * Sale records table — tracks vehicle sales through the approval workflow
+ * Status flow: pending_financial → approved_financial → pending_admin → approved_admin → ready_for_delivery
  */
-export const saleRecords = mysqlTable("sale_records", {
+export const sale_records = mysqlTable("sale_records", {
   id: int("id").autoincrement().primaryKey(),
-  /** Placa do veículo vendido */
-  licensePlate: varchar("licensePlate", { length: 20 }).notNull(),
-  /** Nome do cliente comprador */
-  customerName: varchar("customerName", { length: 255 }),
-  /** Telefone/contato do cliente */
-  customerContact: varchar("customerContact", { length: 100 }),
-  /**
-   * Status atual no fluxo de aprovação.
-   * Extensível: adicionar novos valores ao enum conforme o fluxo crescer.
-   */
+  /** Vendor who created this sale */
+  vendedorId: int("vendedorId").notNull(),
+  /** Customer name */
+  customerName: text("customerName"),
+  /** Customer contact (phone/email) */
+  customerContact: varchar("customerContact", { length: 320 }),
+  /** Vehicle details */
+  vehicleModel: text("vehicleModel"),
+  vehicleYear: int("vehicleYear"),
+  vehicleColor: text("vehicleColor"),
+  vehiclePrice: decimal("vehiclePrice", { precision: 12, scale: 2 }),
+  /** Approval workflow status */
   status: mysqlEnum("status", [
-    "aguardando_financeiro",
-    "aguardando_administrativo",
-    "liberado_para_entrega",
-    "reprovado",
-  ]).default("aguardando_financeiro").notNull(),
-  /** Motivo de reprovação, preenchido quando status = 'reprovado' */
+    "pending_financial",
+    "approved_financial",
+    "rejected_financial",
+    "pending_admin",
+    "approved_admin",
+    "rejected_admin",
+    "ready_for_delivery",
+  ])
+    .default("pending_financial")
+    .notNull(),
+  /** Reason for rejection (if applicable) */
   rejectionReason: text("rejectionReason"),
-  /** Papel que reprovou: 'financeiro' ou 'administrativo' */
-  rejectedBy: varchar("rejectedBy", { length: 64 }),
-  /** FK para o usuário vendedor que criou o registro */
-  sellerId: int("sellerId").notNull(),
-  /** Nome do vendedor no momento da criação (desnormalizado para consultas rápidas) */
-  sellerName: text("sellerName"),
-  /**
-   * Token público único para o link de acompanhamento do cliente.
-   * Gerado automaticamente ao criar o registro. Permite acesso sem autenticação.
-   */
-  publicToken: varchar("publicToken", { length: 64 }).unique(),
-  /** Timestamps em UTC milissegundos para consistência de fuso horário */
-  createdAt: bigint("createdAt", { mode: "number" }).notNull(),
-  updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),
+  /** User who approved/rejected at financial stage */
+  financialReviewedBy: int("financialReviewedBy"),
+  financialReviewedAt: timestamp("financialReviewedAt"),
+  /** User who approved/rejected at admin stage */
+  adminReviewedBy: int("adminReviewedBy"),
+  adminReviewedAt: timestamp("adminReviewedAt"),
+  /** Public token for customer tracking (unique, generated on creation) */
+  publicToken: varchar("publicToken", { length: 64 }).unique().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-export type SaleRecord = typeof saleRecords.$inferSelect;
-export type InsertSaleRecord = typeof saleRecords.$inferInsert;
+export type SaleRecord = typeof sale_records.$inferSelect;
+export type InsertSaleRecord = typeof sale_records.$inferInsert;
 
 /**
- * Documentos PDF anexados a um registro de venda.
- * Cada registro possui exatamente dois documentos: documentacao_cartorio e comprovante_pagamento.
- * Extensível: novos tipos de documento podem ser adicionados ao enum.
+ * Sale documents table — stores PDF uploads linked to sale records
+ * Document types: cartorio (cartório), payment (comprovante de pagamento)
  */
-export const saleDocuments = mysqlTable("sale_documents", {
+export const sale_documents = mysqlTable("sale_documents", {
   id: int("id").autoincrement().primaryKey(),
-  /** FK para o registro de venda */
+  /** Reference to sale_records */
   saleRecordId: int("saleRecordId").notNull(),
-  /**
-   * Tipo do documento.
-   * Extensível: adicionar novos tipos conforme necessário.
-   */
-  documentType: mysqlEnum("documentType", [
-    "documentacao_cartorio",
-    "comprovante_pagamento",
-  ]).notNull(),
-  /** Chave S3 para recuperar o arquivo */
-  fileKey: varchar("fileKey", { length: 512 }).notNull(),
-  /** URL relativa para acesso via /manus-storage/ */
-  fileUrl: varchar("fileUrl", { length: 512 }).notNull(),
-  /** Nome original do arquivo enviado pelo usuário */
-  originalName: varchar("originalName", { length: 255 }),
-  /** Timestamp UTC em milissegundos */
-  uploadedAt: bigint("uploadedAt", { mode: "number" }).notNull(),
+  /** Document type */
+  documentType: mysqlEnum("documentType", ["cartorio", "payment"]).notNull(),
+  /** Original filename */
+  filename: varchar("filename", { length: 255 }).notNull(),
+  /** S3 storage key/path */
+  fileKey: text("fileKey").notNull(),
+  /** Public URL to access the file */
+  fileUrl: text("fileUrl").notNull(),
+  /** MIME type (e.g., application/pdf) */
+  mimeType: varchar("mimeType", { length: 100 }).default("application/pdf"),
+  /** File size in bytes */
+  fileSize: int("fileSize"),
+  /** User who uploaded the document */
+  uploadedBy: int("uploadedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export type SaleDocument = typeof saleDocuments.$inferSelect;
-export type InsertSaleDocument = typeof saleDocuments.$inferInsert;
+export type SaleDocument = typeof sale_documents.$inferSelect;
+export type InsertSaleDocument = typeof sale_documents.$inferInsert;

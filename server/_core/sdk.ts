@@ -287,37 +287,36 @@ class SDKServer {
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
+    let user = null;
 
-    // Suporte a usuários locais criados pelo admin (openId começa com "local_")
+    // Check if this is a local user (prefixed with 'local_')
     if (sessionUserId.startsWith("local_")) {
-      const localUserId = parseInt(sessionUserId.replace("local_", ""), 10);
-      const localUser = await db.getUserById(localUserId);
-      if (!localUser) {
-        throw ForbiddenError("Local user not found");
+      const identifier = sessionUserId.replace("local_", "");
+      // Try to get user by email (local users use email as identifier)
+      user = await db.getUserByEmail(identifier);
+      if (user && !user.isActive) {
+        throw ForbiddenError("User account is disabled");
       }
-      if (!localUser.isActive) {
-        throw ForbiddenError("User account is deactivated");
-      }
-      return localUser;
-    }
+    } else {
+      // OAuth user
+      user = await db.getUserByOpenId(sessionUserId);
 
-    let user = await db.getUserByOpenId(sessionUserId);
-
-    // If user not in DB, sync from OAuth server automatically
-    if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
-        await db.upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
-        });
-        user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
+      // If user not in DB, sync from OAuth server automatically
+      if (!user) {
+        try {
+          const userInfo = await this.getUserInfoWithJwt(sessionToken ?? "");
+          await db.upsertUser({
+            openId: userInfo.openId,
+            name: userInfo.name || null,
+            email: userInfo.email ?? null,
+            loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
+            lastSignedIn: signedInAt,
+          });
+          user = await db.getUserByOpenId(userInfo.openId);
+        } catch (error) {
+          console.error("[Auth] Failed to sync user from OAuth:", error);
+          throw ForbiddenError("Failed to sync user info");
+        }
       }
     }
 
@@ -325,10 +324,19 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId!,
-      lastSignedIn: signedInAt,
-    });
+    // Update last signed in
+    if (user.openId) {
+      await db.upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      });
+    } else if (user.email) {
+      // For local users, update by email
+      await db.upsertUser({
+        email: user.email,
+        lastSignedIn: signedInAt,
+      });
+    }
 
     return user;
   }
@@ -349,12 +357,12 @@ function buildCronUser(
   return {
     id: -1,
     openId: userInfo.openId,
+    passwordHash: null,
     name: userInfo.name || "Manus Scheduled Task",
     email: null,
     loginMethod: null,
-    passwordHash: null,
-    isActive: 1,
-    role: "user",
+    role: "admin",
+    isActive: true,
     createdAt: now,
     updatedAt: now,
     lastSignedIn: now,

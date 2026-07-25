@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "9d324df7-2d22-4ab6-be4e-fed2147d0d75",
-  "prevId": "2c15a95f-9dc3-4fbe-ba65-cdea97ebe78f",
+  "id": "ea3acd77-d065-43e5-9b68-a4f6161d3b90",
+  "prevId": "5863a4dd-298e-486a-b3ea-71345869cfa1",
   "tables": {
     "sale_documents": {
       "name": "sale_documents",
@@ -23,38 +23,61 @@
         },
         "documentType": {
           "name": "documentType",
-          "type": "enum('documentacao_cartorio','comprovante_pagamento')",
+          "type": "enum('cartorio','payment')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "filename": {
+          "name": "filename",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "fileKey": {
           "name": "fileKey",
-          "type": "varchar(512)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "fileUrl": {
           "name": "fileUrl",
-          "type": "varchar(512)",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "originalName": {
-          "name": "originalName",
-          "type": "varchar(255)",
+        "mimeType": {
+          "name": "mimeType",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'application/pdf'"
+        },
+        "fileSize": {
+          "name": "fileSize",
+          "type": "int",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "uploadedAt": {
-          "name": "uploadedAt",
-          "type": "bigint",
+        "uploadedBy": {
+          "name": "uploadedBy",
+          "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
         }
       },
       "indexes": {},
@@ -80,20 +103,62 @@
           "notNull": true,
           "autoincrement": true
         },
-        "licensePlate": {
-          "name": "licensePlate",
-          "type": "varchar(20)",
+        "vendedorId": {
+          "name": "vendedorId",
+          "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
+        "customerName": {
+          "name": "customerName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "customerContact": {
+          "name": "customerContact",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vehicleModel": {
+          "name": "vehicleModel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vehicleYear": {
+          "name": "vehicleYear",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vehicleColor": {
+          "name": "vehicleColor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vehiclePrice": {
+          "name": "vehiclePrice",
+          "type": "decimal(12,2)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status": {
           "name": "status",
-          "type": "enum('aguardando_financeiro','aguardando_administrativo','liberado_para_entrega','reprovado')",
+          "type": "enum('pending_financial','approved_financial','rejected_financial','pending_admin','approved_admin','rejected_admin','ready_for_delivery')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'aguardando_financeiro'"
+          "default": "'pending_financial'"
         },
         "rejectionReason": {
           "name": "rejectionReason",
@@ -102,40 +167,57 @@
           "notNull": false,
           "autoincrement": false
         },
-        "rejectedBy": {
-          "name": "rejectedBy",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "sellerId": {
-          "name": "sellerId",
+        "financialReviewedBy": {
+          "name": "financialReviewedBy",
           "type": "int",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "sellerName": {
-          "name": "sellerName",
-          "type": "text",
+        "financialReviewedAt": {
+          "name": "financialReviewedAt",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false,
+          "autoincrement": false
+        },
+        "adminReviewedBy": {
+          "name": "adminReviewedBy",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "adminReviewedAt": {
+          "name": "adminReviewedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "publicToken": {
+          "name": "publicToken",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "createdAt": {
           "name": "createdAt",
-          "type": "bigint",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "(now())"
         },
         "updatedAt": {
           "name": "updatedAt",
-          "type": "bigint",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
         }
       },
       "indexes": {},
@@ -148,7 +230,14 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "sale_records_publicToken_unique": {
+          "name": "sale_records_publicToken_unique",
+          "columns": [
+            "publicToken"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
     "users": {
@@ -165,7 +254,14 @@
           "name": "openId",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "passwordHash": {
+          "name": "passwordHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "name": {
@@ -191,11 +287,19 @@
         },
         "role": {
           "name": "role",
-          "type": "enum('user','admin','vendedor','financeiro','administrativo')",
+          "type": "enum('admin','vendedor','financeiro','administrativo')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'user'"
+          "default": "'vendedor'"
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
         },
         "createdAt": {
           "name": "createdAt",
@@ -238,6 +342,12 @@
           "name": "users_openId_unique",
           "columns": [
             "openId"
+          ]
+        },
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": [
+            "email"
           ]
         }
       },

@@ -1,16 +1,24 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,456 +27,449 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import { toast } from "sonner";
-import { ROLE_LABELS } from "@shared/trMotors";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import {
-  UserPlus,
-  KeyRound,
+  Loader2,
+  Plus,
   Trash2,
-  UserCheck,
-  UserX,
-  Eye,
-  EyeOff,
+  Edit,
+  LogOut,
+  AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 
-interface UserWithRole {
-  id: number;
-  name: string | null;
-  email: string | null;
-  role: string;
-  isActive: number | null;
-  loginMethod: string | null;
-  createdAt: Date;
-  lastSignedIn: Date;
-}
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrador",
+  vendedor: "Vendedor",
+  financeiro: "Financeiro",
+  administrativo: "Administrativo",
+};
 
-// ─── Formulário de Criação de Usuário ────────────────────────────────────────
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-red-100 text-red-800",
+  vendedor: "bg-blue-100 text-blue-800",
+  financeiro: "bg-green-100 text-green-800",
+  administrativo: "bg-purple-100 text-purple-800",
+};
 
-function CreateUserDialog({ onSuccess }: { onSuccess: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<string>("user");
-  const [showPassword, setShowPassword] = useState(false);
+export default function AdminPage() {
+  const { logout } = useAuth();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const createMutation = trpc.admin.createUser.useMutation({
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "vendedor" as "vendedor" | "financeiro" | "administrativo",
+  });
+
+  const [resetPassword, setResetPassword] = useState("");
+
+  const utils = trpc.useUtils();
+  const { data: users = [], isLoading } = trpc.admin.listUsers.useQuery();
+
+  const createUserMutation = trpc.admin.createUser.useMutation({
     onSuccess: () => {
       toast.success("Usuário criado com sucesso!");
-      setOpen(false);
-      setName("");
-      setEmail("");
-      setPassword("");
-      setRole("user");
-      onSuccess();
+      setFormData({ name: "", email: "", password: "", role: "vendedor" });
+      setIsCreateDialogOpen(false);
+      utils.admin.listUsers.invalidate();
     },
     onError: (error) => {
-      toast.error(error.message || "Erro ao criar usuário.");
+      toast.error(error.message);
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetPasswordMutation = trpc.admin.resetPassword.useMutation({
+    onSuccess: () => {
+      toast.success("Senha redefinida com sucesso!");
+      setResetPassword("");
+      setIsResetDialogOpen(false);
+      setSelectedUserId(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const deleteUserMutation = trpc.admin.deleteUser.useMutation({
+    onSuccess: () => {
+      toast.success("Usuário deletado com sucesso!");
+      setIsDeleteDialogOpen(false);
+      setSelectedUserId(null);
+      utils.admin.listUsers.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const toggleActiveMutation = trpc.admin.toggleActive.useMutation({
+    onSuccess: () => {
+      toast.success("Status do usuário atualizado!");
+      utils.admin.listUsers.invalidate();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      toast.error("Preencha todos os campos.");
+    if (!formData.name || !formData.email || !formData.password) {
+      toast.error("Preencha todos os campos");
       return;
     }
-    createMutation.mutate({
-      name: name.trim(),
-      email: email.trim(),
-      password,
-      role: role as "user" | "vendedor" | "financeiro" | "administrativo",
+    await createUserMutation.mutateAsync(formData);
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUserId || !resetPassword) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    await resetPasswordMutation.mutateAsync({
+      userId: selectedUserId,
+      newPassword: resetPassword,
+    });
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUserId) return;
+    await deleteUserMutation.mutateAsync({ userId: selectedUserId });
+  };
+
+  const handleToggleActive = async (userId: number, currentStatus: boolean) => {
+    await toggleActiveMutation.mutateAsync({
+      userId,
+      isActive: !currentStatus,
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          Novo Usuário
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Criar Novo Usuário</DialogTitle>
-          <DialogDescription>
-            Crie um usuário com acesso ao sistema. As credenciais devem ser enviadas ao colaborador.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="create-name">Nome completo</Label>
-            <Input
-              id="create-name"
-              placeholder="João Silva"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={createMutation.isPending}
-            />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">
+              Painel Administrativo
+            </h1>
+            <p className="text-slate-600 mt-1">
+              Gerenciamento de usuários e sistema
+            </p>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="create-email">Email</Label>
-            <Input
-              id="create-email"
-              type="email"
-              placeholder="joao@trmotors.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={createMutation.isPending}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="create-password">Senha inicial</Label>
-            <div className="relative">
-              <Input
-                id="create-password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Mínimo 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pr-9"
-                disabled={createMutation.isPending}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="create-role">Papel no sistema</Label>
-            <Select value={role} onValueChange={setRole} disabled={createMutation.isPending}>
-              <SelectTrigger id="create-role">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">{ROLE_LABELS["user"]}</SelectItem>
-                <SelectItem value="vendedor">{ROLE_LABELS["vendedor"]}</SelectItem>
-                <SelectItem value="financeiro">{ROLE_LABELS["financeiro"]}</SelectItem>
-                <SelectItem value="administrativo">{ROLE_LABELS["administrativo"]}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={createMutation.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Criando..." : "Criar Usuário"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Formulário de Redefinição de Senha ──────────────────────────────────────
-
-function ResetPasswordDialog({ userId, userName }: { userId: number; userName: string }) {
-  const [open, setOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-
-  const resetMutation = trpc.admin.resetPassword.useMutation({
-    onSuccess: () => {
-      toast.success(`Senha de ${userName} redefinida com sucesso!`);
-      setOpen(false);
-      setNewPassword("");
-    },
-    onError: (error) => {
-      toast.error(error.message || "Erro ao redefinir senha.");
-    },
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="Redefinir senha">
-          <KeyRound className="h-3.5 w-3.5" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Redefinir Senha</DialogTitle>
-          <DialogDescription>
-            Defina uma nova senha para <strong>{userName}</strong>.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <div className="space-y-2">
-            <Label>Nova senha</Label>
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Mínimo 6 caracteres"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="pr-9"
-                disabled={resetMutation.isPending}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={resetMutation.isPending}>
-            Cancelar
-          </Button>
           <Button
-            onClick={() => {
-              if (newPassword.length < 6) {
-                toast.error("A senha deve ter pelo menos 6 caracteres.");
-                return;
-              }
-              resetMutation.mutate({ userId, newPassword });
-            }}
-            disabled={resetMutation.isPending}
+            variant="outline"
+            onClick={() => logout()}
+            className="gap-2"
           >
-            {resetMutation.isPending ? "Salvando..." : "Salvar"}
+            <LogOut className="h-4 w-4" />
+            Sair
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+        </div>
 
-// ─── Página Principal do Admin ───────────────────────────────────────────────
+        {/* Create User Dialog */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Criar Usuário
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Criar Novo Usuário</DialogTitle>
+              <DialogDescription>
+                Preencha os dados para criar um novo usuário no sistema
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Nome completo"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha Inicial</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  placeholder="••••••••"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Papel</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value: any) =>
+                    setFormData({ ...formData, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vendedor">Vendedor</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="administrativo">
+                      Administrativo
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createUserMutation.isPending}
+              >
+                {createUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  "Criar Usuário"
+                )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-export default function AdminPage() {
-  const { data: users, isLoading, refetch } = trpc.admin.listUsers.useQuery();
-  const updateRoleMutation = trpc.admin.updateUserRole.useMutation();
-  const setActiveMutation = trpc.admin.setUserActive.useMutation();
-  const deleteUserMutation = trpc.admin.deleteUser.useMutation();
-
-  const handleRoleChange = async (userId: number, newRole: string) => {
-    try {
-      await updateRoleMutation.mutateAsync({
-        userId,
-        role: newRole as "vendedor" | "financeiro" | "administrativo" | "user",
-      });
-      toast.success("Papel atualizado com sucesso");
-      refetch();
-    } catch (error) {
-      toast.error("Erro ao atualizar papel");
-    }
-  };
-
-  const handleToggleActive = async (userId: number, currentActive: number | null) => {
-    const newActive = currentActive === 0 ? true : false;
-    try {
-      await setActiveMutation.mutateAsync({ userId, isActive: newActive });
-      toast.success(newActive ? "Usuário ativado" : "Usuário desativado");
-      refetch();
-    } catch (error) {
-      toast.error("Erro ao alterar status do usuário");
-    }
-  };
-
-  const handleDeleteUser = async (userId: number) => {
-    try {
-      await deleteUserMutation.mutateAsync({ userId });
-      toast.success("Usuário removido com sucesso");
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao remover usuário");
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Gerenciar Usuários</CardTitle>
-              <CardDescription>
-                Crie, edite e controle o acesso dos colaboradores ao sistema
-              </CardDescription>
-            </div>
-            <CreateUserDialog onSuccess={refetch} />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Papel</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Último acesso</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users && users.length > 0 ? (
-                  users.map((user) => (
-                    <TableRow key={user.id} className={user.isActive === 0 ? "opacity-50" : ""}>
-                      <TableCell className="font-medium">
-                        <div>
-                          <p>{user.name || "—"}</p>
-                          {user.loginMethod && (
-                            <p className="text-xs text-muted-foreground capitalize">
-                              via {user.loginMethod}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {user.email || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.role}
-                          onValueChange={(value) => handleRoleChange(user.id, value)}
-                          disabled={updateRoleMutation.isPending}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">{ROLE_LABELS["user"]}</SelectItem>
-                            <SelectItem value="vendedor">{ROLE_LABELS["vendedor"]}</SelectItem>
-                            <SelectItem value="financeiro">{ROLE_LABELS["financeiro"]}</SelectItem>
-                            <SelectItem value="administrativo">{ROLE_LABELS["administrativo"]}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.isActive !== 0 ? "default" : "secondary"}>
-                          {user.isActive !== 0 ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(user.lastSignedIn), {
-                          addSuffix: true,
-                          locale: ptBR,
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Redefinir senha (apenas usuários locais) */}
-                          {user.loginMethod === "local" && (
-                            <ResetPasswordDialog
-                              userId={user.id}
-                              userName={user.name ?? user.email ?? "usuário"}
-                            />
-                          )}
-
-                          {/* Ativar/Desativar */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title={user.isActive !== 0 ? "Desativar usuário" : "Ativar usuário"}
-                            onClick={() => handleToggleActive(user.id, user.isActive)}
-                            disabled={setActiveMutation.isPending}
+        {/* Users Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Usuários do Sistema</CardTitle>
+            <CardDescription>
+              Gerencie todos os usuários cadastrados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+              </div>
+            ) : users.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum usuário cadastrado ainda
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Papel</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Criado em</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.name}
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge className={ROLE_COLORS[user.role]}>
+                            {ROLE_LABELS[user.role]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              user.isActive ? "default" : "secondary"
+                            }
                           >
-                            {user.isActive !== 0 ? (
-                              <UserX className="h-3.5 w-3.5 text-destructive" />
-                            ) : (
-                              <UserCheck className="h-3.5 w-3.5 text-green-600" />
-                            )}
+                            {user.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.createdAt).toLocaleDateString(
+                            "pt-BR"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Dialog
+                            open={
+                              isResetDialogOpen &&
+                              selectedUserId === user.id
+                            }
+                            onOpenChange={(open) => {
+                              setIsResetDialogOpen(open);
+                              if (open) setSelectedUserId(user.id);
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1"
+                              >
+                                <Edit className="h-3 w-3" />
+                                Redefinir Senha
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Redefinir Senha</DialogTitle>
+                                <DialogDescription>
+                                  Digite a nova senha para {user.name}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="new-password">
+                                    Nova Senha
+                                  </Label>
+                                  <Input
+                                    id="new-password"
+                                    type="password"
+                                    value={resetPassword}
+                                    onChange={(e) =>
+                                      setResetPassword(e.target.value)
+                                    }
+                                    placeholder="••••••••"
+                                  />
+                                </div>
+                                <Button
+                                  onClick={handleResetPassword}
+                                  className="w-full"
+                                  disabled={
+                                    resetPasswordMutation.isPending ||
+                                    !resetPassword
+                                  }
+                                >
+                                  {resetPasswordMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Redefinindo...
+                                    </>
+                                  ) : (
+                                    "Redefinir"
+                                  )}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleToggleActive(user.id, user.isActive)
+                            }
+                            disabled={toggleActiveMutation.isPending}
+                          >
+                            {user.isActive ? "Desativar" : "Ativar"}
                           </Button>
 
-                          {/* Excluir */}
-                          <AlertDialog>
+                          <AlertDialog
+                            open={
+                              isDeleteDialogOpen &&
+                              selectedUserId === user.id
+                            }
+                            onOpenChange={(open) => {
+                              setIsDeleteDialogOpen(open);
+                              if (open) setSelectedUserId(user.id);
+                            }}
+                          >
                             <AlertDialogTrigger asChild>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                title="Excluir usuário"
+                                variant="destructive"
+                                size="sm"
+                                className="gap-1"
                               >
-                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação é permanente e não pode ser desfeita.
-                                  O usuário <strong>{user.name ?? user.email}</strong> será removido do sistema.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
+                              <div className="space-y-2">
+                                <h2 className="text-lg font-semibold">
+                                  Deletar Usuário
+                                </h2>
+                                <p className="text-sm text-slate-600">
+                                  Tem certeza que deseja deletar {user.name}?
+                                  Esta ação não pode ser desfeita.
+                                </p>
+                              </div>
+                              <div className="flex gap-2 justify-end">
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDeleteUser(user.id)}
+                                  onClick={handleDeleteUser}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={deleteUserMutation.isPending}
                                 >
-                                  Excluir
+                                  {deleteUserMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Deletando...
+                                    </>
+                                  ) : (
+                                    "Deletar"
+                                  )}
                                 </AlertDialogAction>
-                              </AlertDialogFooter>
+                              </div>
                             </AlertDialogContent>
                           </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      Nenhum usuário cadastrado. Clique em "Novo Usuário" para começar.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
+
+

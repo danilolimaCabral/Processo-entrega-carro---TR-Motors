@@ -1,7 +1,16 @@
-import { and, desc, eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertSaleDocument, InsertSaleRecord, InsertUser, saleDocuments, saleRecords, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  sale_records,
+  SaleRecord,
+  InsertSaleRecord,
+  sale_documents,
+  SaleDocument,
+  InsertSaleDocument,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -18,13 +27,10 @@ export async function getDb() {
   return _db;
 }
 
-// ─── User helpers ────────────────────────────────────────────────────────────
-
+/**
+ * Upsert user — handles both OAuth and local users
+ */
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
-
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot upsert user: database not available");
@@ -32,9 +38,21 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = { openId: user.openId };
+    const values: InsertUser = {};
     const updateSet: Record<string, unknown> = {};
 
+    // Handle openId (OAuth users)
+    if (user.openId) {
+      values.openId = user.openId;
+    }
+
+    // Handle passwordHash (local users)
+    if (user.passwordHash !== undefined) {
+      values.passwordHash = user.passwordHash;
+      updateSet.passwordHash = user.passwordHash;
+    }
+
+    // Handle text fields
     const textFields = ["name", "email", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
 
@@ -48,207 +66,341 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
     textFields.forEach(assignNullable);
 
+    // Handle role
+    if (user.role !== undefined) {
+      values.role = user.role;
+      updateSet.role = user.role;
+    }
+
+    // Handle isActive
+    if (user.isActive !== undefined) {
+      values.isActive = user.isActive;
+      updateSet.isActive = user.isActive;
+    }
+
+    // Handle lastSignedIn
     if (user.lastSignedIn !== undefined) {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      // Para o owner: define admin SOMENTE na inserção inicial (INSERT).
-      // No ON DUPLICATE KEY UPDATE, NÃO sobrescrevemos o role para preservar
-      // roles customizados (vendedor, financeiro, administrativo) atribuídos manualmente.
-      values.role = 'admin'; // usado apenas no INSERT (novo usuário)
-      // updateSet não inclui role → preserva o valor existente no banco
+
+    if (!values.lastSignedIn) {
+      values.lastSignedIn = new Date();
     }
 
-    if (!values.lastSignedIn) values.lastSignedIn = new Date();
-    if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+    if (Object.keys(updateSet).length === 0) {
+      updateSet.lastSignedIn = new Date();
+    }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+    // For local users, use email as unique key; for OAuth, use openId
+    if (user.email && !user.openId) {
+      // Local user — upsert by email
+      await db.insert(users).values(values).onDuplicateKeyUpdate({
+        set: updateSet,
+      });
+    } else if (user.openId) {
+      // OAuth user — upsert by openId
+      await db.insert(users).values(values).onDuplicateKeyUpdate({
+        set: updateSet,
+      });
+    }
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;
   }
 }
 
+/**
+ * Get user by openId (OAuth users)
+ */
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
+
   return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getUserById(id: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getUserByEmail(email: string) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function updateUserRole(userId: number, role: InsertUser["role"]) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-
-export async function updateUserPassword(userId: number, passwordHash: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
-}
-
-export async function updateUserActiveStatus(userId: number, isActive: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(users).set({ isActive }).where(eq(users.id, userId));
 }
 
 /**
- * Cria um novo usuário com credenciais locais (sem OAuth).
- * Usado pelo administrador para criar usuários do sistema.
+ * Get user by email (local users)
  */
-export async function createLocalUser(data: {
-  name: string;
-  email: string;
-  passwordHash: string;
-  role: InsertUser["role"];
-}): Promise<number> {
+export async function getUserByEmail(email: string) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
 
-  const [result] = await db.insert(users).values({
-    name: data.name,
-    email: data.email,
-    passwordHash: data.passwordHash,
-    role: data.role,
-    loginMethod: "local",
-    isActive: 1,
-    lastSignedIn: new Date(),
-  });
-  return (result as any).insertId as number;
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
 }
 
+/**
+ * Get user by ID
+ */
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user: database not available");
+    return undefined;
+  }
+
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * List all users (admin only)
+ */
+export async function listUsers() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot list users: database not available");
+    return [];
+  }
+
+  return await db.select().from(users).orderBy(users.createdAt);
+}
+
+/**
+ * Update user password
+ */
+export async function updateUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update password: database not available");
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+/**
+ * Toggle user active status
+ */
+export async function toggleUserActive(userId: number, isActive: boolean) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot toggle user: database not available");
+    return;
+  }
+
+  await db
+    .update(users)
+    .set({ isActive, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
+/**
+ * Delete user
+ */
 export async function deleteUser(userId: number) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    console.warn("[Database] Cannot delete user: database not available");
+    return;
+  }
+
   await db.delete(users).where(eq(users.id, userId));
 }
 
-// ─── Sale Record helpers ──────────────────────────────────────────────────────
-
-export async function createSaleRecord(data: InsertSaleRecord) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const now = Date.now();
-  const [result] = await db.insert(saleRecords).values({
-    ...data,
-    createdAt: now,
-    updatedAt: now,
-  });
-  return (result as any).insertId as number;
-}
-
-export async function getSaleRecordById(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.select().from(saleRecords).where(eq(saleRecords.id, id)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getSaleRecordByPublicToken(publicToken: string) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.select().from(saleRecords).where(eq(saleRecords.publicToken, publicToken)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function getSaleRecordsBySeller(sellerId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.select().from(saleRecords)
-    .where(eq(saleRecords.sellerId, sellerId))
-    .orderBy(desc(saleRecords.createdAt));
-}
-
-export async function getSaleRecordsByStatus(status: InsertSaleRecord["status"]) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.select().from(saleRecords)
-    .where(eq(saleRecords.status, status!))
-    .orderBy(desc(saleRecords.createdAt));
-}
-
-export async function updateSaleRecordStatus(
-  id: number,
-  status: InsertSaleRecord["status"],
-  extra?: { rejectionReason?: string; rejectedBy?: string }
+/**
+ * Update user role
+ */
+export async function updateUserRole(
+  userId: number,
+  role: "admin" | "vendedor" | "financeiro" | "administrativo"
 ) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(saleRecords).set({
-    status,
-    rejectionReason: extra?.rejectionReason ?? null,
-    rejectedBy: extra?.rejectedBy ?? null,
-    updatedAt: Date.now(),
-  }).where(eq(saleRecords.id, id));
-}
+  if (!db) {
+    console.warn("[Database] Cannot update role: database not available");
+    return;
+  }
 
-// ─── Sale Document helpers ────────────────────────────────────────────────────
-
-export async function createSaleDocument(data: InsertSaleDocument) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(saleDocuments).values({
-    ...data,
-    uploadedAt: Date.now(),
-  });
-  return (result as any).insertId as number;
-}
-
-export async function getDocumentsBySaleRecord(saleRecordId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.select().from(saleDocuments)
-    .where(eq(saleDocuments.saleRecordId, saleRecordId));
-}
-
-// ─── Admin helpers ────────────────────────────────────────────────────────────
-
-export async function getAllUsers() {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  return db.select({
-    id: users.id,
-    name: users.name,
-    email: users.email,
-    role: users.role,
-    isActive: users.isActive,
-    loginMethod: users.loginMethod,
-    createdAt: users.createdAt,
-    lastSignedIn: users.lastSignedIn,
-  }).from(users).orderBy(desc(users.lastSignedIn));
+  await db
+    .update(users)
+    .set({ role, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 /**
- * Reseta um registro reprovado para "aguardando_financeiro" para reenvio de documentos.
- * Limpa o motivo de reprovação anterior.
+ * Create a new sale record
  */
-export async function resetReprovadoForResubmit(saleRecordId: number) {
+export async function createSaleRecord(data: InsertSaleRecord) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(saleRecords).set({
-    status: "aguardando_financeiro",
-    rejectionReason: null,
-    rejectedBy: null,
-    updatedAt: Date.now(),
-  }).where(eq(saleRecords.id, saleRecordId));
+  if (!db) {
+    console.warn("[Database] Cannot create sale record: database not available");
+    return undefined;
+  }
+
+  const result = await db.insert(sale_records).values(data);
+  return result;
+}
+
+/**
+ * Get sale record by ID
+ */
+export async function getSaleRecordById(id: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get sale record: database not available");
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(sale_records)
+    .where(eq(sale_records.id, id))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Get sale record by public token
+ */
+export async function getSaleRecordByPublicToken(token: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get sale record: database not available");
+    return undefined;
+  }
+
+  const result = await db
+    .select()
+    .from(sale_records)
+    .where(eq(sale_records.publicToken, token))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * List sale records by vendor
+ */
+export async function listSaleRecordsByVendor(vendorId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot list sale records: database not available");
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(sale_records)
+    .where(eq(sale_records.vendedorId, vendorId))
+    .orderBy(sale_records.createdAt);
+}
+
+/**
+ * List all sale records (admin/financeiro/administrativo)
+ */
+export async function listAllSaleRecords() {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot list sale records: database not available");
+    return [];
+  }
+
+  return await db.select().from(sale_records).orderBy(sale_records.createdAt);
+}
+
+/**
+ * Update sale record status
+ */
+export async function updateSaleRecordStatus(
+  recordId: number,
+  status: SaleRecord["status"],
+  reviewedBy?: number,
+  rejectionReason?: string
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update sale record: database not available");
+    return;
+  }
+
+  const updateData: Record<string, unknown> = {
+    status,
+    updatedAt: new Date(),
+  };
+
+  if (rejectionReason) {
+    updateData.rejectionReason = rejectionReason;
+  }
+
+  // Determine which review fields to update based on status
+  if (status.includes("financial")) {
+    updateData.financialReviewedBy = reviewedBy;
+    updateData.financialReviewedAt = new Date();
+  } else if (status.includes("admin")) {
+    updateData.adminReviewedBy = reviewedBy;
+    updateData.adminReviewedAt = new Date();
+  }
+
+  await db
+    .update(sale_records)
+    .set(updateData)
+    .where(eq(sale_records.id, recordId));
+}
+
+/**
+ * Create a sale document
+ */
+export async function createSaleDocument(data: InsertSaleDocument) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create sale document: database not available");
+    return undefined;
+  }
+
+  const result = await db.insert(sale_documents).values(data);
+  return result;
+}
+
+/**
+ * List documents for a sale record
+ */
+export async function listSaleDocuments(saleRecordId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot list documents: database not available");
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(sale_documents)
+    .where(eq(sale_documents.saleRecordId, saleRecordId))
+    .orderBy(sale_documents.createdAt);
+}
+
+/**
+ * Delete a sale document
+ */
+export async function deleteSaleDocument(documentId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete document: database not available");
+    return;
+  }
+
+  await db.delete(sale_documents).where(eq(sale_documents.id, documentId));
 }

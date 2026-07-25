@@ -1,14 +1,16 @@
 import { TRPCError } from "@trpc/server";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
   createSaleRecord,
   getDocumentsBySaleRecord,
   getSaleRecordById,
+  getSaleRecordByPublicToken,
   getSaleRecordsBySeller,
   getSaleRecordsByStatus,
   updateSaleRecordStatus,
 } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 
 // ─── Role-gated middleware helpers ───────────────────────────────────────────
 
@@ -38,22 +40,29 @@ const administrativoProcedure = protectedProcedure.use(({ ctx, next }) => {
 export const salesRouter = router({
   /**
    * Vendedor: cria um novo registro de venda.
+   * Gera automaticamente um publicToken para o link de acompanhamento do cliente.
    * Os documentos são enviados separadamente via /api/upload-document.
    */
   create: vendedorProcedure
     .input(z.object({
       licensePlate: z.string().min(1).max(20),
+      customerName: z.string().optional(),
+      customerContact: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const publicToken = nanoid(32);
       const id = await createSaleRecord({
         licensePlate: input.licensePlate.toUpperCase().trim(),
+        customerName: input.customerName ?? null,
+        customerContact: input.customerContact ?? null,
         status: "aguardando_financeiro",
         sellerId: ctx.user.id,
         sellerName: ctx.user.name ?? "Vendedor",
+        publicToken,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
-      return { id };
+      return { id, publicToken };
     }),
 
   /**
@@ -117,6 +126,32 @@ export const salesRouter = router({
       }
       const documents = await getDocumentsBySaleRecord(record.id);
       return { ...record, documents };
+    }),
+
+  /**
+   * Rota PÚBLICA: busca o status de um processo pelo token único.
+   * Não requer autenticação. Usado para o link de acompanhamento do cliente.
+   * Retorna apenas informações seguras (sem dados internos sensíveis).
+   */
+  getByPublicToken: publicProcedure
+    .input(z.object({ token: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const record = await getSaleRecordByPublicToken(input.token);
+      if (!record) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Processo não encontrado. Verifique o link." });
+      }
+      // Retorna apenas dados seguros para exibição pública
+      return {
+        id: record.id,
+        licensePlate: record.licensePlate,
+        customerName: record.customerName,
+        status: record.status,
+        rejectionReason: record.rejectionReason,
+        rejectedBy: record.rejectedBy,
+        sellerName: record.sellerName,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      };
     }),
 
   /**

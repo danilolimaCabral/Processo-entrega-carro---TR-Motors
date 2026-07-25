@@ -1,7 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { startLogin } from "@/const";
 import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -35,6 +33,7 @@ import VendedorPage from "./VendedorPage";
 import FinanceiroPage from "./FinanceiroPage";
 import AdministrativoPage from "./AdministrativoPage";
 import AdminPage from "./AdminPage";
+import LoginPage from "./LoginPage";
 
 const MENU_BY_ROLE: Record<
   string,
@@ -51,7 +50,6 @@ function PageContent({ role }: { role: string }) {
   if (role === "financeiro") return <FinanceiroPage />;
   if (role === "administrativo") return <AdministrativoPage />;
   if (role === "admin") return <AdminPage />;
-  // admin ou user sem papel: mostra mensagem
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4 p-8">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
@@ -177,38 +175,19 @@ function LayoutInner({ role }: { role: string }) {
 }
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
 
   if (loading) return <DashboardLayoutSkeleton />;
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-sm w-full text-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mb-1">
-              <Car className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">TR Motors</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Sistema de Controle de Entrega de Veículos
-              </p>
-            </div>
-          </div>
-          <div className="w-full space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Faça login para acessar o sistema.
-            </p>
-            <Button onClick={() => startLogin()} size="lg" className="w-full">
-              Entrar
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground/60">
-            Uso exclusivo para colaboradores TR Motors
-          </p>
-        </div>
-      </div>
+      <LoginPage
+        onLoginSuccess={() => {
+          // Recarrega os dados do usuário após login bem-sucedido
+          if (refresh) refresh();
+          else window.location.reload();
+        }}
+      />
     );
   }
 
@@ -218,4 +197,3 @@ export default function Home() {
     </SidebarProvider>
   );
 }
-

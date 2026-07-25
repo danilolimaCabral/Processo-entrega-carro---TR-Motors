@@ -87,10 +87,60 @@ export async function getUserById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function updateUserRole(userId: number, role: InsertUser["role"]) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+export async function updateUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}
+
+export async function updateUserActiveStatus(userId: number, isActive: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ isActive }).where(eq(users.id, userId));
+}
+
+/**
+ * Cria um novo usuário com credenciais locais (sem OAuth).
+ * Usado pelo administrador para criar usuários do sistema.
+ */
+export async function createLocalUser(data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: InsertUser["role"];
+}): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [result] = await db.insert(users).values({
+    name: data.name,
+    email: data.email,
+    passwordHash: data.passwordHash,
+    role: data.role,
+    loginMethod: "local",
+    isActive: 1,
+    lastSignedIn: new Date(),
+  });
+  return (result as any).insertId as number;
+}
+
+export async function deleteUser(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(users).where(eq(users.id, userId));
 }
 
 // ─── Sale Record helpers ──────────────────────────────────────────────────────
@@ -104,13 +154,20 @@ export async function createSaleRecord(data: InsertSaleRecord) {
     createdAt: now,
     updatedAt: now,
   });
-  return result.insertId as number;
+  return (result as any).insertId as number;
 }
 
 export async function getSaleRecordById(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.select().from(saleRecords).where(eq(saleRecords.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getSaleRecordByPublicToken(publicToken: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(saleRecords).where(eq(saleRecords.publicToken, publicToken)).limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -154,7 +211,7 @@ export async function createSaleDocument(data: InsertSaleDocument) {
     ...data,
     uploadedAt: Date.now(),
   });
-  return result.insertId as number;
+  return (result as any).insertId as number;
 }
 
 export async function getDocumentsBySaleRecord(saleRecordId: number) {
@@ -174,6 +231,8 @@ export async function getAllUsers() {
     name: users.name,
     email: users.email,
     role: users.role,
+    isActive: users.isActive,
+    loginMethod: users.loginMethod,
     createdAt: users.createdAt,
     lastSignedIn: users.lastSignedIn,
   }).from(users).orderBy(desc(users.lastSignedIn));

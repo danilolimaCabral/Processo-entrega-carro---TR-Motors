@@ -287,6 +287,20 @@ class SDKServer {
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
+
+    // Suporte a usuários locais criados pelo admin (openId começa com "local_")
+    if (sessionUserId.startsWith("local_")) {
+      const localUserId = parseInt(sessionUserId.replace("local_", ""), 10);
+      const localUser = await db.getUserById(localUserId);
+      if (!localUser) {
+        throw ForbiddenError("Local user not found");
+      }
+      if (!localUser.isActive) {
+        throw ForbiddenError("User account is deactivated");
+      }
+      return localUser;
+    }
+
     let user = await db.getUserByOpenId(sessionUserId);
 
     // If user not in DB, sync from OAuth server automatically
@@ -312,7 +326,7 @@ class SDKServer {
     }
 
     await db.upsertUser({
-      openId: user.openId,
+      openId: user.openId!,
       lastSignedIn: signedInAt,
     });
 
@@ -338,6 +352,8 @@ function buildCronUser(
     name: userInfo.name || "Manus Scheduled Task",
     email: null,
     loginMethod: null,
+    passwordHash: null,
+    isActive: 1,
     role: "user",
     createdAt: now,
     updatedAt: now,

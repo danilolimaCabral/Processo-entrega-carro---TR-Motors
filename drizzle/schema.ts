@@ -2,8 +2,8 @@ import { bigint, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "dr
 
 /**
  * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
+ * Supports both local password authentication (created by admin)
+ * and the legacy Manus OAuth flow.
  */
 export const users = mysqlTable("users", {
   /**
@@ -11,11 +11,17 @@ export const users = mysqlTable("users", {
    * Use this for relations between tables.
    */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
-  openId: varchar("openId", { length: 64 }).notNull().unique(),
+  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. Nullable for locally-created users. */
+  openId: varchar("openId", { length: 64 }).unique(),
   name: text("name"),
-  email: varchar("email", { length: 320 }),
+  email: varchar("email", { length: 320 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }),
+  /**
+   * Bcrypt hash of the user's password.
+   * Set when the admin creates a user with local credentials.
+   * Null for users created via OAuth.
+   */
+  passwordHash: varchar("passwordHash", { length: 255 }),
   /**
    * Roles do sistema:
    * - user / admin: papéis padrão do template
@@ -23,6 +29,8 @@ export const users = mysqlTable("users", {
    * Extensível: adicionar novos valores conforme necessário.
    */
   role: mysqlEnum("role", ["user", "admin", "vendedor", "financeiro", "administrativo"]).default("user").notNull(),
+  /** Whether the user account is active. Admin can deactivate users. */
+  isActive: int("isActive").default(1).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
@@ -40,6 +48,10 @@ export const saleRecords = mysqlTable("sale_records", {
   id: int("id").autoincrement().primaryKey(),
   /** Placa do veículo vendido */
   licensePlate: varchar("licensePlate", { length: 20 }).notNull(),
+  /** Nome do cliente comprador */
+  customerName: varchar("customerName", { length: 255 }),
+  /** Telefone/contato do cliente */
+  customerContact: varchar("customerContact", { length: 100 }),
   /**
    * Status atual no fluxo de aprovação.
    * Extensível: adicionar novos valores ao enum conforme o fluxo crescer.
@@ -58,6 +70,11 @@ export const saleRecords = mysqlTable("sale_records", {
   sellerId: int("sellerId").notNull(),
   /** Nome do vendedor no momento da criação (desnormalizado para consultas rápidas) */
   sellerName: text("sellerName"),
+  /**
+   * Token público único para o link de acompanhamento do cliente.
+   * Gerado automaticamente ao criar o registro. Permite acesso sem autenticação.
+   */
+  publicToken: varchar("publicToken", { length: 64 }).unique(),
   /** Timestamps em UTC milissegundos para consistência de fuso horário */
   createdAt: bigint("createdAt", { mode: "number" }).notNull(),
   updatedAt: bigint("updatedAt", { mode: "number" }).notNull(),

@@ -5,6 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { salesRouter } from "./routers/sales";
 import { usersRouter } from "./routers/users";
 import { adminRouter } from "./routers/admin";
+import { localAuthRouter } from "./routers/localAuth";
 
 export const appRouter = router({
   system: systemRouter,
@@ -15,6 +16,8 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    /** Login local com email e senha (sem OAuth) */
+    local: localAuthRouter,
   }),
   sales: salesRouter,
   users: usersRouter,

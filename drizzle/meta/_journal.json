@@ -15,6 +15,13 @@
       "when": 1785008683161,
       "tag": "0001_moaning_scarlet_witch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1753400000000,
+      "tag": "0002_auth_and_public_token",
+      "breakpoints": true
     }
   ]
 }

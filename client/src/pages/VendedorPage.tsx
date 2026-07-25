@@ -23,10 +23,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/StatusBadge";
 import { trpc } from "@/lib/trpc";
 import { DOCUMENT_TYPE_LABELS } from "@shared/trMotors";
-import { Car, FilePlus, Loader2, Upload, RotateCcw } from "lucide-react";
+import { Car, FilePlus, Loader2, Upload, RotateCcw, Link2, Copy, Check } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -35,6 +40,8 @@ export default function VendedorPage() {
   const { data: records, isLoading } = trpc.sales.listMine.useQuery();
 
   const [plate, setPlate] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerContact, setCustomerContact] = useState("");
   const [cartorioFile, setCartorioFile] = useState<File | null>(null);
   const [pagamentoFile, setPagamentoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +50,7 @@ export default function VendedorPage() {
   const [resubmitCartorioFile, setResubmitCartorioFile] = useState<File | null>(null);
   const [resubmitPagamentoFile, setResubmitPagamentoFile] = useState<File | null>(null);
   const [resubmitting, setResubmitting] = useState(false);
+  const [copiedTokenId, setCopiedTokenId] = useState<number | null>(null);
 
   const cartorioRef = useRef<HTMLInputElement>(null);
   const pagamentoRef = useRef<HTMLInputElement>(null);
@@ -51,6 +59,21 @@ export default function VendedorPage() {
 
   const createSale = trpc.sales.create.useMutation();
   const resetReprovado = trpc.admin.resetReprovadoForResubmit.useMutation();
+
+  const handleCopyLink = (publicToken: string | null, recordId: number) => {
+    if (!publicToken) {
+      toast.error("Este registro não possui link de acompanhamento.");
+      return;
+    }
+    const url = `${window.location.origin}/processo/${publicToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedTokenId(recordId);
+      toast.success("Link copiado! Envie ao cliente para acompanhar o processo.");
+      setTimeout(() => setCopiedTokenId(null), 2500);
+    }).catch(() => {
+      toast.error("Não foi possível copiar o link.");
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,9 +92,11 @@ export default function VendedorPage() {
 
     setSubmitting(true);
     try {
-      // 1. Criar o registro de venda
-      const { id: saleRecordId } = await createSale.mutateAsync({
+      // 1. Criar o registro de venda (publicToken é gerado automaticamente)
+      const { id: saleRecordId, publicToken } = await createSale.mutateAsync({
         licensePlate: plate,
+        customerName: customerName.trim() || undefined,
+        customerContact: customerContact.trim() || undefined,
       });
 
       // 2. Upload dos dois documentos
@@ -93,8 +118,18 @@ export default function VendedorPage() {
       await uploadDoc(cartorioFile, "documentacao_cartorio");
       await uploadDoc(pagamentoFile, "comprovante_pagamento");
 
-      toast.success("Registro criado com sucesso! Aguardando análise do Financeiro.");
+      // 3. Exibir link de acompanhamento
+      const processoUrl = `${window.location.origin}/processo/${publicToken}`;
+      toast.success(
+        <div className="space-y-2">
+          <p className="font-medium">Registro criado com sucesso!</p>
+          <p className="text-xs text-muted-foreground">Link do cliente gerado. Clique em copiar na tabela abaixo.</p>
+        </div>
+      );
+
       setPlate("");
+      setCustomerName("");
+      setCustomerContact("");
       setCartorioFile(null);
       setPagamentoFile(null);
       if (cartorioRef.current) cartorioRef.current.value = "";
@@ -122,7 +157,6 @@ export default function VendedorPage() {
 
     setResubmitting(true);
     try {
-      // 1. Upload dos dois documentos
       const uploadDoc = async (file: File, documentType: string) => {
         const formData = new FormData();
         formData.append("file", file);
@@ -141,7 +175,6 @@ export default function VendedorPage() {
       await uploadDoc(resubmitCartorioFile, "documentacao_cartorio");
       await uploadDoc(resubmitPagamentoFile, "comprovante_pagamento");
 
-      // 2. Resetar o status para "aguardando_financeiro"
       await resetReprovado.mutateAsync({ id: resubmitRecordId });
 
       toast.success("Documentos reenviados com sucesso! Aguardando análise do Financeiro.");
@@ -194,27 +227,51 @@ export default function VendedorPage() {
             <div>
               <CardTitle className="text-base">Novo registro de venda</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                Preencha os dados e anexe os documentos obrigatórios em PDF.
+                Preencha os dados e anexe os documentos obrigatórios em PDF. Um link de acompanhamento será gerado automaticamente.
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Placa */}
-            <div className="space-y-1.5">
-              <Label htmlFor="plate" className="text-sm font-medium">
-                Placa do veículo <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative max-w-xs">
-                <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {/* Placa + Dados do Cliente */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="plate" className="text-sm font-medium">
+                  Placa do veículo <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="plate"
+                    placeholder="ABC-1234"
+                    value={plate}
+                    onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                    className="pl-9 uppercase font-mono tracking-widest"
+                    maxLength={8}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customerName" className="text-sm font-medium">
+                  Nome do cliente
+                </Label>
                 <Input
-                  id="plate"
-                  placeholder="ABC-1234"
-                  value={plate}
-                  onChange={(e) => setPlate(e.target.value.toUpperCase())}
-                  className="pl-9 uppercase font-mono tracking-widest"
-                  maxLength={8}
+                  id="customerName"
+                  placeholder="João Silva"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customerContact" className="text-sm font-medium">
+                  Contato do cliente
+                </Label>
+                <Input
+                  id="customerContact"
+                  placeholder="(11) 99999-9999"
+                  value={customerContact}
+                  onChange={(e) => setCustomerContact(e.target.value)}
                 />
               </div>
             </div>
@@ -296,7 +353,7 @@ export default function VendedorPage() {
         <CardHeader className="pb-4">
           <CardTitle className="text-base">Meus registros</CardTitle>
           <CardDescription className="text-xs">
-            Acompanhe o status de cada venda enviada para aprovação.
+            Acompanhe o status de cada venda. Use o botão de link para enviar o acompanhamento ao cliente.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -319,10 +376,11 @@ export default function VendedorPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-6 font-semibold text-xs uppercase tracking-wide">Placa</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Data de criação</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Cliente</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Data</TableHead>
                   <TableHead className="font-semibold text-xs uppercase tracking-wide">Status</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Motivo (se reprovado)</TableHead>
-                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Ação</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide">Motivo</TableHead>
+                  <TableHead className="font-semibold text-xs uppercase tracking-wide text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -330,6 +388,9 @@ export default function VendedorPage() {
                   <TableRow key={r.id} className="hover:bg-muted/30">
                     <TableCell className="pl-6 font-mono font-semibold tracking-widest text-sm">
                       {r.licensePlate}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.customerName || <span className="text-muted-foreground/40">—</span>}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(r.createdAt).toLocaleString("pt-BR")}
@@ -344,18 +405,42 @@ export default function VendedorPage() {
                         <span className="text-muted-foreground/40">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {r.status === "reprovado" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openResubmitDialog(r.id)}
-                          className="h-7 text-xs"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Reenviar
-                        </Button>
-                      )}
+                    <TableCell className="text-right pr-6">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Botão de copiar link do cliente */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => handleCopyLink(r.publicToken ?? null, r.id)}
+                            >
+                              {copiedTokenId === r.id ? (
+                                <Check className="h-3.5 w-3.5 text-green-600" />
+                              ) : (
+                                <Link2 className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Copiar link de acompanhamento do cliente</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* Botão de reenvio */}
+                        {r.status === "reprovado" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openResubmitDialog(r.id)}
+                            className="h-7 text-xs"
+                          >
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Reenviar
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -34,10 +34,11 @@
 - [x] Testes de autorização: vendedor não acessa financeiro, financeiro não acessa administrativo, etc.
 
 ## Novas funcionalidades (em desenvolvimento)
-- [ ] Tela de administração: listar usuários e atribuir papéis via interface
-- [ ] Tela de administração: visualizar e editar dados de usuários
-- [ ] Vendedor: reenviar documentos para registros reprovados (reset para Aguardando Financeiro)
-- [ ] Validação: impedir reenvio se não houver documentos anexados
+- [x] Tela de administração: listar usuários e atribuir papéis via interface
+- [x] Tela de administração: visualizar e editar dados de usuários
+- [x] Vendedor: reenviar documentos para registros reprovados (reset para Aguardando Financeiro)
+- [x] Validação: impedir reenvio se não houver documentos anexados
+- [x] Projeto exportado para GitHub (repositório privado)
 
 ## Backlog (próximas versões)
 - [ ] Filtros e busca na listagem de registros

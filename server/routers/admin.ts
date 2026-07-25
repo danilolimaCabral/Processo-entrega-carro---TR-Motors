@@ -49,8 +49,10 @@ export const adminRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Registro não encontrado." });
       }
 
-      // Apenas o vendedor dono do registro pode resetar
-      if (ctx.user.role === "vendedor" && record.sellerId !== ctx.user.id) {
+      // Apenas o vendedor dono do registro ou admin podem resetar
+      const isOwner = record.sellerId === ctx.user.id;
+      const isAdmin = ctx.user.role === "admin";
+      if (!isOwner && !isAdmin) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Você não tem permissão para resetar este registro." });
       }
 

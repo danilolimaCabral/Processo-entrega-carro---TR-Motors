@@ -33,8 +33,13 @@
 - [x] 18 testes unitários cobrindo fluxo completo de aprovação e controle de acesso por papel
 - [x] Testes de autorização: vendedor não acessa financeiro, financeiro não acessa administrativo, etc.
 
+## Novas funcionalidades (em desenvolvimento)
+- [ ] Tela de administração: listar usuários e atribuir papéis via interface
+- [ ] Tela de administração: visualizar e editar dados de usuários
+- [ ] Vendedor: reenviar documentos para registros reprovados (reset para Aguardando Financeiro)
+- [ ] Validação: impedir reenvio se não houver documentos anexados
+
 ## Backlog (próximas versões)
-- [ ] Painel admin para gerenciar usuários e atribuir papéis via interface
 - [ ] Filtros e busca na listagem de registros
 - [ ] Histórico de ações por registro (audit trail)
 - [ ] Notificações para o vendedor quando o status muda

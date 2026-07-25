@@ -163,3 +163,33 @@ export async function getDocumentsBySaleRecord(saleRecordId: number) {
   return db.select().from(saleDocuments)
     .where(eq(saleDocuments.saleRecordId, saleRecordId));
 }
+
+// ─── Admin helpers ────────────────────────────────────────────────────────────
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    role: users.role,
+    createdAt: users.createdAt,
+    lastSignedIn: users.lastSignedIn,
+  }).from(users).orderBy(desc(users.lastSignedIn));
+}
+
+/**
+ * Reseta um registro reprovado para "aguardando_financeiro" para reenvio de documentos.
+ * Limpa o motivo de reprovação anterior.
+ */
+export async function resetReprovadoForResubmit(saleRecordId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(saleRecords).set({
+    status: "aguardando_financeiro",
+    rejectionReason: null,
+    rejectedBy: null,
+    updatedAt: Date.now(),
+  }).where(eq(saleRecords.id, saleRecordId));
+}

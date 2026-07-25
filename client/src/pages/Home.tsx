@@ -34,6 +34,7 @@ import {
 import VendedorPage from "./VendedorPage";
 import FinanceiroPage from "./FinanceiroPage";
 import AdministrativoPage from "./AdministrativoPage";
+import AdminPage from "./AdminPage";
 
 const MENU_BY_ROLE: Record<
   string,
@@ -42,13 +43,14 @@ const MENU_BY_ROLE: Record<
   vendedor: [{ icon: Car, label: "Minhas vendas" }],
   financeiro: [{ icon: ClipboardCheck, label: "Análise financeira" }],
   administrativo: [{ icon: ShieldCheck, label: "Liberação de entrega" }],
-  admin: [{ icon: Briefcase, label: "Dashboard" }],
+  admin: [{ icon: Briefcase, label: "Gerenciar Usuários" }],
 };
 
 function PageContent({ role }: { role: string }) {
   if (role === "vendedor") return <VendedorPage />;
   if (role === "financeiro") return <FinanceiroPage />;
   if (role === "administrativo") return <AdministrativoPage />;
+  if (role === "admin") return <AdminPage />;
   // admin ou user sem papel: mostra mensagem
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4 p-8">

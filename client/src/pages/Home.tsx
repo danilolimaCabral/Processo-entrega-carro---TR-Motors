@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
 import LoginPage from "./LoginPage";
@@ -7,6 +8,17 @@ import { useLocation } from "wouter";
 export default function Home() {
   const { user, loading, refresh } = useAuth();
   const [, navigate] = useLocation();
+
+  // Handle navigation in useEffect to avoid setState during render
+  useEffect(() => {
+    if (!user || loading) return;
+
+    if (user.role === "vendedor") {
+      navigate("/vendedor/dashboard");
+    } else if (user.role === "financeiro" || user.role === "administrativo") {
+      navigate("/approval");
+    }
+  }, [user, loading, navigate]);
 
   if (loading) return <DashboardLayoutSkeleton />;
 
@@ -26,13 +38,7 @@ export default function Home() {
     return <AdminPage />;
   }
 
-  if (user.role === "vendedor") {
-    navigate("/vendedor/dashboard");
-    return <DashboardLayoutSkeleton />;
-  }
-
-  if (user.role === "financeiro" || user.role === "administrativo") {
-    navigate("/approval");
+  if (user.role === "vendedor" || user.role === "financeiro" || user.role === "administrativo") {
     return <DashboardLayoutSkeleton />;
   }
 

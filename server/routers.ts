@@ -5,6 +5,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { localAuthRouter } from "./routers/localAuth";
 import { adminRouter } from "./routers/admin";
 import { salesRouter } from "./routers/sales";
+import { checklistRouter } from "./routers/checklist";
 
 export const appRouter = router({
   system: systemRouter,
@@ -24,6 +25,7 @@ export const appRouter = router({
 
   admin: adminRouter,
   sales: salesRouter,
+  checklist: checklistRouter,
 });
 
 export type AppRouter = typeof appRouter;

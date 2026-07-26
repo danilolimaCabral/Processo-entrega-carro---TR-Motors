@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { ChecklistForm } from "@/components/ChecklistForm";
+import { ApprovalHistoryTimeline } from "@/components/ApprovalHistoryTimeline";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +69,8 @@ export default function VendedorDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
+  const [expandedChecklistId, setExpandedChecklistId] = useState<number | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -342,124 +346,177 @@ export default function VendedorDashboard() {
                   </TableHeader>
                   <TableBody>
                     {sales.map((sale: any) => (
-                      <TableRow key={sale.id}>
-                        <TableCell className="font-medium">
-                          {sale.customerName}
-                        </TableCell>
-                        <TableCell>
-                          {sale.vehicleModel}
-                          {sale.vehicleYear && ` (${sale.vehicleYear})`}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={STATUS_COLORS[sale.status]}>
-                            <span className="mr-1">
-                              {getStatusIcon(sale.status)}
-                            </span>
-                            {STATUS_LABELS[sale.status]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(sale.createdAt).toLocaleDateString(
-                            "pt-BR"
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              copyToClipboard(sale.publicToken)
-                            }
-                            className="gap-1"
-                          >
-                            <Copy className="h-3 w-3" />
-                            Copiar Link
-                          </Button>
+                      <React.Fragment key={sale.id}>
+                        <TableRow>
+                          <TableCell className="font-medium">
+                            {sale.customerName}
+                          </TableCell>
+                          <TableCell>
+                            {sale.vehicleModel}
+                            {sale.vehicleYear && ` (${sale.vehicleYear})`}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={STATUS_COLORS[sale.status]}>
+                              <span className="mr-1">
+                                {getStatusIcon(sale.status)}
+                              </span>
+                              {STATUS_LABELS[sale.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(sale.createdAt).toLocaleDateString(
+                              "pt-BR"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                copyToClipboard(sale.publicToken)
+                              }
+                              className="gap-1"
+                            >
+                              <Copy className="h-3 w-3" />
+                              Copiar Link
+                            </Button>
 
-                          <Dialog
-                            open={
-                              isDocumentDialogOpen &&
-                              selectedSaleId === sale.id
-                            }
-                            onOpenChange={(open) => {
-                              setIsDocumentDialogOpen(open);
-                              if (open) setSelectedSaleId(sale.id);
-                            }}
-                          >
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1"
-                              >
-                                <FileUp className="h-3 w-3" />
-                                Upload
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Enviar Documento</DialogTitle>
-                                <DialogDescription>
-                                  Envie documentos de cartório ou comprovante de
-                                  pagamento
-                                </DialogDescription>
-                              </DialogHeader>
-                              <form
-                                onSubmit={handleUploadDocument}
-                                className="space-y-4"
-                              >
-                                <div className="space-y-2">
-                                  <Label htmlFor="docType">
-                                    Tipo de Documento
-                                  </Label>
-                                  <select
-                                    id="docType"
-                                    value={documentType}
-                                    onChange={(e) =>
-                                      setDocumentType(
-                                        e.target.value as "cartorio" | "payment"
-                                      )
-                                    }
-                                    className="w-full px-3 py-2 border border-input rounded-md"
-                                  >
-                                    <option value="cartorio">Cartório</option>
-                                    <option value="payment">
-                                      Comprovante de Pagamento
-                                    </option>
-                                  </select>
-                                </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedHistoryId(
+                                  expandedHistoryId === sale.id ? null : sale.id
+                                )
+                              }
+                              className="gap-1"
+                            >
+                              Histórico
+                            </Button>
 
-                                <div className="space-y-2">
-                                  <Label htmlFor="file">Arquivo PDF</Label>
-                                  <Input
-                                    id="file"
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".pdf"
-                                  />
-                                </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedChecklistId(
+                                  expandedChecklistId === sale.id ? null : sale.id
+                                )
+                              }
+                              className="gap-1"
+                            >
+                              Checklist
+                            </Button>
 
+                            <Dialog
+                              open={
+                                isDocumentDialogOpen &&
+                                selectedSaleId === sale.id
+                              }
+                              onOpenChange={(open) => {
+                                setIsDocumentDialogOpen(open);
+                                if (open) setSelectedSaleId(sale.id);
+                              }}
+                            >
+                              <DialogTrigger asChild>
                                 <Button
-                                  type="submit"
-                                  className="w-full"
-                                  disabled={
-                                    uploadDocumentMutation.isPending
-                                  }
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1"
                                 >
-                                  {uploadDocumentMutation.isPending ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Enviando...
-                                    </>
-                                  ) : (
-                                    "Enviar Documento"
-                                  )}
+                                  <FileUp className="h-3 w-3" />
+                                  Upload
                                 </Button>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Enviar Documento</DialogTitle>
+                                  <DialogDescription>
+                                    Envie documentos de cartório ou comprovante de
+                                    pagamento
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <form
+                                  onSubmit={handleUploadDocument}
+                                  className="space-y-4"
+                                >
+                                  <div className="space-y-2">
+                                    <Label htmlFor="docType">
+                                      Tipo de Documento
+                                    </Label>
+                                    <select
+                                      id="docType"
+                                      value={documentType}
+                                      onChange={(e) =>
+                                        setDocumentType(
+                                          e.target.value as "cartorio" | "payment"
+                                        )
+                                      }
+                                      className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                                    >
+                                      <option value="cartorio">
+                                        Documentação de Cartório
+                                      </option>
+                                      <option value="payment">
+                                        Comprovante de Pagamento
+                                      </option>
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor="file">Arquivo PDF</Label>
+                                    <input
+                                      id="file"
+                                      ref={fileInputRef}
+                                      type="file"
+                                      accept=".pdf"
+                                      className="w-full"
+                                    />
+                                  </div>
+
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() =>
+                                        setIsDocumentDialogOpen(false)
+                                      }
+                                    >
+                                      Cancelar
+                                    </Button>
+                                    <Button
+                                      type="submit"
+                                      disabled={uploadDocumentMutation.isPending}
+                                    >
+                                      {uploadDocumentMutation.isPending ? (
+                                        <>
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          Enviando...
+                                        </>
+                                      ) : (
+                                        "Enviar"
+                                      )}
+                                    </Button>
+                                  </div>
+                                </form>
+                              </DialogContent>
+                            </Dialog>
+                          </TableCell>
+                        </TableRow>
+                        {expandedHistoryId === sale.id && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="bg-slate-50">
+                              <ApprovalHistoryTimeline saleId={sale.id} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {expandedChecklistId === sale.id && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="bg-slate-50">
+                              <ChecklistForm saleRecordId={sale.id} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -471,3 +528,5 @@ export default function VendedorDashboard() {
     </div>
   );
 }
+
+import React from "react";

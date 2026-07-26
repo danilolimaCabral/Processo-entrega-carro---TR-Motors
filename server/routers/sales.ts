@@ -12,6 +12,8 @@ import {
   createSaleDocument,
   listSaleDocuments,
   deleteSaleDocument,
+  recordApprovalHistory,
+  getApprovalHistory,
 } from "../db";
 import { storagePut, storageGet } from "../storage";
 
@@ -73,7 +75,7 @@ export const salesRouter = router({
     .mutation(async ({ input, ctx }) => {
       const publicToken = nanoid(32);
 
-      await createSaleRecord({
+      const sale = await createSaleRecord({
         vendedorId: ctx.user!.id,
         customerName: input.customerName,
         customerContact: input.customerContact,
@@ -85,6 +87,21 @@ export const salesRouter = router({
           : null,
         status: "pending_financial",
         publicToken,
+      });
+
+      if (!sale) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao criar venda",
+        });
+      }
+
+      // Record approval history
+      await recordApprovalHistory({
+        saleRecordId: sale.id,
+        actionType: "created",
+        userRole: "vendedor",
+        userId: ctx.user!.id,
       });
 
       return {
@@ -196,6 +213,14 @@ export const salesRouter = router({
         ctx.user!.id
       );
 
+      // Record approval history
+      await recordApprovalHistory({
+        saleRecordId: input.saleId,
+        actionType: "financial_approved",
+        userRole: "financeiro",
+        userId: ctx.user!.id,
+      });
+
       return {
         success: true,
         message: "Venda aprovada na etapa financeira",
@@ -235,6 +260,15 @@ export const salesRouter = router({
         input.reason
       );
 
+      // Record approval history
+      await recordApprovalHistory({
+        saleRecordId: input.saleId,
+        actionType: "financial_rejected",
+        userRole: "financeiro",
+        userId: ctx.user!.id,
+        reason: input.reason,
+      });
+
       return {
         success: true,
         message: "Venda rejeitada na etapa financeira",
@@ -267,6 +301,14 @@ export const salesRouter = router({
         "ready_for_delivery",
         ctx.user!.id
       );
+
+      // Record approval history
+      await recordApprovalHistory({
+        saleRecordId: input.saleId,
+        actionType: "admin_approved",
+        userRole: "administrativo",
+        userId: ctx.user!.id,
+      });
 
       return {
         success: true,
@@ -306,6 +348,15 @@ export const salesRouter = router({
         ctx.user!.id,
         input.reason
       );
+
+      // Record approval history
+      await recordApprovalHistory({
+        saleRecordId: input.saleId,
+        actionType: "admin_rejected",
+        userRole: "administrativo",
+        userId: ctx.user!.id,
+        reason: input.reason,
+      });
 
       return {
         success: true,
@@ -408,5 +459,33 @@ export const salesRouter = router({
         success: true,
         message: "Documento deletado com sucesso",
       };
+    }),
+
+  /**
+   * Get approval history for a sale
+   */
+  getApprovalHistory: protectedProcedure
+    .input(z.object({ saleId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const sale = await getSaleRecordById(input.saleId);
+      if (!sale) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Venda não encontrada",
+        });
+      }
+
+      // Check access
+      if (
+        ctx.user?.role === "vendedor" &&
+        sale.vendedorId !== ctx.user.id
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Você não tem acesso a esta venda",
+        });
+      }
+
+      return await getApprovalHistory(input.saleId);
     }),
 });

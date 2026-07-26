@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { ChecklistValidation } from "@/components/ChecklistValidation";
+import { ApprovalHistoryTimeline } from "@/components/ApprovalHistoryTimeline";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -70,6 +72,8 @@ export default function ApprovalPanel() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [expandedChecklistId, setExpandedChecklistId] = useState<number | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
   const { data: sales = [], isLoading } = trpc.sales.listAllSales.useQuery();
@@ -233,130 +237,175 @@ export default function ApprovalPanel() {
                   </TableHeader>
                   <TableBody>
                     {filteredSales.map((sale: any) => (
-                      <TableRow key={sale.id}>
-                        <TableCell className="font-medium">
-                          {sale.customerName}
-                        </TableCell>
-                        <TableCell>
-                          {sale.vehicleModel}
-                          {sale.vehicleYear && ` (${sale.vehicleYear})`}
-                        </TableCell>
-                        <TableCell>
-                          {sale.vehiclePrice
-                            ? `R$ ${parseFloat(sale.vehiclePrice).toLocaleString(
-                                "pt-BR",
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                }
-                              )}`
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={STATUS_COLORS[sale.status]}>
-                            {STATUS_LABELS[sale.status]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(sale.createdAt).toLocaleDateString(
-                            "pt-BR"
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => handleApprove(sale.id)}
-                            disabled={approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending}
-                            className="gap-1 bg-green-600 hover:bg-green-700"
-                          >
-                            {approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3" />
+                      <React.Fragment key={sale.id}>
+                        <TableRow>
+                          <TableCell className="font-medium">
+                            {sale.customerName}
+                          </TableCell>
+                          <TableCell>
+                            {sale.vehicleModel}
+                            {sale.vehicleYear && ` (${sale.vehicleYear})`}
+                          </TableCell>
+                          <TableCell>
+                            {sale.vehiclePrice
+                              ? `R$ ${parseFloat(sale.vehiclePrice).toLocaleString(
+                                  "pt-BR",
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}`
+                              : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={STATUS_COLORS[sale.status]}>
+                              {STATUS_LABELS[sale.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(sale.createdAt).toLocaleDateString(
+                              "pt-BR"
                             )}
-                            Aprovar
-                          </Button>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedHistoryId(
+                                  expandedHistoryId === sale.id ? null : sale.id
+                                )
+                              }
+                              className="gap-1"
+                            >
+                              Histórico
+                            </Button>
 
-                          <Dialog
-                            open={
-                              isRejectDialogOpen &&
-                              selectedSaleId === sale.id
-                            }
-                            onOpenChange={(open) => {
-                              setIsRejectDialogOpen(open);
-                              if (open) setSelectedSaleId(sale.id);
-                              else setRejectionReason("");
-                            }}
-                          >
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="gap-1"
-                              >
-                                <XCircle className="h-3 w-3" />
-                                Rejeitar
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Rejeitar Venda</DialogTitle>
-                                <DialogDescription>
-                                  Explique o motivo da rejeição
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="reason">
-                                    Motivo da Rejeição
-                                  </Label>
-                                  <Textarea
-                                    id="reason"
-                                    value={rejectionReason}
-                                    onChange={(e) =>
-                                      setRejectionReason(e.target.value)
-                                    }
-                                    placeholder="Descreva o motivo da rejeição..."
-                                    rows={4}
-                                  />
-                                </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setExpandedChecklistId(
+                                  expandedChecklistId === sale.id ? null : sale.id
+                                )
+                              }
+                              className="gap-1"
+                            >
+                              Checklist
+                            </Button>
 
-                                <div className="flex gap-2 justify-end">
-                                  <Button
-                                    variant="outline"
-                                    onClick={() => {
-                                      setIsRejectDialogOpen(false);
-                                      setRejectionReason("");
-                                    }}
-                                  >
-                                    Cancelar
-                                  </Button>
-                                  <Button
-                                    variant="destructive"
-                                    onClick={handleReject}
-                                    disabled={
-                                      rejectSaleFinancialMutation.isPending ||
-                                      rejectSaleAdminMutation.isPending ||
-                                      !rejectionReason
-                                    }
-                                  >
-                                    {rejectSaleFinancialMutation.isPending ||
-                                    rejectSaleAdminMutation.isPending ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Rejeitando...
-                                      </>
-                                    ) : (
-                                      "Rejeitar"
-                                    )}
-                                  </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleApprove(sale.id)}
+                              disabled={approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending}
+                              className="gap-1 bg-green-600 hover:bg-green-700"
+                            >
+                              {approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-3 w-3" />
+                              )}
+                              Aprovar
+                            </Button>
+
+                            <Dialog
+                              open={
+                                isRejectDialogOpen &&
+                                selectedSaleId === sale.id
+                              }
+                              onOpenChange={(open) => {
+                                setIsRejectDialogOpen(open);
+                                if (open) setSelectedSaleId(sale.id);
+                                else setRejectionReason("");
+                              }}
+                            >
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="gap-1"
+                                >
+                                  <XCircle className="h-3 w-3" />
+                                  Rejeitar
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Rejeitar Venda</DialogTitle>
+                                  <DialogDescription>
+                                    Explique o motivo da rejeição
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="reason">
+                                      Motivo da Rejeição
+                                    </Label>
+                                    <Textarea
+                                      id="reason"
+                                      value={rejectionReason}
+                                      onChange={(e) =>
+                                        setRejectionReason(e.target.value)
+                                      }
+                                      placeholder="Descreva o motivo da rejeição..."
+                                      rows={4}
+                                    />
+                                  </div>
+
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        setIsRejectDialogOpen(false);
+                                        setRejectionReason("");
+                                      }}
+                                    >
+                                      Cancelar
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      onClick={handleReject}
+                                      disabled={
+                                        rejectSaleFinancialMutation.isPending ||
+                                        rejectSaleAdminMutation.isPending ||
+                                        !rejectionReason
+                                      }
+                                    >
+                                      {rejectSaleFinancialMutation.isPending ||
+                                      rejectSaleAdminMutation.isPending ? (
+                                        <>
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          Rejeitando...
+                                        </>
+                                      ) : (
+                                        "Rejeitar"
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
+                              </DialogContent>
+                            </Dialog>
+                          </TableCell>
+                        </TableRow>
+                        {expandedHistoryId === sale.id && (
+                          <TableRow key={`history-${sale.id}`}>
+                            <TableCell colSpan={6} className="bg-slate-50">
+                              <ApprovalHistoryTimeline saleId={sale.id} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {expandedChecklistId === sale.id && (
+                          <TableRow key={`checklist-${sale.id}`}>
+                            <TableCell colSpan={6} className="bg-slate-50">
+                              <ChecklistValidation
+                                saleRecordId={sale.id}
+                                userRole={user?.role as "financeiro" | "administrativo"}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -398,3 +447,5 @@ export default function ApprovalPanel() {
     </div>
   );
 }
+
+import React from "react";

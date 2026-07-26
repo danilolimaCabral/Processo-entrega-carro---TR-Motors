@@ -9,6 +9,11 @@ import {
   sale_documents,
   SaleDocument,
   InsertSaleDocument,
+  inspection_checklists,
+  InspectionChecklist,
+  InsertInspectionChecklist,
+  approval_history,
+  InsertApprovalHistory,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -251,7 +256,15 @@ export async function createSaleRecord(data: InsertSaleRecord) {
   }
 
   const result = await db.insert(sale_records).values(data);
-  return result;
+  
+  // Get the ID from the insert result
+  const insertedId = (result as any).insertId;
+  if (!insertedId) {
+    return undefined;
+  }
+
+  // Fetch and return the created record
+  return await getSaleRecordById(insertedId);
 }
 
 /**
@@ -403,4 +416,119 @@ export async function deleteSaleDocument(documentId: number) {
   }
 
   await db.delete(sale_documents).where(eq(sale_documents.id, documentId));
+}
+
+/**
+ * Create inspection checklist items
+ */
+export async function createChecklistItem(data: InsertInspectionChecklist) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create checklist item: database not available");
+    return undefined;
+  }
+
+  const result = await db.insert(inspection_checklists).values(data);
+  return result;
+}
+
+/**
+ * Get checklist items for a sale record
+ */
+export async function getChecklistItems(saleRecordId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get checklist items: database not available");
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(inspection_checklists)
+    .where(eq(inspection_checklists.saleRecordId, saleRecordId))
+    .orderBy(inspection_checklists.createdAt);
+}
+
+/**
+ * Update checklist item status
+ */
+export async function updateChecklistItemStatus(
+  itemId: number,
+  status: InspectionChecklist["status"],
+  notes?: string,
+  validatedBy?: { role: "financeiro" | "administrativo"; userId: number }
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update checklist item: database not available");
+    return;
+  }
+
+  const updateData: Record<string, unknown> = {
+    status,
+    updatedAt: new Date(),
+  };
+
+  if (notes) {
+    updateData.notes = notes;
+  }
+
+  if (validatedBy) {
+    if (validatedBy.role === "financeiro") {
+      updateData.validatedByFinanceiro = validatedBy.userId;
+      updateData.validatedByFinanceiroAt = new Date();
+    } else if (validatedBy.role === "administrativo") {
+      updateData.validatedByAdmin = validatedBy.userId;
+      updateData.validatedByAdminAt = new Date();
+    }
+  }
+
+  await db
+    .update(inspection_checklists)
+    .set(updateData)
+    .where(eq(inspection_checklists.id, itemId));
+}
+
+/**
+ * Delete checklist item
+ */
+export async function deleteChecklistItem(itemId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete checklist item: database not available");
+    return;
+  }
+
+  await db.delete(inspection_checklists).where(eq(inspection_checklists.id, itemId));
+}
+
+/**
+ * Record approval history
+ */
+export async function recordApprovalHistory(data: InsertApprovalHistory) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot record approval history: database not available");
+    return undefined;
+  }
+
+  const result = await db.insert(approval_history).values(data);
+  return result;
+}
+
+/**
+ * Get approval history for a sale record
+ */
+export async function getApprovalHistory(saleRecordId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get approval history: database not available");
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(approval_history)
+    .where(eq(approval_history.saleRecordId, saleRecordId))
+    .orderBy(approval_history.createdAt);
 }

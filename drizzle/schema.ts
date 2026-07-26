@@ -110,3 +110,64 @@ export const sale_documents = mysqlTable("sale_documents", {
 
 export type SaleDocument = typeof sale_documents.$inferSelect;
 export type InsertSaleDocument = typeof sale_documents.$inferInsert;
+
+/**
+ * Inspection checklist table — tracks vehicle inspection items for each sale
+ * Items are filled by vendedor, validated by financeiro and administrativo
+ */
+export const inspection_checklists = mysqlTable("inspection_checklists", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Reference to sale_records */
+  saleRecordId: int("saleRecordId").notNull(),
+  /** Checklist item name */
+  itemName: text("itemName").notNull(),
+  /** Item description/notes */
+  itemDescription: text("itemDescription"),
+  /** Status: pending, ok, issue */
+  status: mysqlEnum("status", ["pending", "ok", "issue"]).default("pending").notNull(),
+  /** Notes/observations about the item */
+  notes: text("notes"),
+  /** User who filled the checklist (vendedor) */
+  filledBy: int("filledBy"),
+  filledAt: timestamp("filledAt"),
+  /** User who validated (financeiro) */
+  validatedByFinanceiro: int("validatedByFinanceiro"),
+  validatedByFinanceiroAt: timestamp("validatedByFinanceiroAt"),
+  /** User who validated (administrativo) */
+  validatedByAdmin: int("validatedByAdmin"),
+  validatedByAdminAt: timestamp("validatedByAdminAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type InspectionChecklist = typeof inspection_checklists.$inferSelect;
+export type InsertInspectionChecklist = typeof inspection_checklists.$inferInsert;
+
+/**
+ * Approval history table — tracks all approval actions for audit trail
+ * Records when vendedor creates, financeiro approves/rejects, administrativo approves/rejects
+ */
+export const approval_history = mysqlTable("approval_history", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Reference to sale_records */
+  saleRecordId: int("saleRecordId").notNull(),
+  /** Action type: created, financial_approved, financial_rejected, admin_approved, admin_rejected */
+  actionType: mysqlEnum("actionType", [
+    "created",
+    "financial_approved",
+    "financial_rejected",
+    "admin_approved",
+    "admin_rejected",
+  ]).notNull(),
+  /** Role of the user performing the action */
+  userRole: mysqlEnum("userRole", ["vendedor", "financeiro", "administrativo"]).notNull(),
+  /** User who performed the action */
+  userId: int("userId").notNull(),
+  /** Reason for rejection (if applicable) */
+  reason: text("reason"),
+  /** Timestamp of the action */
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ApprovalHistory = typeof approval_history.$inferSelect;
+export type InsertApprovalHistory = typeof approval_history.$inferInsert;

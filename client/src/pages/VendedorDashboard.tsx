@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { ChecklistForm } from "@/components/ChecklistForm";
@@ -51,6 +52,11 @@ import {
 
 export default function VendedorDashboard() {
   const { logout } = useAuth();
+  const [, navigate] = useLocation();
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [saleFormStep, setSaleFormStep] = useState(1);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
@@ -194,7 +200,7 @@ export default function VendedorDashboard() {
           </div>
           <Button
             variant="outline"
-            onClick={() => logout()}
+            onClick={handleLogout}
             className="gap-2"
           >
             <LogOut className="h-4 w-4" />

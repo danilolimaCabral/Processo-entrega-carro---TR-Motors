@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { ChecklistValidation } from "@/components/ChecklistValidation";
@@ -50,6 +51,11 @@ import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS } from "@shared/sale
 
 export default function ApprovalPanel() {
   const { user, logout } = useAuth();
+  const [, navigate] = useLocation();
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
@@ -175,7 +181,7 @@ export default function ApprovalPanel() {
           </div>
           <Button
             variant="outline"
-            onClick={() => logout()}
+            onClick={handleLogout}
             className="gap-2"
           >
             <LogOut className="h-4 w-4" />

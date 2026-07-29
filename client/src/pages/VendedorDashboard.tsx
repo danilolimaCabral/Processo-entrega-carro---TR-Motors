@@ -34,7 +34,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2,
   Plus,
-  Copy,
   FileUp,
   LogOut,
   CheckCircle2,
@@ -67,6 +66,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function VendedorDashboard() {
   const { logout } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [saleFormStep, setSaleFormStep] = useState(1);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [expandedChecklistId, setExpandedChecklistId] = useState<number | null>(null);
@@ -103,6 +103,7 @@ export default function VendedorDashboard() {
         vehicleKm: "",
         vehiclePrice: "",
       });
+      setSaleFormStep(1);
       setIsCreateDialogOpen(false);
       utils.sales.listMySales.invalidate();
     },
@@ -122,6 +123,26 @@ export default function VendedorDashboard() {
       toast.error(error.message);
     },
   });
+
+  const SALE_FORM_STEPS = ["Dados do Cliente", "Dados do Carro", "Valores da Venda"];
+
+  const canAdvanceSaleFormStep = (step: number) => {
+    if (step === 1) return formData.customerName.trim().length > 0;
+    if (step === 2) return formData.vehicleModel.trim().length > 0;
+    return true;
+  };
+
+  const handleNextSaleFormStep = () => {
+    if (!canAdvanceSaleFormStep(saleFormStep)) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+    setSaleFormStep((s) => Math.min(s + 1, SALE_FORM_STEPS.length));
+  };
+
+  const handlePrevSaleFormStep = () => {
+    setSaleFormStep((s) => Math.max(s - 1, 1));
+  };
 
   const handleCreateSale = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,13 +183,6 @@ export default function VendedorDashboard() {
     });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(
-      `${window.location.origin}/processo/${text}`
-    );
-    toast.success("Link copiado para a área de transferência!");
-  };
-
   const getStatusIcon = (status: string) => {
     if (status.includes("approved") || status === "ready_for_delivery") {
       return <CheckCircle2 className="h-4 w-4" />;
@@ -203,7 +217,13 @@ export default function VendedorDashboard() {
         </div>
 
         {/* Create Sale Button */}
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open);
+            if (!open) setSaleFormStep(1);
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
@@ -217,85 +237,117 @@ export default function VendedorDashboard() {
                 Preencha os dados do cliente e veículo
               </DialogDescription>
             </DialogHeader>
+
+            {/* Step progress indicator */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700">
+                  Etapa {saleFormStep} de {SALE_FORM_STEPS.length}
+                </span>
+                <span className="text-sm text-slate-500">
+                  {SALE_FORM_STEPS[saleFormStep - 1]}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {SALE_FORM_STEPS.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      index + 1 <= saleFormStep ? "bg-blue-600" : "bg-slate-200"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+
             <form onSubmit={handleCreateSale} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="customerName">Nome do Cliente *</Label>
-                <Input
-                  id="customerName"
-                  value={formData.customerName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, customerName: e.target.value })
-                  }
-                  placeholder="João Silva"
-                />
-              </div>
+              {saleFormStep === 1 && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Nome do Cliente *</Label>
+                    <Input
+                      id="customerName"
+                      value={formData.customerName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customerName: e.target.value })
+                      }
+                      placeholder="João Silva"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="customerContact">Contato</Label>
-                <Input
-                  id="customerContact"
-                  value={formData.customerContact}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      customerContact: e.target.value,
-                    })
-                  }
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerContact">Contato</Label>
+                    <Input
+                      id="customerContact"
+                      value={formData.customerContact}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          customerContact: e.target.value,
+                        })
+                      }
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                </>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="vehicleModel">Modelo do Veículo *</Label>
-                <Input
-                  id="vehicleModel"
-                  value={formData.vehicleModel}
-                  onChange={(e) =>
-                    setFormData({ ...formData, vehicleModel: e.target.value })
-                  }
-                  placeholder="Honda Civic"
-                />
-              </div>
+              {saleFormStep === 2 && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleModel">Modelo do Veículo *</Label>
+                    <Input
+                      id="vehicleModel"
+                      value={formData.vehicleModel}
+                      onChange={(e) =>
+                        setFormData({ ...formData, vehicleModel: e.target.value })
+                      }
+                      placeholder="Honda Civic"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleYear">Ano</Label>
-                  <Input
-                    id="vehicleYear"
-                    type="number"
-                    value={formData.vehicleYear}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vehicleYear: e.target.value })
-                    }
-                    placeholder="2023"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="vehiclePlate">Placa</Label>
-                  <Input
-                    id="vehiclePlate"
-                    value={formData.vehiclePlate}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vehiclePlate: e.target.value })
-                    }
-                    placeholder="ABC1D23"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="vehicleYear">Ano</Label>
+                      <Input
+                        id="vehicleYear"
+                        type="number"
+                        value={formData.vehicleYear}
+                        onChange={(e) =>
+                          setFormData({ ...formData, vehicleYear: e.target.value })
+                        }
+                        placeholder="2023"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="vehiclePlate">Placa</Label>
+                      <Input
+                        id="vehiclePlate"
+                        value={formData.vehiclePlate}
+                        onChange={(e) =>
+                          setFormData({ ...formData, vehiclePlate: e.target.value })
+                        }
+                        placeholder="ABC1D23"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="vehicleKm">Km</Label>
-                  <Input
-                    id="vehicleKm"
-                    type="number"
-                    value={formData.vehicleKm}
-                    onChange={(e) =>
-                      setFormData({ ...formData, vehicleKm: e.target.value })
-                    }
-                    placeholder="30000"
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleKm">Km</Label>
+                    <Input
+                      id="vehicleKm"
+                      type="number"
+                      value={formData.vehicleKm}
+                      onChange={(e) =>
+                        setFormData({ ...formData, vehicleKm: e.target.value })
+                      }
+                      placeholder="30000"
+                    />
+                  </div>
+                </>
+              )}
+
+              {saleFormStep === 3 && (
                 <div className="space-y-2">
                   <Label htmlFor="vehiclePrice">Preço</Label>
                   <Input
@@ -309,22 +361,47 @@ export default function VendedorDashboard() {
                     placeholder="50000.00"
                   />
                 </div>
-              </div>
+              )}
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={createSaleMutation.isPending}
-              >
-                {createSaleMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando...
-                  </>
-                ) : (
-                  "Criar Venda"
+              <div className="flex gap-2 pt-2">
+                {saleFormStep > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handlePrevSaleFormStep}
+                  >
+                    Voltar
+                  </Button>
                 )}
-              </Button>
+
+                {saleFormStep < SALE_FORM_STEPS.length ? (
+                  <Button
+                    key="next-step-button"
+                    type="button"
+                    className="flex-1"
+                    onClick={handleNextSaleFormStep}
+                  >
+                    Avançar
+                  </Button>
+                ) : (
+                  <Button
+                    key="submit-sale-button"
+                    type="submit"
+                    className="flex-1"
+                    disabled={createSaleMutation.isPending}
+                  >
+                    {createSaleMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      "Criar Venda"
+                    )}
+                  </Button>
+                )}
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -386,18 +463,6 @@ export default function VendedorDashboard() {
                             )}
                           </TableCell>
                           <TableCell className="text-right space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                copyToClipboard(sale.publicToken)
-                              }
-                              className="gap-1"
-                            >
-                              <Copy className="h-3 w-3" />
-                              Copiar Link
-                            </Button>
-
                             <Button
                               variant="outline"
                               size="sm"

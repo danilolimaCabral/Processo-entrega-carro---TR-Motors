@@ -4,6 +4,7 @@ import { protectedProcedure, router } from "../_core/trpc";
 import {
   createChecklistItem,
   getChecklistItems,
+  getChecklistItemById,
   updateChecklistItemStatus,
   deleteChecklistItem,
   getSaleRecordById,
@@ -29,6 +30,7 @@ export const checklistRouter = router({
         saleRecordId: z.number(),
         itemName: z.string().min(1, "Nome do item é obrigatório"),
         itemDescription: z.string().optional(),
+        responsibleRole: z.enum(["financeiro", "administrativo"]),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -59,6 +61,7 @@ export const checklistRouter = router({
         saleRecordId: input.saleRecordId,
         itemName: input.itemName,
         itemDescription: input.itemDescription,
+        responsibleRole: input.responsibleRole,
         status: "pending",
         filledBy: ctx.user.id,
         filledAt: new Date(),
@@ -86,6 +89,21 @@ export const checklistRouter = router({
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Apenas financeiro e administrativo podem validar itens",
+        });
+      }
+
+      const item = await getChecklistItemById(input.itemId);
+      if (!item) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Item de checklist não encontrado",
+        });
+      }
+
+      if (item.responsibleRole !== ctx.user.role) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Este item pertence a outro setor",
         });
       }
 

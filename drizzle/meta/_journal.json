@@ -36,6 +36,20 @@
       "when": 1785350680679,
       "tag": "0004_slim_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1785354176801,
+      "tag": "0005_romantic_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1785354191291,
+      "tag": "0006_broken_blink",
+      "breakpoints": true
     }
   ]
 }

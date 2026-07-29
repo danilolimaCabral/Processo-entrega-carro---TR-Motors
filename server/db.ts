@@ -336,12 +336,13 @@ export async function listAllSaleRecords() {
 }
 
 /**
- * Update sale record status
+ * Update financeiro's independent review status for a sale.
+ * Never touches adminStatus — the two departments review in parallel.
  */
-export async function updateSaleRecordStatus(
+export async function updateSaleFinancialStatus(
   recordId: number,
-  status: SaleRecord["status"],
-  reviewedBy?: number,
+  status: SaleRecord["financialStatus"],
+  reviewedBy: number,
   rejectionReason?: string
 ) {
   const db = await getDb();
@@ -350,27 +351,43 @@ export async function updateSaleRecordStatus(
     return;
   }
 
-  const updateData: Record<string, unknown> = {
-    status,
-    updatedAt: new Date(),
-  };
+  await db
+    .update(sale_records)
+    .set({
+      financialStatus: status,
+      financialReviewedBy: reviewedBy,
+      financialReviewedAt: new Date(),
+      financialRejectionReason: rejectionReason ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(sale_records.id, recordId));
+}
 
-  if (rejectionReason) {
-    updateData.rejectionReason = rejectionReason;
-  }
-
-  // Determine which review fields to update based on status
-  if (status.includes("financial")) {
-    updateData.financialReviewedBy = reviewedBy;
-    updateData.financialReviewedAt = new Date();
-  } else if (status.includes("admin")) {
-    updateData.adminReviewedBy = reviewedBy;
-    updateData.adminReviewedAt = new Date();
+/**
+ * Update administrativo's independent review status for a sale.
+ * Never touches financialStatus — the two departments review in parallel.
+ */
+export async function updateSaleAdminStatus(
+  recordId: number,
+  status: SaleRecord["adminStatus"],
+  reviewedBy: number,
+  rejectionReason?: string
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update sale record: database not available");
+    return;
   }
 
   await db
     .update(sale_records)
-    .set(updateData)
+    .set({
+      adminStatus: status,
+      adminReviewedBy: reviewedBy,
+      adminReviewedAt: new Date(),
+      adminRejectionReason: rejectionReason ?? null,
+      updatedAt: new Date(),
+    })
     .where(eq(sale_records.id, recordId));
 }
 
@@ -447,6 +464,26 @@ export async function getChecklistItems(saleRecordId: number) {
     .from(inspection_checklists)
     .where(eq(inspection_checklists.saleRecordId, saleRecordId))
     .orderBy(inspection_checklists.createdAt);
+}
+
+/**
+ * Get a single checklist item by id (used to check its responsibleRole
+ * before allowing a financeiro/administrativo user to validate it)
+ */
+export async function getChecklistItemById(itemId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get checklist item: database not available");
+    return undefined;
+  }
+
+  const [item] = await db
+    .select()
+    .from(inspection_checklists)
+    .where(eq(inspection_checklists.id, itemId))
+    .limit(1);
+
+  return item;
 }
 
 /**

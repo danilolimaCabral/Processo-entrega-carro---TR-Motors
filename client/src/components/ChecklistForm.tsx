@@ -6,6 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +25,9 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [itemName, setItemName] = useState("");
   const [itemDescription, setItemDescription] = useState("");
+  const [responsibleRole, setResponsibleRole] = useState<"financeiro" | "administrativo">(
+    "financeiro"
+  );
 
   const { data: items, refetch } = trpc.checklist.getItems.useQuery({ saleRecordId });
   const createMutation = trpc.checklist.createItem.useMutation();
@@ -34,11 +44,13 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
         saleRecordId,
         itemName,
         itemDescription,
+        responsibleRole,
       });
 
       toast.success("Item de checklist criado com sucesso");
       setItemName("");
       setItemDescription("");
+      setResponsibleRole("financeiro");
       setIsOpen(false);
       refetch();
     } catch (error) {
@@ -78,6 +90,13 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
     }
   };
 
+  const getResponsibleRoleBadge = (role: string) => {
+    if (role === "administrativo") {
+      return <Badge className="bg-purple-100 text-purple-800">Administrativo</Badge>;
+    }
+    return <Badge className="bg-blue-100 text-blue-800">Financeiro</Badge>;
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -113,6 +132,23 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
                     className="mt-1"
                   />
                 </div>
+                <div>
+                  <label className="text-sm font-medium">Setor Responsável *</label>
+                  <Select
+                    value={responsibleRole}
+                    onValueChange={(value: "financeiro" | "administrativo") =>
+                      setResponsibleRole(value)
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="financeiro">Financeiro</SelectItem>
+                      <SelectItem value="administrativo">Administrativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsOpen(false)}>
                     Cancelar
@@ -145,6 +181,7 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-medium text-sm">{item.itemName}</h4>
                       {getStatusBadge(item.status)}
+                      {getResponsibleRoleBadge(item.responsibleRole)}
                     </div>
                     {item.itemDescription && (
                       <p className="text-sm text-slate-600 mb-1">{item.itemDescription}</p>

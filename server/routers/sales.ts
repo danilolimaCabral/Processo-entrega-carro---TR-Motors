@@ -8,7 +8,8 @@ import {
   getSaleRecordByPublicToken,
   listSaleRecordsByVendor,
   listAllSaleRecords,
-  updateSaleRecordStatus,
+  updateSaleFinancialStatus,
+  updateSaleAdminStatus,
   createSaleDocument,
   listSaleDocuments,
   deleteSaleDocument,
@@ -87,7 +88,10 @@ export const salesRouter = router({
         vehiclePrice: input.vehiclePrice
           ? (parseFloat(input.vehiclePrice) as any)
           : null,
-        status: "pending_financial",
+        // Financeiro and administrativo both start reviewing in parallel
+        // as soon as the sale is created.
+        financialStatus: "pending",
+        adminStatus: "pending",
         publicToken,
       });
 
@@ -162,8 +166,10 @@ export const salesRouter = router({
         vehicleYear: sale.vehicleYear,
         vehiclePlate: sale.vehiclePlate,
         vehicleKm: sale.vehicleKm,
-        status: sale.status,
-        rejectionReason: sale.rejectionReason,
+        financialStatus: sale.financialStatus,
+        adminStatus: sale.adminStatus,
+        financialRejectionReason: sale.financialRejectionReason,
+        adminRejectionReason: sale.adminRejectionReason,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
       };
@@ -190,7 +196,8 @@ export const salesRouter = router({
   }),
 
   /**
-   * Approve sale at financial stage (financeiro only)
+   * Approve sale on the financial side (financeiro only).
+   * Independent of adminStatus — reviewed in parallel, not sequentially.
    */
   approveSaleFinancial: financeiroProcedure
     .input(z.object({ saleId: z.number() }))
@@ -203,20 +210,15 @@ export const salesRouter = router({
         });
       }
 
-      if (sale.status !== "pending_financial") {
+      if (sale.financialStatus !== "pending") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Esta venda não está aguardando aprovação financeira",
+          message: "Esta venda já foi analisada pelo financeiro",
         });
       }
 
-      await updateSaleRecordStatus(
-        input.saleId,
-        "approved_financial",
-        ctx.user!.id
-      );
+      await updateSaleFinancialStatus(input.saleId, "approved", ctx.user!.id);
 
-      // Record approval history
       await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "financial_approved",
@@ -226,12 +228,13 @@ export const salesRouter = router({
 
       return {
         success: true,
-        message: "Venda aprovada na etapa financeira",
+        message: "Venda aprovada pelo financeiro",
       };
     }),
 
   /**
-   * Reject sale at financial stage (financeiro only)
+   * Reject sale on the financial side (financeiro only).
+   * Independent of adminStatus — administrativo keeps reviewing regardless.
    */
   rejectSaleFinancial: financeiroProcedure
     .input(
@@ -249,21 +252,20 @@ export const salesRouter = router({
         });
       }
 
-      if (sale.status !== "pending_financial") {
+      if (sale.financialStatus !== "pending") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Esta venda não está aguardando aprovação financeira",
+          message: "Esta venda já foi analisada pelo financeiro",
         });
       }
 
-      await updateSaleRecordStatus(
+      await updateSaleFinancialStatus(
         input.saleId,
-        "rejected_financial",
+        "rejected",
         ctx.user!.id,
         input.reason
       );
 
-      // Record approval history
       await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "financial_rejected",
@@ -274,12 +276,13 @@ export const salesRouter = router({
 
       return {
         success: true,
-        message: "Venda rejeitada na etapa financeira",
+        message: "Venda rejeitada pelo financeiro",
       };
     }),
 
   /**
-   * Approve sale at administrative stage (administrativo only)
+   * Approve sale on the administrative side (administrativo only).
+   * Independent of financialStatus — reviewed in parallel, not sequentially.
    */
   approveSaleAdmin: administrativoProcedure
     .input(z.object({ saleId: z.number() }))
@@ -292,20 +295,15 @@ export const salesRouter = router({
         });
       }
 
-      if (sale.status !== "pending_admin") {
+      if (sale.adminStatus !== "pending") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Esta venda não está aguardando aprovação administrativa",
+          message: "Esta venda já foi analisada pelo administrativo",
         });
       }
 
-      await updateSaleRecordStatus(
-        input.saleId,
-        "ready_for_delivery",
-        ctx.user!.id
-      );
+      await updateSaleAdminStatus(input.saleId, "approved", ctx.user!.id);
 
-      // Record approval history
       await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "admin_approved",
@@ -315,12 +313,13 @@ export const salesRouter = router({
 
       return {
         success: true,
-        message: "Venda pronta para entrega",
+        message: "Venda aprovada pelo administrativo",
       };
     }),
 
   /**
-   * Reject sale at administrative stage (administrativo only)
+   * Reject sale on the administrative side (administrativo only).
+   * Independent of financialStatus — financeiro keeps reviewing regardless.
    */
   rejectSaleAdmin: administrativoProcedure
     .input(
@@ -338,21 +337,20 @@ export const salesRouter = router({
         });
       }
 
-      if (sale.status !== "pending_admin") {
+      if (sale.adminStatus !== "pending") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Esta venda não está aguardando aprovação administrativa",
+          message: "Esta venda já foi analisada pelo administrativo",
         });
       }
 
-      await updateSaleRecordStatus(
+      await updateSaleAdminStatus(
         input.saleId,
-        "rejected_admin",
+        "rejected",
         ctx.user!.id,
         input.reason
       );
 
-      // Record approval history
       await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "admin_rejected",
@@ -363,7 +361,7 @@ export const salesRouter = router({
 
       return {
         success: true,
-        message: "Venda rejeitada na etapa administrativa",
+        message: "Venda rejeitada pelo administrativo",
       };
     }),
 

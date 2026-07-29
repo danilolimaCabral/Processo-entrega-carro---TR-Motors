@@ -42,26 +42,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending_financial: "Análise Financeira",
-  approved_financial: "Financeiro Aprovado",
-  rejected_financial: "Rejeitado (Financeiro)",
-  pending_admin: "Liberação Administrativa",
-  approved_admin: "Administrativo Aprovado",
-  rejected_admin: "Rejeitado (Administrativo)",
-  ready_for_delivery: "Pronto para Entrega",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending_financial: "bg-yellow-100 text-yellow-800",
-  approved_financial: "bg-green-100 text-green-800",
-  rejected_financial: "bg-red-100 text-red-800",
-  pending_admin: "bg-yellow-100 text-yellow-800",
-  approved_admin: "bg-green-100 text-green-800",
-  rejected_admin: "bg-red-100 text-red-800",
-  ready_for_delivery: "bg-blue-100 text-blue-800",
-};
+import {
+  getOverallSaleStatus,
+  OVERALL_STATUS_LABELS,
+  OVERALL_STATUS_COLORS,
+  DEPARTMENT_STATUS_LABELS,
+} from "@shared/saleStatus";
 
 export default function VendedorDashboard() {
   const { logout } = useAuth();
@@ -183,11 +169,11 @@ export default function VendedorDashboard() {
     });
   };
 
-  const getStatusIcon = (status: string) => {
-    if (status.includes("approved") || status === "ready_for_delivery") {
+  const getStatusIcon = (status: "pending_review" | "rejected" | "ready_for_delivery") => {
+    if (status === "ready_for_delivery") {
       return <CheckCircle2 className="h-4 w-4" />;
     }
-    if (status.includes("rejected")) {
+    if (status === "rejected") {
       return <XCircle className="h-4 w-4" />;
     }
     return <Clock className="h-4 w-4" />;
@@ -450,12 +436,27 @@ export default function VendedorDashboard() {
                             {sale.vehicleYear && ` (${sale.vehicleYear})`}
                           </TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[sale.status]}>
-                              <span className="mr-1">
-                                {getStatusIcon(sale.status)}
-                              </span>
-                              {STATUS_LABELS[sale.status]}
-                            </Badge>
+                            {(() => {
+                              const overallStatus = getOverallSaleStatus(
+                                sale.financialStatus,
+                                sale.adminStatus
+                              );
+                              return (
+                                <div className="space-y-1">
+                                  <Badge className={OVERALL_STATUS_COLORS[overallStatus]}>
+                                    <span className="mr-1">
+                                      {getStatusIcon(overallStatus)}
+                                    </span>
+                                    {OVERALL_STATUS_LABELS[overallStatus]}
+                                  </Badge>
+                                  <p className="text-xs text-slate-500">
+                                    Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus]}
+                                    {" · "}
+                                    Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus]}
+                                  </p>
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             {new Date(sale.createdAt).toLocaleDateString(

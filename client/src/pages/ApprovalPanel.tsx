@@ -46,26 +46,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending_financial: "Análise Financeira",
-  approved_financial: "Financeiro Aprovado",
-  rejected_financial: "Rejeitado (Financeiro)",
-  pending_admin: "Liberação Administrativa",
-  approved_admin: "Administrativo Aprovado",
-  rejected_admin: "Rejeitado (Administrativo)",
-  ready_for_delivery: "Pronto para Entrega",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending_financial: "bg-yellow-100 text-yellow-800",
-  approved_financial: "bg-green-100 text-green-800",
-  rejected_financial: "bg-red-100 text-red-800",
-  pending_admin: "bg-yellow-100 text-yellow-800",
-  approved_admin: "bg-green-100 text-green-800",
-  rejected_admin: "bg-red-100 text-red-800",
-  ready_for_delivery: "bg-blue-100 text-blue-800",
-};
+import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS } from "@shared/saleStatus";
 
 export default function ApprovalPanel() {
   const { user, logout } = useAuth();
@@ -78,13 +59,15 @@ export default function ApprovalPanel() {
   const utils = trpc.useUtils();
   const { data: sales = [], isLoading } = trpc.sales.listAllSales.useQuery();
 
-  // Filter sales based on user role
+  // Each department reviews independently and in parallel: a sale shows up
+  // for financeiro as soon as financialStatus is pending, regardless of
+  // adminStatus, and vice-versa.
   const filteredSales = sales.filter((sale: any) => {
     if (user?.role === "financeiro") {
-      return sale.status === "pending_financial";
+      return sale.financialStatus === "pending";
     }
     if (user?.role === "administrativo") {
-      return sale.status === "pending_admin" || sale.status === "approved_financial";
+      return sale.adminStatus === "pending";
     }
     return false;
   });
@@ -117,7 +100,7 @@ export default function ApprovalPanel() {
   const approveSaleAdminMutation =
     trpc.sales.approveSaleAdmin.useMutation({
       onSuccess: () => {
-        toast.success("Venda pronta para entrega!");
+        toast.success("Venda aprovada pelo administrativo!");
         utils.sales.listAllSales.invalidate();
       },
       onError: (error) => {
@@ -258,9 +241,14 @@ export default function ApprovalPanel() {
                               : "-"}
                           </TableCell>
                           <TableCell>
-                            <Badge className={STATUS_COLORS[sale.status]}>
-                              {STATUS_LABELS[sale.status]}
-                            </Badge>
+                            <div className="flex flex-col gap-1">
+                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.financialStatus]}>
+                                Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus]}
+                              </Badge>
+                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.adminStatus]}>
+                                Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus]}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {new Date(sale.createdAt).toLocaleDateString(
@@ -415,7 +403,9 @@ export default function ApprovalPanel() {
         </Card>
 
         {/* Rejection Info */}
-        {filteredSales.some((s: any) => s.rejectionReason) && (
+        {filteredSales.some(
+          (s: any) => s.financialRejectionReason || s.adminRejectionReason
+        ) && (
           <Card className="border-red-200 bg-red-50">
             <CardHeader>
               <CardTitle className="text-red-900">
@@ -425,7 +415,9 @@ export default function ApprovalPanel() {
             <CardContent>
               <div className="space-y-3">
                 {filteredSales
-                  .filter((s: any) => s.rejectionReason)
+                  .filter(
+                    (s: any) => s.financialRejectionReason || s.adminRejectionReason
+                  )
                   .map((sale: any) => (
                     <div
                       key={sale.id}
@@ -434,9 +426,16 @@ export default function ApprovalPanel() {
                       <p className="font-semibold text-slate-900">
                         {sale.customerName} - {sale.vehicleModel}
                       </p>
-                      <p className="text-sm text-red-700 mt-1">
-                        {sale.rejectionReason}
-                      </p>
+                      {sale.financialRejectionReason && (
+                        <p className="text-sm text-red-700 mt-1">
+                          Financeiro: {sale.financialRejectionReason}
+                        </p>
+                      )}
+                      {sale.adminRejectionReason && (
+                        <p className="text-sm text-red-700 mt-1">
+                          Administrativo: {sale.adminRejectionReason}
+                        </p>
+                      )}
                     </div>
                   ))}
               </div>

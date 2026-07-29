@@ -39,7 +39,10 @@ export type InsertUser = typeof users.$inferInsert;
 
 /**
  * Sale records table — tracks vehicle sales through the approval workflow
- * Status flow: pending_financial → approved_financial → pending_admin → approved_admin → ready_for_delivery
+ * Financeiro and administrativo review the sale in PARALLEL, independently of
+ * each other. financialStatus/adminStatus are each other's source of truth;
+ * the overall/derived status is computed from the two (see shared/saleStatus.ts)
+ * rather than stored, to avoid a third field getting out of sync.
  */
 export const sale_records = mysqlTable("sale_records", {
   id: int("id").autoincrement().primaryKey(),
@@ -55,23 +58,21 @@ export const sale_records = mysqlTable("sale_records", {
   vehiclePlate: varchar("vehiclePlate", { length: 20 }),
   vehicleKm: int("vehicleKm"),
   vehiclePrice: decimal("vehiclePrice", { precision: 12, scale: 2 }),
-  /** Approval workflow status */
-  status: mysqlEnum("status", [
-    "pending_financial",
-    "approved_financial",
-    "rejected_financial",
-    "pending_admin",
-    "approved_admin",
-    "rejected_admin",
-    "ready_for_delivery",
-  ])
-    .default("pending_financial")
+  /** Financeiro's independent review status */
+  financialStatus: mysqlEnum("financialStatus", ["pending", "approved", "rejected"])
+    .default("pending")
     .notNull(),
-  /** Reason for rejection (if applicable) */
-  rejectionReason: text("rejectionReason"),
+  /** Reason financeiro rejected (if applicable) */
+  financialRejectionReason: text("financialRejectionReason"),
   /** User who approved/rejected at financial stage */
   financialReviewedBy: int("financialReviewedBy"),
   financialReviewedAt: timestamp("financialReviewedAt"),
+  /** Administrativo's independent review status */
+  adminStatus: mysqlEnum("adminStatus", ["pending", "approved", "rejected"])
+    .default("pending")
+    .notNull(),
+  /** Reason administrativo rejected (if applicable) */
+  adminRejectionReason: text("adminRejectionReason"),
   /** User who approved/rejected at admin stage */
   adminReviewedBy: int("adminReviewedBy"),
   adminReviewedAt: timestamp("adminReviewedAt"),
@@ -120,6 +121,11 @@ export const inspection_checklists = mysqlTable("inspection_checklists", {
   id: int("id").autoincrement().primaryKey(),
   /** Reference to sale_records */
   saleRecordId: int("saleRecordId").notNull(),
+  /** Which department owns/validates this item — financeiro and administrativo
+   *  each only see and act on their own items. */
+  responsibleRole: mysqlEnum("responsibleRole", ["financeiro", "administrativo"])
+    .default("financeiro")
+    .notNull(),
   /** Checklist item name */
   itemName: text("itemName").notNull(),
   /** Item description/notes */

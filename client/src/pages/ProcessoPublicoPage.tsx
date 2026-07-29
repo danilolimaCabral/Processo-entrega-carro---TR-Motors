@@ -4,94 +4,81 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  getOverallSaleStatus,
+  OVERALL_STATUS_LABELS,
+  OVERALL_STATUS_COLORS,
+  type DepartmentStatus,
+} from "@shared/saleStatus";
+import {
   CheckCircle2,
   Clock,
   AlertCircle,
   XCircle,
-  ChevronRight,
 } from "lucide-react";
 
 interface ProcessoPublicoPageProps {
   token: string;
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  {
-    label: string;
-    color: string;
-    icon: React.ReactNode;
-    description: string;
-  }
+const DEPARTMENT_CONFIG: Record<
+  DepartmentStatus,
+  { label: string; color: string; icon: React.ReactNode }
 > = {
-  pending_financial: {
-    label: "Análise Financeira",
+  pending: {
+    label: "Em Análise",
     color: "bg-yellow-100 text-yellow-800 border-yellow-300",
     icon: <Clock className="h-5 w-5" />,
-    description: "Seu processo está sendo analisado pela equipe financeira",
   },
-  approved_financial: {
-    label: "Financeiro Aprovado",
+  approved: {
+    label: "Aprovado",
     color: "bg-green-100 text-green-800 border-green-300",
     icon: <CheckCircle2 className="h-5 w-5" />,
-    description: "Aprovado na etapa financeira",
   },
-  rejected_financial: {
-    label: "Rejeitado (Financeiro)",
+  rejected: {
+    label: "Rejeitado",
     color: "bg-red-100 text-red-800 border-red-300",
     icon: <XCircle className="h-5 w-5" />,
-    description: "Rejeitado na etapa financeira",
-  },
-  pending_admin: {
-    label: "Liberação Administrativa",
-    color: "bg-yellow-100 text-yellow-800 border-yellow-300",
-    icon: <Clock className="h-5 w-5" />,
-    description: "Aguardando liberação administrativa",
-  },
-  approved_admin: {
-    label: "Administrativo Aprovado",
-    color: "bg-green-100 text-green-800 border-green-300",
-    icon: <CheckCircle2 className="h-5 w-5" />,
-    description: "Aprovado na etapa administrativa",
-  },
-  rejected_admin: {
-    label: "Rejeitado (Administrativo)",
-    color: "bg-red-100 text-red-800 border-red-300",
-    icon: <XCircle className="h-5 w-5" />,
-    description: "Rejeitado na etapa administrativa",
-  },
-  ready_for_delivery: {
-    label: "Pronto para Entrega",
-    color: "bg-green-100 text-green-800 border-green-300",
-    icon: <CheckCircle2 className="h-5 w-5" />,
-    description: "Seu veículo está pronto para entrega!",
   },
 };
 
-function StepIndicator({
-  step,
-  label,
+function DepartmentStatusCard({
+  title,
+  description,
   status,
+  rejectionReason,
 }: {
-  step: number;
-  label: string;
-  status: "completed" | "current" | "pending";
+  title: string;
+  description: string;
+  status: DepartmentStatus;
+  rejectionReason?: string | null;
 }) {
-  const statusConfig = {
-    completed: "bg-green-600 text-white",
-    current: "bg-blue-600 text-white",
-    pending: "bg-gray-300 text-gray-700",
-  };
+  const config = DEPARTMENT_CONFIG[status];
 
   return (
-    <div className="flex flex-col items-center">
-      <div
-        className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${statusConfig[status]}`}
-      >
-        {status === "completed" ? <CheckCircle2 className="h-6 w-6" /> : step}
-      </div>
-      <p className="text-xs text-center mt-2 max-w-[80px]">{label}</p>
-    </div>
+    <Card className="border-2">
+      <CardHeader>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-lg">{title}</CardTitle>
+            <CardDescription className="mt-1">{description}</CardDescription>
+          </div>
+          <Badge className={`${config.color} border shrink-0`}>
+            <span className="mr-1">{config.icon}</span>
+            {config.label}
+          </Badge>
+        </div>
+      </CardHeader>
+      {status === "rejected" && rejectionReason && (
+        <CardContent>
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Motivo da rejeição:</strong> {rejectionReason}
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -142,26 +129,7 @@ export default function ProcessoPublicoPage({ token }: ProcessoPublicoPageProps)
     );
   }
 
-  const config = STATUS_CONFIG[sale.status];
-  const isRejected = sale.status.includes("rejected");
-  const isCompleted = sale.status === "ready_for_delivery";
-
-  // Determine step status
-  const getStepStatus = (stepName: string) => {
-    const steps = [
-      "pending_financial",
-      "approved_financial",
-      "pending_admin",
-      "approved_admin",
-      "ready_for_delivery",
-    ];
-    const currentIndex = steps.indexOf(sale.status);
-    const stepIndex = steps.indexOf(stepName);
-
-    if (stepIndex < currentIndex) return "completed";
-    if (stepIndex === currentIndex) return "current";
-    return "pending";
-  };
+  const overallStatus = getOverallSaleStatus(sale.financialStatus, sale.adminStatus);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
@@ -174,7 +142,7 @@ export default function ProcessoPublicoPage({ token }: ProcessoPublicoPageProps)
           <p className="text-slate-600 mt-2">TR Motors - Controle de Entrega</p>
         </div>
 
-        {/* Status Card */}
+        {/* Overall Status Card */}
         <Card className="border-2">
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -186,133 +154,44 @@ export default function ProcessoPublicoPage({ token }: ProcessoPublicoPageProps)
                   {sale.vehiclePlate && ` - ${sale.vehiclePlate}`}
                 </CardDescription>
               </div>
-              <Badge className={`${config.color} border`}>
-                <span className="mr-2">{config.icon}</span>
-                {config.label}
+              <Badge className={`${OVERALL_STATUS_COLORS[overallStatus]} border`}>
+                {OVERALL_STATUS_LABELS[overallStatus]}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert className={isRejected ? "border-red-300 bg-red-50" : "border-blue-300 bg-blue-50"}>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className={isRejected ? "text-red-900" : "text-blue-900"}>
-                {config.description}
-              </AlertDescription>
-            </Alert>
-
-            {isRejected && sale.rejectionReason && (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Motivo da rejeição:</strong> {sale.rejectionReason}
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
         </Card>
 
-        {/* Timeline */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Fluxo de Aprovação</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-8">
-              {/* Step 1: Análise Financeira */}
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${
-                      getStepStatus("pending_financial") === "completed"
-                        ? "bg-green-600 text-white"
-                        : getStepStatus("pending_financial") === "current"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {getStepStatus("pending_financial") === "completed" ? (
-                      <CheckCircle2 className="h-6 w-6" />
-                    ) : (
-                      "1"
-                    )}
-                  </div>
-                  {getStepStatus("pending_admin") !== "pending" && (
-                    <div className="w-1 h-12 bg-gray-300 mt-2" />
-                  )}
-                </div>
-                <div className="pb-8">
-                  <h3 className="font-semibold text-slate-900">
-                    Análise Financeira
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    Seu processo está sendo analisado pela equipe financeira.
-                  </p>
-                </div>
-              </div>
+        {/* Financeiro and Administrativo review in parallel — shown side by side,
+            since neither depends on the other. */}
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900 mb-3">
+            Análises (em paralelo)
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <DepartmentStatusCard
+              title="Análise Financeira"
+              description="Revisão feita pela equipe financeira"
+              status={sale.financialStatus}
+              rejectionReason={sale.financialRejectionReason}
+            />
+            <DepartmentStatusCard
+              title="Liberação Administrativa"
+              description="Revisão feita pela equipe administrativa"
+              status={sale.adminStatus}
+              rejectionReason={sale.adminRejectionReason}
+            />
+          </div>
+        </div>
 
-              {/* Step 2: Liberação Administrativa */}
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${
-                      getStepStatus("pending_admin") === "completed"
-                        ? "bg-green-600 text-white"
-                        : getStepStatus("pending_admin") === "current"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {getStepStatus("pending_admin") === "completed" ? (
-                      <CheckCircle2 className="h-6 w-6" />
-                    ) : (
-                      "2"
-                    )}
-                  </div>
-                  {getStepStatus("ready_for_delivery") !== "pending" && (
-                    <div className="w-1 h-12 bg-gray-300 mt-2" />
-                  )}
-                </div>
-                <div className="pb-8">
-                  <h3 className="font-semibold text-slate-900">
-                    Liberação Administrativa
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    Aguardando liberação para entrega do veículo.
-                  </p>
-                </div>
-              </div>
-
-              {/* Step 3: Pronto para Entrega */}
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${
-                      getStepStatus("ready_for_delivery") === "completed"
-                        ? "bg-green-600 text-white"
-                        : getStepStatus("ready_for_delivery") === "current"
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {getStepStatus("ready_for_delivery") === "completed" ? (
-                      <CheckCircle2 className="h-6 w-6" />
-                    ) : (
-                      "3"
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">
-                    Pronto para Entrega
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    Seu veículo está pronto para ser entregue.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {overallStatus === "ready_for_delivery" && (
+          <Alert className="border-blue-300 bg-blue-50">
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription className="text-blue-900">
+              Financeiro e administrativo aprovaram — seu veículo está pronto
+              para entrega!
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Info */}
         <Card className="bg-slate-50">

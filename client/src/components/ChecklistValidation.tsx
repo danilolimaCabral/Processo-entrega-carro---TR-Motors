@@ -73,8 +73,10 @@ export function ChecklistValidation({ saleRecordId, userRole }: ChecklistValidat
     return item.validatedByAdminAt;
   };
 
-  const pendingItems = items?.filter((item) => !isValidatedByCurrentRole(item)) || [];
-  const completedItems = items?.filter((item) => isValidatedByCurrentRole(item)) || [];
+  // Each department only sees and validates its own checklist items.
+  const myItems = items?.filter((item) => item.responsibleRole === userRole) || [];
+  const pendingItems = myItems.filter((item) => !isValidatedByCurrentRole(item));
+  const completedItems = myItems.filter((item) => isValidatedByCurrentRole(item));
 
   return (
     <div className="space-y-4">
@@ -85,9 +87,9 @@ export function ChecklistValidation({ saleRecordId, userRole }: ChecklistValidat
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!items || items.length === 0 ? (
+          {myItems.length === 0 ? (
             <div className="text-center py-6 text-slate-500">
-              <p>Nenhum item de checklist para validar</p>
+              <p>Nenhum item de checklist para o seu setor</p>
             </div>
           ) : (
             <>

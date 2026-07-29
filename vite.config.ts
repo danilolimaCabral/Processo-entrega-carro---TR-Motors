@@ -150,7 +150,10 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
-const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
+// Manus platform runtime/debug plugins disabled for local dev: they drive
+// autonomous test actions and log collection meant for the hosted Manus
+// preview, which caused the session to jump between users unexpectedly here.
+const plugins = [react(), tailwindcss(), jsxLocPlugin()];
 
 export default defineConfig({
   plugins,

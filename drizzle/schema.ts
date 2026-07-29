@@ -52,7 +52,8 @@ export const sale_records = mysqlTable("sale_records", {
   /** Vehicle details */
   vehicleModel: text("vehicleModel"),
   vehicleYear: int("vehicleYear"),
-  vehicleColor: text("vehicleColor"),
+  vehiclePlate: varchar("vehiclePlate", { length: 20 }),
+  vehicleKm: int("vehicleKm"),
   vehiclePrice: decimal("vehiclePrice", { precision: 12, scale: 2 }),
   /** Approval workflow status */
   status: mysqlEnum("status", [

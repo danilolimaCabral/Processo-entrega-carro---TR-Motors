@@ -78,7 +78,8 @@ export default function VendedorDashboard() {
     customerContact: "",
     vehicleModel: "",
     vehicleYear: "",
-    vehicleColor: "",
+    vehiclePlate: "",
+    vehicleKm: "",
     vehiclePrice: "",
   });
 
@@ -98,7 +99,8 @@ export default function VendedorDashboard() {
         customerContact: "",
         vehicleModel: "",
         vehicleYear: "",
-        vehicleColor: "",
+        vehiclePlate: "",
+        vehicleKm: "",
         vehiclePrice: "",
       });
       setIsCreateDialogOpen(false);
@@ -132,7 +134,8 @@ export default function VendedorDashboard() {
       customerContact: formData.customerContact || undefined,
       vehicleModel: formData.vehicleModel,
       vehicleYear: formData.vehicleYear ? parseInt(formData.vehicleYear) : undefined,
-      vehicleColor: formData.vehicleColor || undefined,
+      vehiclePlate: formData.vehiclePlate || undefined,
+      vehicleKm: formData.vehicleKm ? parseInt(formData.vehicleKm) : undefined,
       vehiclePrice: formData.vehiclePrice || undefined,
     });
   };
@@ -268,30 +271,44 @@ export default function VendedorDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="vehicleColor">Cor</Label>
+                  <Label htmlFor="vehiclePlate">Placa</Label>
                   <Input
-                    id="vehicleColor"
-                    value={formData.vehicleColor}
+                    id="vehiclePlate"
+                    value={formData.vehiclePlate}
                     onChange={(e) =>
-                      setFormData({ ...formData, vehicleColor: e.target.value })
+                      setFormData({ ...formData, vehiclePlate: e.target.value })
                     }
-                    placeholder="Preto"
+                    placeholder="ABC1D23"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="vehiclePrice">Preço</Label>
-                <Input
-                  id="vehiclePrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.vehiclePrice}
-                  onChange={(e) =>
-                    setFormData({ ...formData, vehiclePrice: e.target.value })
-                  }
-                  placeholder="50000.00"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleKm">Km</Label>
+                  <Input
+                    id="vehicleKm"
+                    type="number"
+                    value={formData.vehicleKm}
+                    onChange={(e) =>
+                      setFormData({ ...formData, vehicleKm: e.target.value })
+                    }
+                    placeholder="30000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vehiclePrice">Preço</Label>
+                  <Input
+                    id="vehiclePrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.vehiclePrice}
+                    onChange={(e) =>
+                      setFormData({ ...formData, vehiclePrice: e.target.value })
+                    }
+                    placeholder="50000.00"
+                  />
+                </div>
               </div>
 
               <Button

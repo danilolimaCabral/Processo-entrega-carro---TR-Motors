@@ -256,9 +256,9 @@ export async function createSaleRecord(data: InsertSaleRecord) {
   }
 
   const result = await db.insert(sale_records).values(data);
-  
-  // Get the ID from the insert result
-  const insertedId = (result as any).insertId;
+
+  // mysql2 returns [ResultSetHeader, FieldPacket[]] for inserts
+  const insertedId = (result as any)[0]?.insertId;
   if (!insertedId) {
     return undefined;
   }

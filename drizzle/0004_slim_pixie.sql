@@ -1,0 +1,1 @@
+ALTER TABLE `sale_records` DROP COLUMN `vehicleColor`;

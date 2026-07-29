@@ -183,7 +183,7 @@ export default function ProcessoPublicoPage({ token }: ProcessoPublicoPageProps)
                 <CardDescription className="mt-2">
                   {sale.vehicleModel}
                   {sale.vehicleYear && ` (${sale.vehicleYear})`}
-                  {sale.vehicleColor && ` - ${sale.vehicleColor}`}
+                  {sale.vehiclePlate && ` - ${sale.vehiclePlate}`}
                 </CardDescription>
               </div>
               <Badge className={`${config.color} border`}>

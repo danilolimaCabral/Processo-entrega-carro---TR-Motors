@@ -68,7 +68,8 @@ export const salesRouter = router({
         customerContact: z.string().optional(),
         vehicleModel: z.string().min(1, "Modelo do veículo é obrigatório"),
         vehicleYear: z.number().int().min(1900).max(2100).optional(),
-        vehicleColor: z.string().optional(),
+        vehiclePlate: z.string().optional(),
+        vehicleKm: z.number().int().min(0).optional(),
         vehiclePrice: z.string().optional(), // Decimal as string
       })
     )
@@ -81,7 +82,8 @@ export const salesRouter = router({
         customerContact: input.customerContact,
         vehicleModel: input.vehicleModel,
         vehicleYear: input.vehicleYear,
-        vehicleColor: input.vehicleColor,
+        vehiclePlate: input.vehiclePlate,
+        vehicleKm: input.vehicleKm,
         vehiclePrice: input.vehiclePrice
           ? (parseFloat(input.vehiclePrice) as any)
           : null,
@@ -158,7 +160,8 @@ export const salesRouter = router({
         customerName: sale.customerName,
         vehicleModel: sale.vehicleModel,
         vehicleYear: sale.vehicleYear,
-        vehicleColor: sale.vehicleColor,
+        vehiclePlate: sale.vehiclePlate,
+        vehicleKm: sale.vehicleKm,
         status: sale.status,
         rejectionReason: sale.rejectionReason,
         createdAt: sale.createdAt,

@@ -63,6 +63,9 @@ export default function VendedorDashboard() {
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [expandedChecklistId, setExpandedChecklistId] = useState<number | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
+  // Row actions (Histórico/Checklist/Upload) are hidden by default and only
+  // shown on hover (desktop) or tap (touch) — toggled here for touch devices.
+  const [activeRowId, setActiveRowId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -433,7 +436,14 @@ export default function VendedorDashboard() {
                   <TableBody>
                     {sales.map((sale: any) => (
                       <React.Fragment key={sale.id}>
-                        <TableRow>
+                        <TableRow
+                          className="group"
+                          onClick={() =>
+                            setActiveRowId((prev) =>
+                              prev === sale.id ? null : sale.id
+                            )
+                          }
+                        >
                           <TableCell className="font-medium">
                             {sale.customerName}
                           </TableCell>
@@ -469,7 +479,14 @@ export default function VendedorDashboard() {
                               "pt-BR"
                             )}
                           </TableCell>
-                          <TableCell className="text-right space-x-2">
+                          <TableCell
+                            className={`text-right space-x-2 transition-opacity ${
+                              activeRowId === sale.id
+                                ? "opacity-100"
+                                : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+                            }`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Button
                               variant="outline"
                               size="sm"

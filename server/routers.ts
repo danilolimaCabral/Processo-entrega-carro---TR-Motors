@@ -6,6 +6,7 @@ import { localAuthRouter } from "./routers/localAuth";
 import { adminRouter } from "./routers/admin";
 import { salesRouter } from "./routers/sales";
 import { checklistRouter } from "./routers/checklist";
+import { administrativeChecklistRouter } from "./routers/administrativeChecklist";
 
 export const appRouter = router({
   system: systemRouter,
@@ -26,6 +27,7 @@ export const appRouter = router({
   admin: adminRouter,
   sales: salesRouter,
   checklist: checklistRouter,
+  administrativeChecklist: administrativeChecklistRouter,
 });
 
 export type AppRouter = typeof appRouter;

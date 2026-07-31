@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdministrativeChecklistWizard } from "@/components/AdministrativeChecklistWizard";
 
 interface ChecklistFormProps {
   saleRecordId: number;
 }
 
 export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
+  const [isAdminChecklistOpen, setIsAdminChecklistOpen] = useState(false);
+
   return (
     <Card>
       <CardHeader>
@@ -15,10 +19,21 @@ export function ChecklistForm({ saleRecordId }: ChecklistFormProps) {
         <Button variant="outline" className="w-full">
           Iniciar Checklist Financeiro
         </Button>
-        <Button variant="outline" className="w-full">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => setIsAdminChecklistOpen(true)}
+        >
           Iniciar Checklist Administrativo
         </Button>
       </CardContent>
+
+      <AdministrativeChecklistWizard
+        saleRecordId={saleRecordId}
+        department="administrativo"
+        open={isAdminChecklistOpen}
+        onOpenChange={setIsAdminChecklistOpen}
+      />
     </Card>
   );
 }

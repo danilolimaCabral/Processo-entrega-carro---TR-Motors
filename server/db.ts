@@ -14,6 +14,8 @@ import {
   InsertInspectionChecklist,
   approval_history,
   InsertApprovalHistory,
+  administrative_checklist_documents,
+  InsertAdministrativeChecklistDocument,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -568,4 +570,76 @@ export async function getApprovalHistory(saleRecordId: number) {
     .from(approval_history)
     .where(eq(approval_history.saleRecordId, saleRecordId))
     .orderBy(approval_history.createdAt);
+}
+
+/**
+ * Get uploaded documents for one step of a department's checklist wizard
+ * (e.g. "Iniciar Checklist Administrativo", step 1).
+ */
+export async function getAdministrativeChecklistDocuments(
+  saleRecordId: number,
+  department: "financeiro" | "administrativo",
+  step: number
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get checklist documents: database not available");
+    return [];
+  }
+
+  return await db
+    .select()
+    .from(administrative_checklist_documents)
+    .where(
+      and(
+        eq(administrative_checklist_documents.saleRecordId, saleRecordId),
+        eq(administrative_checklist_documents.department, department),
+        eq(administrative_checklist_documents.step, step)
+      )
+    );
+}
+
+/**
+ * Upload (or replace) the document for one slot (department + step +
+ * documentKey). A second upload to the same slot overwrites the first
+ * instead of creating a duplicate row.
+ */
+export async function upsertAdministrativeChecklistDocument(
+  data: InsertAdministrativeChecklistDocument
+) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot save checklist document: database not available");
+    return;
+  }
+
+  const existing = await db
+    .select({ id: administrative_checklist_documents.id })
+    .from(administrative_checklist_documents)
+    .where(
+      and(
+        eq(administrative_checklist_documents.saleRecordId, data.saleRecordId),
+        eq(administrative_checklist_documents.department, data.department),
+        eq(administrative_checklist_documents.step, data.step),
+        eq(administrative_checklist_documents.documentKey, data.documentKey)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(administrative_checklist_documents)
+      .set({
+        filename: data.filename,
+        fileKey: data.fileKey,
+        fileUrl: data.fileUrl,
+        mimeType: data.mimeType,
+        fileSize: data.fileSize,
+        uploadedBy: data.uploadedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(administrative_checklist_documents.id, existing[0].id));
+  } else {
+    await db.insert(administrative_checklist_documents).values(data);
+  }
 }

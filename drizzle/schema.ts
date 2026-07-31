@@ -3,6 +3,7 @@ import {
   mysqlEnum,
   mysqlTable,
   text,
+  longtext,
   timestamp,
   varchar,
   boolean,
@@ -178,3 +179,52 @@ export const approval_history = mysqlTable("approval_history", {
 
 export type ApprovalHistory = typeof approval_history.$inferSelect;
 export type InsertApprovalHistory = typeof approval_history.$inferInsert;
+
+/**
+ * Documents uploaded through the "Iniciar Checklist Administrativo" /
+ * "Iniciar Checklist Financeiro" multi-step flows (ChecklistForm on the
+ * vendedor dashboard). Independent from `sale_documents` (the generic
+ * cartório/pagamento upload) and from `inspection_checklists` (the
+ * financeiro/administrativo review items) — this table only tracks the
+ * step-by-step document uploads for these two wizards.
+ *
+ * `step` + `documentKey` identify which upload slot this is (e.g. step 1,
+ * key "procuracoes"), so new steps can be added later without a new table.
+ * A re-upload for the same (saleRecordId, step, documentKey) replaces the
+ * existing row instead of creating a duplicate.
+ *
+ * fileKey/fileUrl currently hold a local data: URI (no external storage
+ * configured in this environment yet) — swapping to real S3/Forge storage
+ * later only changes what populates these two columns, not the schema.
+ */
+export const administrative_checklist_documents = mysqlTable(
+  "administrative_checklist_documents",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    /** Reference to sale_records */
+    saleRecordId: int("saleRecordId").notNull(),
+    /** Which department's wizard this belongs to */
+    department: mysqlEnum("department", ["financeiro", "administrativo"]).notNull(),
+    /** Step number within that department's wizard (1, 2, 3...) */
+    step: int("step").notNull(),
+    /** Stable identifier for the upload slot within the step, e.g. "procuracoes" */
+    documentKey: varchar("documentKey", { length: 64 }).notNull(),
+    /** Original filename */
+    filename: varchar("filename", { length: 255 }).notNull(),
+    /** Storage key (local placeholder for now) */
+    fileKey: text("fileKey").notNull(),
+    /** File contents — local data: URI for now, real storage URL later */
+    fileUrl: longtext("fileUrl").notNull(),
+    mimeType: varchar("mimeType", { length: 100 }),
+    fileSize: int("fileSize"),
+    /** User who uploaded the document */
+    uploadedBy: int("uploadedBy").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  }
+);
+
+export type AdministrativeChecklistDocument =
+  typeof administrative_checklist_documents.$inferSelect;
+export type InsertAdministrativeChecklistDocument =
+  typeof administrative_checklist_documents.$inferInsert;

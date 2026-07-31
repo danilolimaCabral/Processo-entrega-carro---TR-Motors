@@ -154,6 +154,9 @@ export function AdministrativeChecklistWizard({
   onOpenChange,
 }: AdministrativeChecklistWizardProps) {
   const [stepIndex, setStepIndex] = useState(0);
+  // Selection for the "Veículo na troca" field shown on Etapa 1 only.
+  // Doesn't count toward isStepComplete — purely a navigation hint for now.
+  const [vehicleTradeIn, setVehicleTradeIn] = useState<"sim" | "nao" | null>(null);
   const steps = CHECKLIST_STEPS_BY_DEPARTMENT[department];
   const currentStep = steps[stepIndex];
 
@@ -179,12 +182,24 @@ export function AdministrativeChecklistWizard({
 
   if (!currentStep) return null;
 
+  const handleAdvance = () => {
+    if (stepIndex === 0 && vehicleTradeIn === "sim") {
+      // TODO: route to Etapa 1.2 once it exists. It doesn't yet, so for now
+      // this falls through to the normal next-step advance below, same as
+      // when vehicleTradeIn === "nao".
+    }
+    setStepIndex((s) => s + 1);
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next);
-        if (!next) setStepIndex(0);
+        if (!next) {
+          setStepIndex(0);
+          setVehicleTradeIn(null);
+        }
       }}
     >
       <DialogContent className="max-w-md">
@@ -215,6 +230,32 @@ export function AdministrativeChecklistWizard({
                 Faltam: {missingDocuments.map((d) => d.label).join(", ")}
               </p>
             )}
+
+            {stepIndex === 0 && (
+              <div className="flex items-center justify-between gap-2 px-1 pt-1">
+                <span className="text-xs text-slate-600">Veículo na troca</span>
+                <div className="flex gap-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={vehicleTradeIn === "sim" ? "default" : "outline"}
+                    className="h-7 px-3 text-xs"
+                    onClick={() => setVehicleTradeIn("sim")}
+                  >
+                    Sim
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={vehicleTradeIn === "nao" ? "default" : "outline"}
+                    className="h-7 px-3 text-xs"
+                    onClick={() => setVehicleTradeIn("nao")}
+                  >
+                    Não
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -234,7 +275,7 @@ export function AdministrativeChecklistWizard({
               type="button"
               className="flex-1"
               disabled={!isStepComplete}
-              onClick={() => setStepIndex((s) => s + 1)}
+              onClick={handleAdvance}
             >
               Avançar
             </Button>

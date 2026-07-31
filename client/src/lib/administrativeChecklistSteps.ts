@@ -21,12 +21,28 @@ export interface AdministrativeChecklistDocumentConfig {
 
 export type AdministrativeChecklistStepKind = "upload" | "confirmation";
 
+/**
+ * A group of extra document slots shown *within* a step (not a separate
+ * step in the stepper) once a condition on that step is met — e.g. Etapa 1's
+ * "Veículo na troca" = Sim. Groups in the same step's `conditionalGroups`
+ * array are revealed one at a time: the first shows as soon as the
+ * condition is met, the next only once the previous group is fully
+ * complete, and so on.
+ */
+export interface AdministrativeChecklistConditionalGroup {
+  id: string;
+  title: string;
+  documents: AdministrativeChecklistDocumentConfig[];
+}
+
 export interface AdministrativeChecklistStepConfig {
   step: number;
   title: string;
   kind: AdministrativeChecklistStepKind;
   /** Empty for "confirmation" steps */
   documents: AdministrativeChecklistDocumentConfig[];
+  /** Optional — only Etapa 1 uses this today (see "Veículo na troca") */
+  conditionalGroups?: AdministrativeChecklistConditionalGroup[];
 }
 
 export type ChecklistDepartment = "financeiro" | "administrativo";
@@ -48,6 +64,32 @@ export const CHECKLIST_STEPS_BY_DEPARTMENT: Record<
           key: "termo_responsabilidade",
           label: "Termo de Responsabilidade",
           description: "Caso transferência for com a loja",
+        },
+      ],
+      conditionalGroups: [
+        {
+          id: "vehicle_trade_in_docs",
+          title: "Com Veículo na Troca",
+          documents: [
+            { key: "procuracoes_2vias", label: "Procurações - 2 vias" },
+            { key: "termo_multa", label: "Termo de Multa" },
+          ],
+        },
+        {
+          id: "vehicle_client_docs",
+          title: "Documentos Veículo/Cliente",
+          documents: [
+            { key: "crlv_dut", label: "CRLV ou DUT" },
+            { key: "extrato_debitos", label: "Extrato de Débitos" },
+            {
+              key: "comprovante_residencia_troca",
+              label: "Comprovante de Residência",
+            },
+            {
+              key: "cnh_rg_autenticados_troca",
+              label: "CNH ou RG Autenticados",
+            },
+          ],
         },
       ],
     },

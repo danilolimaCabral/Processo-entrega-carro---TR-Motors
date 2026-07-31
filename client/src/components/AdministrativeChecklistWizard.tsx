@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import {
   CHECKLIST_STEPS_BY_DEPARTMENT,
   type AdministrativeChecklistDocumentConfig,
+  type AdministrativeChecklistConditionalGroup,
   type ChecklistDepartment,
 } from "@/lib/administrativeChecklistSteps";
 
@@ -134,6 +135,46 @@ function DocumentUploadTile({
   );
 }
 
+function ConditionalGroupSection({
+  group,
+  saleRecordId,
+  department,
+  step,
+  getExisting,
+  onUploaded,
+}: {
+  group: AdministrativeChecklistConditionalGroup;
+  saleRecordId: number;
+  department: ChecklistDepartment;
+  step: number;
+  getExisting: (key: string) => { filename: string; fileUrl: string } | undefined;
+  onUploaded: () => void;
+}) {
+  const missing = group.documents.filter((doc) => !getExisting(doc.key));
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-slate-200">
+      <p className="text-sm font-medium text-slate-700">{group.title}</p>
+      {group.documents.map((doc) => (
+        <DocumentUploadTile
+          key={doc.key}
+          saleRecordId={saleRecordId}
+          department={department}
+          step={step}
+          doc={doc}
+          existing={getExisting(doc.key)}
+          onUploaded={onUploaded}
+        />
+      ))}
+      {missing.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          Faltam: {missing.map((d) => d.label).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ConfirmationStep() {
   return (
     <div className="flex flex-col items-center text-center gap-2 py-8">
@@ -173,7 +214,22 @@ export function AdministrativeChecklistWizard({
     currentStep?.kind === "upload"
       ? currentStep.documents.filter((doc) => !getExisting(doc.key))
       : [];
-  const isStepComplete = missingDocuments.length === 0;
+
+  // "Veículo na troca" = Sim reveals extra document groups within this same
+  // step (see administrativeChecklistSteps.ts); when it does, every one of
+  // their documents must also be complete before Avançar unlocks.
+  const conditionalGroups =
+    stepIndex === 0 && vehicleTradeIn === "sim"
+      ? currentStep?.conditionalGroups ?? []
+      : [];
+  const isGroupComplete = (group: AdministrativeChecklistConditionalGroup) =>
+    group.documents.every((doc) => !!getExisting(doc.key));
+  const missingConditionalDocuments = conditionalGroups
+    .flatMap((group) => group.documents)
+    .filter((doc) => !getExisting(doc.key));
+
+  const isStepComplete =
+    missingDocuments.length === 0 && missingConditionalDocuments.length === 0;
 
   const title =
     department === "administrativo"
@@ -225,7 +281,7 @@ export function AdministrativeChecklistWizard({
                 onUploaded={refetch}
               />
             ))}
-            {!isStepComplete && (
+            {missingDocuments.length > 0 && (
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                 Faltam: {missingDocuments.map((d) => d.label).join(", ")}
               </p>
@@ -256,6 +312,26 @@ export function AdministrativeChecklistWizard({
                 </div>
               </div>
             )}
+
+            {conditionalGroups.map((group, index) => {
+              // Reveal groups one at a time: a group only shows once every
+              // group before it is fully complete.
+              const previousGroups = conditionalGroups.slice(0, index);
+              const previousComplete = previousGroups.every(isGroupComplete);
+              if (!previousComplete) return null;
+
+              return (
+                <ConditionalGroupSection
+                  key={group.id}
+                  group={group}
+                  saleRecordId={saleRecordId}
+                  department={department}
+                  step={currentStep.step}
+                  getExisting={getExisting}
+                  onUploaded={refetch}
+                />
+              );
+            })}
           </div>
         )}
 

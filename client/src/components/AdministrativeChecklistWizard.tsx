@@ -8,7 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, Loader2, Clock } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle2, Upload, Loader2, Clock, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   CHECKLIST_STEPS_BY_DEPARTMENT,
@@ -36,6 +37,12 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function DocumentUploadTile({
   saleRecordId,
   department,
@@ -48,7 +55,7 @@ function DocumentUploadTile({
   department: ChecklistDepartment;
   step: number;
   doc: AdministrativeChecklistDocumentConfig;
-  existing?: { filename: string; fileUrl: string };
+  existing?: { filename: string; fileUrl: string; fileSize?: number | null };
   onUploaded: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -84,10 +91,10 @@ function DocumentUploadTile({
   return (
     <div
       onClick={() => !isPending && inputRef.current?.click()}
-      className={`flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+      className={`flex items-center gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
         isUploaded
           ? "border-green-300 bg-green-50 hover:bg-green-100"
-          : "border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100"
+          : "border-dashed border-slate-300 bg-white hover:bg-slate-50 hover:border-slate-400"
       }`}
     >
       <input
@@ -101,9 +108,13 @@ function DocumentUploadTile({
         {isPending ? (
           <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
         ) : isUploaded ? (
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          </div>
         ) : (
-          <Upload className="h-5 w-5 text-slate-400" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100">
+            <Upload className="h-4 w-4 text-slate-400" />
+          </div>
         )}
       </div>
       <div className="flex-1 min-w-0">
@@ -112,12 +123,12 @@ function DocumentUploadTile({
           <p className="text-xs text-slate-500">{doc.description}</p>
         )}
         <p
-          className={`text-xs mt-0.5 ${isUploaded ? "text-green-700" : "text-slate-500"}`}
+          className={`text-xs mt-0.5 ${isUploaded ? "text-green-700" : "text-slate-400"}`}
         >
           {isPending
             ? "Enviando..."
             : isUploaded
-              ? `Enviado: ${existing!.filename} — toque para substituir`
+              ? `${existing!.filename}${existing?.fileSize ? ` (${formatFileSize(existing.fileSize)})` : ""} — toque para substituir`
               : "Toque para anexar foto ou PDF"}
         </p>
       </div>
@@ -126,7 +137,7 @@ function DocumentUploadTile({
           href={existing!.fileUrl}
           download={existing!.filename}
           onClick={(e) => e.stopPropagation()}
-          className="text-xs text-blue-600 hover:underline flex-shrink-0"
+          className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex-shrink-0 font-medium"
         >
           Ver
         </a>
@@ -147,14 +158,15 @@ function ConditionalGroupSection({
   saleRecordId: number;
   department: ChecklistDepartment;
   step: number;
-  getExisting: (key: string) => { filename: string; fileUrl: string } | undefined;
+  getExisting: (key: string) => { filename: string; fileUrl: string; fileSize?: number | null } | undefined;
   onUploaded: () => void;
 }) {
   const missing = group.documents.filter((doc) => !getExisting(doc.key));
+  const completed = group.documents.filter((doc) => !!getExisting(doc.key));
 
   return (
-    <div className="space-y-3 pt-3 border-t border-slate-200">
-      <p className="text-sm font-medium text-slate-700">{group.title}</p>
+    <div className="space-y-3 pt-4 border-t border-slate-200">
+      <p className="text-sm font-semibold text-slate-700">{group.title}</p>
       {group.documents.map((doc) => (
         <DocumentUploadTile
           key={doc.key}
@@ -167,22 +179,33 @@ function ConditionalGroupSection({
         />
       ))}
       {missing.length > 0 && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
           Faltam: {missing.map((d) => d.label).join(", ")}
+        </p>
+      )}
+      {completed.length === group.documents.length && (
+        <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+          Todos os documentos desta seção estão completos
         </p>
       )}
     </div>
   );
 }
 
-function ConfirmationStep() {
+function ConfirmationStep({ department }: { department: ChecklistDepartment }) {
+  const title = department === "financeiro" ? "Financeiro" : "Administrativo";
   return (
-    <div className="flex flex-col items-center text-center gap-2 py-8">
-      <CheckCircle2 className="h-10 w-10 text-green-600" />
-      <p className="font-semibold text-lg text-slate-900">Checklist enviado</p>
+    <div className="flex flex-col items-center text-center gap-3 py-8">
+      <div className="flex items-center justify-center w-14 h-14 rounded-full bg-green-100">
+        <CheckCircle2 className="h-8 w-8 text-green-600" />
+      </div>
+      <p className="font-semibold text-lg text-slate-900">Checklist enviado!</p>
       <p className="text-sm text-slate-600 flex items-center gap-1.5">
         <Clock className="h-4 w-4" />
-        Aguardando aprovação Administrativo
+        Aguardando aprovação do setor {title}
+      </p>
+      <p className="text-xs text-slate-500 mt-2">
+        A equipe {title} irá revisar os documentos enviados.
       </p>
     </div>
   );
@@ -195,8 +218,6 @@ export function AdministrativeChecklistWizard({
   onOpenChange,
 }: AdministrativeChecklistWizardProps) {
   const [stepIndex, setStepIndex] = useState(0);
-  // Selection for the "Veículo na troca" field shown on Etapa 1 only.
-  // Doesn't count toward isStepComplete — purely a navigation hint for now.
   const [vehicleTradeIn, setVehicleTradeIn] = useState<"sim" | "nao" | null>(null);
   const steps = CHECKLIST_STEPS_BY_DEPARTMENT[department];
   const currentStep = steps[stepIndex];
@@ -215,9 +236,6 @@ export function AdministrativeChecklistWizard({
       ? currentStep.documents.filter((doc) => !getExisting(doc.key))
       : [];
 
-  // "Veículo na troca" = Sim reveals extra document groups within this same
-  // step (see administrativeChecklistSteps.ts); when it does, every one of
-  // their documents must also be complete before Avançar unlocks.
   const conditionalGroups =
     stepIndex === 0 && vehicleTradeIn === "sim"
       ? currentStep?.conditionalGroups ?? []
@@ -228,8 +246,6 @@ export function AdministrativeChecklistWizard({
     .flatMap((group) => group.documents)
     .filter((doc) => !getExisting(doc.key));
 
-  // On Etapa 1, "Veículo na troca" must be answered (Sim or Não) before
-  // Avançar unlocks — not just the documents.
   const isStepComplete =
     missingDocuments.length === 0 &&
     missingConditionalDocuments.length === 0 &&
@@ -240,14 +256,11 @@ export function AdministrativeChecklistWizard({
       ? "Checklist Administrativo"
       : "Checklist Financeiro";
 
+  const progressPercent = steps.length > 1 ? Math.round((stepIndex / (steps.length - 1)) * 100) : 100;
+
   if (!currentStep) return null;
 
   const handleAdvance = () => {
-    if (stepIndex === 0 && vehicleTradeIn === "sim") {
-      // TODO: route to Etapa 1.2 once it exists. It doesn't yet, so for now
-      // this falls through to the normal next-step advance below, same as
-      // when vehicleTradeIn === "nao".
-    }
     setStepIndex((s) => s + 1);
   };
 
@@ -262,18 +275,23 @@ export function AdministrativeChecklistWizard({
         }
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {title}
+          </DialogTitle>
           <DialogDescription>
             Etapa {stepIndex + 1} de {steps.length} — {currentStep.title}
           </DialogDescription>
+          {currentStep.kind === "upload" && (
+            <Progress value={progressPercent} className="h-1.5 mt-2" />
+          )}
         </DialogHeader>
 
         {currentStep.kind === "confirmation" ? (
-          <ConfirmationStep />
+          <ConfirmationStep department={department} />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
             {currentStep.documents.map((doc) => (
               <DocumentUploadTile
                 key={doc.key}
@@ -286,20 +304,21 @@ export function AdministrativeChecklistWizard({
               />
             ))}
             {missingDocuments.length > 0 && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                Faltam: {missingDocuments.map((d) => d.label).join(", ")}
-              </p>
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <X className="h-3 w-3 flex-shrink-0" />
+                <span>Faltam: {missingDocuments.map((d) => d.label).join(", ")}</span>
+              </div>
             )}
 
             {stepIndex === 0 && (
-              <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                <span className="text-xs text-slate-600">Veículo na troca</span>
+              <div className="flex items-center justify-between gap-2 px-1 pt-2">
+                <span className="text-xs font-medium text-slate-600">Veículo na troca?</span>
                 <div className="flex gap-1.5">
                   <Button
                     type="button"
                     size="sm"
                     variant={vehicleTradeIn === "sim" ? "default" : "outline"}
-                    className="h-7 px-3 text-xs"
+                    className="h-8 px-3 text-xs"
                     onClick={() => setVehicleTradeIn("sim")}
                   >
                     Sim
@@ -308,7 +327,7 @@ export function AdministrativeChecklistWizard({
                     type="button"
                     size="sm"
                     variant={vehicleTradeIn === "nao" ? "default" : "outline"}
-                    className="h-7 px-3 text-xs"
+                    className="h-8 px-3 text-xs"
                     onClick={() => setVehicleTradeIn("nao")}
                   >
                     Não
@@ -318,8 +337,6 @@ export function AdministrativeChecklistWizard({
             )}
 
             {conditionalGroups.map((group, index) => {
-              // Reveal groups one at a time: a group only shows once every
-              // group before it is fully complete.
               const previousGroups = conditionalGroups.slice(0, index);
               const previousComplete = previousGroups.every(isGroupComplete);
               if (!previousComplete) return null;
@@ -339,7 +356,7 @@ export function AdministrativeChecklistWizard({
           </div>
         )}
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2 pt-3 border-t border-slate-100">
           {stepIndex > 0 && (
             <Button
               type="button"

@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -32,19 +33,15 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   CheckCircle2,
   XCircle,
   LogOut,
   AlertCircle,
+  FileCheck,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS, type DepartmentStatus } from "@shared/saleStatus";
@@ -65,15 +62,24 @@ export default function ApprovalPanel() {
   const utils = trpc.useUtils();
   const { data: sales = [], isLoading } = trpc.sales.listAllSales.useQuery();
 
-  // Each department reviews independently and in parallel: a sale shows up
-  // for financeiro as soon as financialStatus is pending, regardless of
-  // adminStatus, and vice-versa.
+  // Filter sales pending for the current department
   const filteredSales = sales.filter((sale: any) => {
     if (user?.role === "financeiro") {
       return sale.financialStatus === "pending";
     }
     if (user?.role === "administrativo") {
       return sale.adminStatus === "pending";
+    }
+    return false;
+  });
+
+  // Also show completed sales for context
+  const completedSales = sales.filter((sale: any) => {
+    if (user?.role === "financeiro") {
+      return sale.financialStatus !== "pending";
+    }
+    if (user?.role === "administrativo") {
+      return sale.adminStatus !== "pending";
     }
     return false;
   });
@@ -168,16 +174,26 @@ export default function ApprovalPanel() {
     return "Libere os registros para entrega ou rejeite";
   };
 
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
               {getPanelTitle()}
             </h1>
-            <p className="text-slate-600 mt-1">{getPanelDescription()}</p>
+            <p className="text-sm sm:text-base text-slate-600 mt-1">{getPanelDescription()}</p>
           </div>
           <Button
             variant="outline"
@@ -189,7 +205,58 @@ export default function ApprovalPanel() {
           </Button>
         </div>
 
-        {/* Sales Table */}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-yellow-100">
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{filteredSales.length}</p>
+                  <p className="text-xs text-slate-500">Pendentes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {completedSales.filter((s: any) =>
+                      user?.role === "financeiro" ? s.financialStatus === "approved" : s.adminStatus === "approved"
+                    ).length}
+                  </p>
+                  <p className="text-xs text-slate-500">Aprovadas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100">
+                  <XCircle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">
+                    {completedSales.filter((s: any) =>
+                      user?.role === "financeiro" ? s.financialStatus === "rejected" : s.adminStatus === "rejected"
+                    ).length}
+                  </p>
+                  <p className="text-xs text-slate-500">Rejeitadas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Pending Sales Table */}
         <Card>
           <CardHeader>
             <CardTitle>Vendas Pendentes</CardTitle>
@@ -218,31 +285,32 @@ export default function ApprovalPanel() {
                     <TableRow>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Veículo</TableHead>
-                      <TableHead>Preço</TableHead>
+                      <TableHead className="hidden md:table-cell">Preço</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Data</TableHead>
+                      <TableHead className="hidden sm:table-cell">Data</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredSales.map((sale: any) => (
                       <React.Fragment key={sale.id}>
-                        <TableRow>
+                        <TableRow className="hover:bg-slate-50">
                           <TableCell className="font-medium">
                             {sale.customerName}
                           </TableCell>
                           <TableCell>
-                            {sale.vehicleModel}
-                            {sale.vehicleYear && ` (${sale.vehicleYear})`}
+                            <div>
+                              <p className="font-medium">{sale.vehicleModel}</p>
+                              {sale.vehicleYear && (
+                                <p className="text-xs text-slate-500">({sale.vehicleYear})</p>
+                              )}
+                            </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             {sale.vehiclePrice
                               ? `R$ ${parseFloat(sale.vehiclePrice).toLocaleString(
                                   "pt-BR",
-                                  {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  }
+                                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                                 )}`
                               : "-"}
                           </TableCell>
@@ -256,142 +324,136 @@ export default function ApprovalPanel() {
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell>
-                            {new Date(sale.createdAt).toLocaleDateString(
-                              "pt-BR"
-                            )}
+                          <TableCell className="hidden sm:table-cell text-xs text-slate-500">
+                            {formatDate(sale.createdAt)}
                           </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setExpandedHistoryId(
-                                  expandedHistoryId === sale.id ? null : sale.id
-                                )
-                              }
-                              className="gap-1"
-                            >
-                              Histórico
-                            </Button>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setExpandedHistoryId(
+                                    expandedHistoryId === sale.id ? null : sale.id
+                                  )
+                                }
+                                className="h-8 w-8 p-0"
+                                title="Histórico"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setExpandedChecklistId(
-                                  expandedChecklistId === sale.id ? null : sale.id
-                                )
-                              }
-                              className="gap-1"
-                            >
-                              Checklist
-                            </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setExpandedChecklistId(
+                                    expandedChecklistId === sale.id ? null : sale.id
+                                  )
+                                }
+                                className="h-8 w-8 p-0"
+                                title="Checklist"
+                              >
+                                <FileCheck className="h-4 w-4" />
+                              </Button>
 
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleApprove(sale.id)}
-                              disabled={approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending}
-                              className="gap-1 bg-green-600 hover:bg-green-700"
-                            >
-                              {approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-3 w-3" />
-                              )}
-                              Aprovar
-                            </Button>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleApprove(sale.id)}
+                                disabled={approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending}
+                                className="gap-1 bg-green-600 hover:bg-green-700 h-8"
+                              >
+                                {approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-3 w-3" />
+                                )}
+                                <span className="hidden sm:inline">Aprovar</span>
+                              </Button>
 
-                            <Dialog
-                              open={
-                                isRejectDialogOpen &&
-                                selectedSaleId === sale.id
-                              }
-                              onOpenChange={(open) => {
-                                setIsRejectDialogOpen(open);
-                                if (open) setSelectedSaleId(sale.id);
-                                else setRejectionReason("");
-                              }}
-                            >
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  className="gap-1"
-                                >
-                                  <XCircle className="h-3 w-3" />
-                                  Rejeitar
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Rejeitar Venda</DialogTitle>
-                                  <DialogDescription>
-                                    Explique o motivo da rejeição
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <Label htmlFor="reason">
-                                      Motivo da Rejeição
-                                    </Label>
-                                    <Textarea
-                                      id="reason"
-                                      value={rejectionReason}
-                                      onChange={(e) =>
-                                        setRejectionReason(e.target.value)
-                                      }
-                                      placeholder="Descreva o motivo da rejeição..."
-                                      rows={4}
-                                    />
+                              <Dialog
+                                open={isRejectDialogOpen && selectedSaleId === sale.id}
+                                onOpenChange={(open) => {
+                                  setIsRejectDialogOpen(open);
+                                  if (open) setSelectedSaleId(sale.id);
+                                  else setRejectionReason("");
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="gap-1 h-8"
+                                  >
+                                    <XCircle className="h-3 w-3" />
+                                    <span className="hidden sm:inline">Rejeitar</span>
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Rejeitar Venda</DialogTitle>
+                                    <DialogDescription>
+                                      Explique o motivo da rejeição para {sale.customerName}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div className="space-y-2">
+                                      <Label htmlFor="reason">Motivo da Rejeição *</Label>
+                                      <Textarea
+                                        id="reason"
+                                        value={rejectionReason}
+                                        onChange={(e) => setRejectionReason(e.target.value)}
+                                        placeholder="Descreva o motivo da rejeição..."
+                                        rows={4}
+                                      />
+                                    </div>
+                                    <DialogFooter>
+                                      <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                          setIsRejectDialogOpen(false);
+                                          setRejectionReason("");
+                                        }}
+                                      >
+                                        Cancelar
+                                      </Button>
+                                      <Button
+                                        variant="destructive"
+                                        onClick={handleReject}
+                                        disabled={
+                                          rejectSaleFinancialMutation.isPending ||
+                                          rejectSaleAdminMutation.isPending ||
+                                          !rejectionReason
+                                        }
+                                      >
+                                        {rejectSaleFinancialMutation.isPending ||
+                                        rejectSaleAdminMutation.isPending ? (
+                                          <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Rejeitando...
+                                          </>
+                                        ) : (
+                                          "Confirmar Rejeição"
+                                        )}
+                                      </Button>
+                                    </DialogFooter>
                                   </div>
-
-                                  <div className="flex gap-2 justify-end">
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => {
-                                        setIsRejectDialogOpen(false);
-                                        setRejectionReason("");
-                                      }}
-                                    >
-                                      Cancelar
-                                    </Button>
-                                    <Button
-                                      variant="destructive"
-                                      onClick={handleReject}
-                                      disabled={
-                                        rejectSaleFinancialMutation.isPending ||
-                                        rejectSaleAdminMutation.isPending ||
-                                        !rejectionReason
-                                      }
-                                    >
-                                      {rejectSaleFinancialMutation.isPending ||
-                                      rejectSaleAdminMutation.isPending ? (
-                                        <>
-                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                          Rejeitando...
-                                        </>
-                                      ) : (
-                                        "Rejeitar"
-                                      )}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
                           </TableCell>
                         </TableRow>
                         {expandedHistoryId === sale.id && (
                           <TableRow key={`history-${sale.id}`}>
-                            <TableCell colSpan={6} className="bg-slate-50">
+                            <TableCell colSpan={6} className="bg-slate-50 p-4">
                               <ApprovalHistoryTimeline saleId={sale.id} />
                             </TableCell>
                           </TableRow>
                         )}
                         {expandedChecklistId === sale.id && (
                           <TableRow key={`checklist-${sale.id}`}>
-                            <TableCell colSpan={6} className="bg-slate-50">
+                            <TableCell colSpan={6} className="bg-slate-50 p-4">
                               <ChecklistValidation
                                 saleRecordId={sale.id}
                                 userRole={user?.role as "financeiro" | "administrativo"}
@@ -408,42 +470,46 @@ export default function ApprovalPanel() {
           </CardContent>
         </Card>
 
-        {/* Rejection Info */}
-        {filteredSales.some(
-          (s: any) => s.financialRejectionReason || s.adminRejectionReason
-        ) && (
-          <Card className="border-red-200 bg-red-50">
+        {/* Completed Sales */}
+        {completedSales.length > 0 && (
+          <Card>
             <CardHeader>
-              <CardTitle className="text-red-900">
-                Vendas Rejeitadas
-              </CardTitle>
+              <CardTitle>Vendas Processadas</CardTitle>
+              <CardDescription>
+                Histórico de vendas já analisadas pelo seu setor
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {filteredSales
-                  .filter(
-                    (s: any) => s.financialRejectionReason || s.adminRejectionReason
-                  )
-                  .map((sale: any) => (
-                    <div
-                      key={sale.id}
-                      className="p-3 bg-white rounded border border-red-200"
-                    >
-                      <p className="font-semibold text-slate-900">
-                        {sale.customerName} - {sale.vehicleModel}
-                      </p>
-                      {sale.financialRejectionReason && (
-                        <p className="text-sm text-red-700 mt-1">
-                          Financeiro: {sale.financialRejectionReason}
-                        </p>
-                      )}
-                      {sale.adminRejectionReason && (
-                        <p className="text-sm text-red-700 mt-1">
-                          Administrativo: {sale.adminRejectionReason}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Veículo</TableHead>
+                      <TableHead>Status Final</TableHead>
+                      <TableHead className="hidden sm:table-cell">Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {completedSales.map((sale: any) => {
+                      const status = user?.role === "financeiro" ? sale.financialStatus : sale.adminStatus;
+                      return (
+                        <TableRow key={sale.id}>
+                          <TableCell className="font-medium">{sale.customerName}</TableCell>
+                          <TableCell>{sale.vehicleModel}</TableCell>
+                          <TableCell>
+                            <Badge className={DEPARTMENT_STATUS_COLORS[status as DepartmentStatus]}>
+                              {DEPARTMENT_STATUS_LABELS[status as DepartmentStatus]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs text-slate-500">
+                            {formatDate(sale.createdAt)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
@@ -454,3 +520,4 @@ export default function ApprovalPanel() {
 }
 
 import React from "react";
+import { Clock } from "lucide-react";

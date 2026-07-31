@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   Plus,
@@ -41,6 +42,8 @@ import {
   Clock,
   XCircle,
   AlertCircle,
+  Car,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -48,6 +51,7 @@ import {
   OVERALL_STATUS_LABELS,
   OVERALL_STATUS_COLORS,
   DEPARTMENT_STATUS_LABELS,
+  DEPARTMENT_STATUS_COLORS,
   type DepartmentStatus,
 } from "@shared/saleStatus";
 
@@ -64,9 +68,8 @@ export default function VendedorDashboard() {
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const [expandedChecklistId, setExpandedChecklistId] = useState<number | null>(null);
   const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
-  // Row actions (Histórico/Checklist/Upload) are hidden by default and only
-  // shown on hover (desktop) or tap (touch) — toggled here for touch devices.
   const [activeRowId, setActiveRowId] = useState<number | null>(null);
+  const [lastCreatedToken, setLastCreatedToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -89,7 +92,7 @@ export default function VendedorDashboard() {
   const createSaleMutation = trpc.sales.createSale.useMutation({
     onSuccess: (data) => {
       toast.success("Venda criada com sucesso!");
-      toast.info(`Link de acompanhamento copiado: ${data.publicToken}`);
+      setLastCreatedToken(data.publicToken);
       setFormData({
         customerName: "",
         customerContact: "",
@@ -120,7 +123,7 @@ export default function VendedorDashboard() {
     },
   });
 
-  const SALE_FORM_STEPS = ["Dados do Cliente", "Dados do Carro", "Valores da Venda"];
+  const SALE_FORM_STEPS = ["Dados do Cliente", "Dados do Veículo", "Valores da Venda"];
 
   const canAdvanceSaleFormStep = (step: number) => {
     if (step === 1) return formData.customerName.trim().length > 0;
@@ -189,16 +192,31 @@ export default function VendedorDashboard() {
     return <Clock className="h-4 w-4" />;
   };
 
+  // Stats
+  const pendingCount = sales.filter((s: any) => {
+    const overall = getOverallSaleStatus(s.financialStatus, s.adminStatus);
+    return overall === "pending_review";
+  }).length;
+  const readyCount = sales.filter((s: any) => {
+    const overall = getOverallSaleStatus(s.financialStatus, s.adminStatus);
+    return overall === "ready_for_delivery";
+  }).length;
+  const rejectedCount = sales.filter((s: any) => {
+    const overall = getOverallSaleStatus(s.financialStatus, s.adminStatus);
+    return overall === "rejected";
+  }).length;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <Car className="h-7 w-7 text-slate-700" />
               Dashboard de Vendas
             </h1>
-            <p className="text-slate-600 mt-1">
+            <p className="text-sm sm:text-base text-slate-600 mt-1">
               Gerencie seus registros de venda e documentos
             </p>
           </div>
@@ -208,8 +226,51 @@ export default function VendedorDashboard() {
             className="gap-2"
           >
             <LogOut className="h-4 w-4" />
-            Sair
+            <span className="hidden sm:inline">Sair</span>
           </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-yellow-100">
+                  <Clock className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{pendingCount}</p>
+                  <p className="text-xs text-slate-500">Em Análise</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{readyCount}</p>
+                  <p className="text-xs text-slate-500">Aprovadas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-100">
+                  <XCircle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-900">{rejectedCount}</p>
+                  <p className="text-xs text-slate-500">Rejeitadas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Create Sale Button */}
@@ -217,7 +278,10 @@ export default function VendedorDashboard() {
           open={isCreateDialogOpen}
           onOpenChange={(open) => {
             setIsCreateDialogOpen(open);
-            if (!open) setSaleFormStep(1);
+            if (!open) {
+              setSaleFormStep(1);
+              setLastCreatedToken(null);
+            }
           }}
         >
           <DialogTrigger asChild>
@@ -234,6 +298,28 @@ export default function VendedorDashboard() {
               </DialogDescription>
             </DialogHeader>
 
+            {/* Show token after creation */}
+            {lastCreatedToken && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-blue-800">Venda criada! Link de acompanhamento:</p>
+                <div className="flex gap-2">
+                  <code className="flex-1 text-xs bg-white px-3 py-2 rounded border border-blue-100 break-all">
+                    {lastCreatedToken}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(lastCreatedToken);
+                      toast.success("Token copiado!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Step progress indicator */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -248,7 +334,7 @@ export default function VendedorDashboard() {
                 {SALE_FORM_STEPS.map((_, index) => (
                   <div
                     key={index}
-                    className={`h-1.5 flex-1 rounded-full ${
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${
                       index + 1 <= saleFormStep ? "bg-blue-600" : "bg-slate-200"
                     }`}
                   />
@@ -419,7 +505,7 @@ export default function VendedorDashboard() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Nenhuma venda registrada ainda
+                  Nenhuma venda registrada ainda. Clique em "Nova Venda" para começar.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -430,7 +516,7 @@ export default function VendedorDashboard() {
                       <TableHead>Cliente</TableHead>
                       <TableHead>Veículo</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Data</TableHead>
+                      <TableHead className="hidden sm:table-cell">Data</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -438,7 +524,9 @@ export default function VendedorDashboard() {
                     {sales.map((sale: any) => (
                       <React.Fragment key={sale.id}>
                         <TableRow
-                          className="group"
+                          className={`group hover:bg-slate-50 ${
+                            activeRowId === sale.id ? "bg-slate-50" : ""
+                          }`}
                           onClick={() =>
                             setActiveRowId((prev) =>
                               prev === sale.id ? null : sale.id
@@ -449,8 +537,12 @@ export default function VendedorDashboard() {
                             {sale.customerName}
                           </TableCell>
                           <TableCell>
-                            {sale.vehicleModel}
-                            {sale.vehicleYear && ` (${sale.vehicleYear})`}
+                            <div>
+                              <p className="font-medium">{sale.vehicleModel}</p>
+                              {sale.vehicleYear && (
+                                <p className="text-xs text-slate-500">({sale.vehicleYear})</p>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {(() => {
@@ -459,29 +551,34 @@ export default function VendedorDashboard() {
                                 sale.adminStatus
                               );
                               return (
-                                <div className="space-y-1">
+                                <div className="space-y-1.5">
                                   <Badge className={OVERALL_STATUS_COLORS[overallStatus]}>
                                     <span className="mr-1">
                                       {getStatusIcon(overallStatus)}
                                     </span>
                                     {OVERALL_STATUS_LABELS[overallStatus]}
                                   </Badge>
-                                  <p className="text-xs text-slate-500">
-                                    Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus as DepartmentStatus]}
-                                    {" · "}
-                                    Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus as DepartmentStatus]}
-                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    <Badge variant="outline" className={`text-xs ${DEPARTMENT_STATUS_COLORS[sale.financialStatus as DepartmentStatus]}`}>
+                                      Fin: {DEPARTMENT_STATUS_LABELS[sale.financialStatus as DepartmentStatus]}
+                                    </Badge>
+                                    <Badge variant="outline" className={`text-xs ${DEPARTMENT_STATUS_COLORS[sale.adminStatus as DepartmentStatus]}`}>
+                                      Admin: {DEPARTMENT_STATUS_LABELS[sale.adminStatus as DepartmentStatus]}
+                                    </Badge>
+                                  </div>
                                 </div>
                               );
                             })()}
                           </TableCell>
-                          <TableCell>
-                            {new Date(sale.createdAt).toLocaleDateString(
-                              "pt-BR"
-                            )}
+                          <TableCell className="hidden sm:table-cell">
+                            <p className="text-xs text-slate-500">
+                              {new Date(sale.createdAt).toLocaleDateString(
+                                "pt-BR"
+                              )}
+                            </p>
                           </TableCell>
                           <TableCell
-                            className={`text-right space-x-2 transition-opacity ${
+                            className={`text-right space-x-1 transition-opacity ${
                               activeRowId === sale.id
                                 ? "opacity-100"
                                 : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
@@ -489,29 +586,31 @@ export default function VendedorDashboard() {
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() =>
                                 setExpandedHistoryId(
                                   expandedHistoryId === sale.id ? null : sale.id
                                 )
                               }
-                              className="gap-1"
+                              className="h-8 w-8 p-0"
+                              title="Histórico"
                             >
-                              Histórico
+                              <Clock className="h-4 w-4" />
                             </Button>
 
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() =>
                                 setExpandedChecklistId(
                                   expandedChecklistId === sale.id ? null : sale.id
                                 )
                               }
-                              className="gap-1"
+                              className="h-8 w-8 p-0"
+                              title="Checklist"
                             >
-                              Checklist
+                              <CheckCircle2 className="h-4 w-4" />
                             </Button>
 
                             <Dialog
@@ -526,12 +625,12 @@ export default function VendedorDashboard() {
                             >
                               <DialogTrigger asChild>
                                 <Button
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
-                                  className="gap-1"
+                                  className="h-8 w-8 p-0"
+                                  title="Upload"
                                 >
-                                  <FileUp className="h-3 w-3" />
-                                  Upload
+                                  <FileUp className="h-4 w-4" />
                                 </Button>
                               </DialogTrigger>
                               <DialogContent>
@@ -610,15 +709,15 @@ export default function VendedorDashboard() {
                           </TableCell>
                         </TableRow>
                         {expandedHistoryId === sale.id && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="bg-slate-50">
+                          <TableRow key={`history-${sale.id}`}>
+                            <TableCell colSpan={5} className="bg-slate-50 p-4">
                               <ApprovalHistoryTimeline saleId={sale.id} />
                             </TableCell>
                           </TableRow>
                         )}
                         {expandedChecklistId === sale.id && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="bg-slate-50">
+                          <TableRow key={`checklist-${sale.id}`}>
+                            <TableCell colSpan={5} className="bg-slate-50 p-4">
                               <ChecklistForm saleRecordId={sale.id} />
                             </TableCell>
                           </TableRow>
@@ -635,5 +734,3 @@ export default function VendedorDashboard() {
     </div>
   );
 }
-
-import React from "react";

@@ -109,6 +109,51 @@ export const CHECKLIST_STEPS_BY_DEPARTMENT: Record<
       documents: [],
     },
   ],
-  // Filled in when the Checklist Financeiro flow is built.
-  financeiro: [],
+  financeiro: [
+    {
+      step: 1,
+      title: "Comprovante de Pagamento",
+      kind: "upload",
+      documents: [
+        {
+          key: "comprovante_pix",
+          label: "Comprovante PIX",
+          description: "Comprovante de transferência via PIX",
+        },
+        {
+          key: "comprovante_transferencia",
+          label: "Comprovante de Transferência",
+          description: "TED ou DOC",
+        },
+      ],
+    },
+    {
+      step: 2,
+      title: "Aprovação de Crédito",
+      kind: "upload",
+      documents: [
+        {
+          key: "contrato_financiamento",
+          label: "Contrato de Financiamento",
+          description: "Caso haja financiamento envolvido",
+        },
+        {
+          key: "comprovante_renda",
+          label: "Comprovante de Renda",
+          description: "Holerite ou extrato bancário",
+        },
+        {
+          key: "consulta_score",
+          label: "Consulta de Score",
+          description: "Resultado da consulta de crédito",
+        },
+      ],
+    },
+    {
+      step: 3,
+      title: "Confirmação",
+      kind: "confirmation",
+      documents: [],
+    },
+  ],
 };

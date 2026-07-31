@@ -48,6 +48,7 @@ import {
   OVERALL_STATUS_LABELS,
   OVERALL_STATUS_COLORS,
   DEPARTMENT_STATUS_LABELS,
+  type DepartmentStatus,
 } from "@shared/saleStatus";
 
 export default function VendedorDashboard() {
@@ -466,9 +467,9 @@ export default function VendedorDashboard() {
                                     {OVERALL_STATUS_LABELS[overallStatus]}
                                   </Badge>
                                   <p className="text-xs text-slate-500">
-                                    Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus]}
+                                    Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus as DepartmentStatus]}
                                     {" · "}
-                                    Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus]}
+                                    Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus as DepartmentStatus]}
                                   </p>
                                 </div>
                               );

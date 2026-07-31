@@ -47,7 +47,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS } from "@shared/saleStatus";
+import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS, type DepartmentStatus } from "@shared/saleStatus";
 
 export default function ApprovalPanel() {
   const { user, logout } = useAuth();
@@ -248,11 +248,11 @@ export default function ApprovalPanel() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
-                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.financialStatus]}>
-                                Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus]}
+                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.financialStatus as DepartmentStatus]}>
+                                Financeiro: {DEPARTMENT_STATUS_LABELS[sale.financialStatus as DepartmentStatus]}
                               </Badge>
-                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.adminStatus]}>
-                                Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus]}
+                              <Badge className={DEPARTMENT_STATUS_COLORS[sale.adminStatus as DepartmentStatus]}>
+                                Administrativo: {DEPARTMENT_STATUS_LABELS[sale.adminStatus as DepartmentStatus]}
                               </Badge>
                             </div>
                           </TableCell>

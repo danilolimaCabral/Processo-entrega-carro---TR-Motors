@@ -228,8 +228,12 @@ export function AdministrativeChecklistWizard({
     .flatMap((group) => group.documents)
     .filter((doc) => !getExisting(doc.key));
 
+  // On Etapa 1, "Veículo na troca" must be answered (Sim or Não) before
+  // Avançar unlocks — not just the documents.
   const isStepComplete =
-    missingDocuments.length === 0 && missingConditionalDocuments.length === 0;
+    missingDocuments.length === 0 &&
+    missingConditionalDocuments.length === 0 &&
+    (stepIndex !== 0 || vehicleTradeIn !== null);
 
   const title =
     department === "administrativo"

@@ -8,18 +8,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { CheckCircle2, Upload, Loader2 } from "lucide-react";
+import { CheckCircle2, Upload, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 import {
-  ADMINISTRATIVO_CHECKLIST_STEPS,
+  CHECKLIST_STEPS_BY_DEPARTMENT,
   type AdministrativeChecklistDocumentConfig,
+  type ChecklistDepartment,
 } from "@/lib/administrativeChecklistSteps";
-
-type Department = "financeiro" | "administrativo";
 
 interface AdministrativeChecklistWizardProps {
   saleRecordId: number;
-  department: Department;
+  department: ChecklistDepartment;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -45,7 +44,7 @@ function DocumentUploadTile({
   onUploaded,
 }: {
   saleRecordId: number;
-  department: Department;
+  department: ChecklistDepartment;
   step: number;
   doc: AdministrativeChecklistDocumentConfig;
   existing?: { filename: string; fileUrl: string };
@@ -135,6 +134,19 @@ function DocumentUploadTile({
   );
 }
 
+function ConfirmationStep() {
+  return (
+    <div className="flex flex-col items-center text-center gap-2 py-8">
+      <CheckCircle2 className="h-10 w-10 text-green-600" />
+      <p className="font-semibold text-lg text-slate-900">Checklist enviado</p>
+      <p className="text-sm text-slate-600 flex items-center gap-1.5">
+        <Clock className="h-4 w-4" />
+        Aguardando aprovação Administrativo
+      </p>
+    </div>
+  );
+}
+
 export function AdministrativeChecklistWizard({
   saleRecordId,
   department,
@@ -142,21 +154,30 @@ export function AdministrativeChecklistWizard({
   onOpenChange,
 }: AdministrativeChecklistWizardProps) {
   const [stepIndex, setStepIndex] = useState(0);
-  const currentStep = ADMINISTRATIVO_CHECKLIST_STEPS[stepIndex];
+  const steps = CHECKLIST_STEPS_BY_DEPARTMENT[department];
+  const currentStep = steps[stepIndex];
 
   const { data: documents, refetch } =
     trpc.administrativeChecklist.getDocuments.useQuery(
-      { saleRecordId, department, step: currentStep.step },
-      { enabled: open }
+      { saleRecordId, department, step: currentStep?.step ?? 0 },
+      { enabled: open && currentStep?.kind === "upload" }
     );
 
   const getExisting = (key: string) =>
     documents?.find((d) => d.documentKey === key);
 
+  const missingDocuments =
+    currentStep?.kind === "upload"
+      ? currentStep.documents.filter((doc) => !getExisting(doc.key))
+      : [];
+  const isStepComplete = missingDocuments.length === 0;
+
   const title =
     department === "administrativo"
       ? "Checklist Administrativo"
       : "Checklist Financeiro";
+
+  if (!currentStep) return null;
 
   return (
     <Dialog
@@ -170,24 +191,32 @@ export function AdministrativeChecklistWizard({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Etapa {stepIndex + 1} de {ADMINISTRATIVO_CHECKLIST_STEPS.length} —{" "}
-            {currentStep.title}
+            Etapa {stepIndex + 1} de {steps.length} — {currentStep.title}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          {currentStep.documents.map((doc) => (
-            <DocumentUploadTile
-              key={doc.key}
-              saleRecordId={saleRecordId}
-              department={department}
-              step={currentStep.step}
-              doc={doc}
-              existing={getExisting(doc.key)}
-              onUploaded={refetch}
-            />
-          ))}
-        </div>
+        {currentStep.kind === "confirmation" ? (
+          <ConfirmationStep />
+        ) : (
+          <div className="space-y-3">
+            {currentStep.documents.map((doc) => (
+              <DocumentUploadTile
+                key={doc.key}
+                saleRecordId={saleRecordId}
+                department={department}
+                step={currentStep.step}
+                doc={doc}
+                existing={getExisting(doc.key)}
+                onUploaded={refetch}
+              />
+            ))}
+            {!isStepComplete && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                Faltam: {missingDocuments.map((d) => d.label).join(", ")}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 pt-2">
           {stepIndex > 0 && (
@@ -200,10 +229,11 @@ export function AdministrativeChecklistWizard({
               Voltar
             </Button>
           )}
-          {stepIndex < ADMINISTRATIVO_CHECKLIST_STEPS.length - 1 ? (
+          {stepIndex < steps.length - 1 ? (
             <Button
               type="button"
               className="flex-1"
+              disabled={!isStepComplete}
               onClick={() => setStepIndex((s) => s + 1)}
             >
               Avançar

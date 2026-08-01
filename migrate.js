@@ -14,8 +14,46 @@ async function runMigration() {
     process.exit(1);
   }
 
-  console.log('Connecting to database...');
-  
+  console.log('Starting database migration...');
+  console.log('DATABASE_URL:', connectionString.replace(/root:[^@]+@/, 'root:***@'));
+
+  // Parse the DATABASE_URL to get connection details
+  const url = new URL(connectionString);
+  const hostname = url.hostname;
+  const port = parseInt(url.port) || 3306;
+  const username = url.username;
+  const password = url.password;
+  const database = url.pathname.slice(1);
+
+  console.log(`Connecting to MySQL at ${hostname}:${port}...`);
+
+  // First, connect without database to create it if needed
+  let serverConnection;
+  try {
+    serverConnection = await mysql.createConnection({
+      host: hostname,
+      port: port,
+      user: username,
+      password: password,
+    });
+    console.log('Connected to MySQL server');
+  } catch (error) {
+    console.error('Failed to connect to MySQL server:', error.message);
+    process.exit(1);
+  }
+
+  // Create the database if it doesn't exist
+  console.log(`Creating database '${database}' if not exists...`);
+  try {
+    await serverConnection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\``);
+    console.log(`Database '${database}' is ready`);
+  } catch (error) {
+    console.error('Failed to create database:', error.message);
+    process.exit(1);
+  }
+  await serverConnection.end();
+
+  // Now connect to the specific database
   let connection;
   try {
     connection = await mysql.createConnection(connectionString);

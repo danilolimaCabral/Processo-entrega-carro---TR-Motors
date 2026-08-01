@@ -1,40 +1,90 @@
 import mysql from 'mysql2/promise';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  console.error('ERROR: DATABASE_URL is not set');
-  process.exit(1);
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-console.log('Connecting to database...');
-const pool = mysql.createPool(connectionString);
+async function runMigration() {
+  const connectionString = process.env.DATABASE_URL;
+  
+  if (!connectionString) {
+    console.error('ERROR: DATABASE_URL is not set');
+    process.exit(1);
+  }
 
-const sql = fs.readFileSync('./migrations.sql', 'utf-8');
-const statements = sql.split(';').filter(s => s.trim().length > 0);
+  console.log('Connecting to database...');
+  
+  let connection;
+  try {
+    connection = await mysql.createConnection(connectionString);
+    console.log('Connected to database successfully');
+  } catch (error) {
+    console.error('Failed to connect to database:', error.message);
+    process.exit(1);
+  }
 
-let success = 0;
-let failed = 0;
+  const migrationsPath = path.join(__dirname, 'migrations.sql');
+  
+  if (!fs.existsSync(migrationsPath)) {
+    console.error('ERROR: migrations.sql not found at:', migrationsPath);
+    process.exit(1);
+  }
 
-for (const stmt of statements) {
-  if (!stmt.trim()) continue;
-  try { 
-    await pool.execute(stmt + ';'); 
-    success++;
-    console.log('OK:', stmt.substring(0, 80));
-  } catch(e) { 
-    failed++;
-    if (e.code === 'ER_TABLE_EXISTS_ERROR' || e.message.includes('already exists')) {
-      console.log('SKIP (exists):', stmt.substring(0, 60));
-    } else {
-      console.log('ERR:', e.message?.substring(0, 100) || e.code);
+  const sql = fs.readFileSync(migrationsPath, 'utf-8');
+  const statements = sql.split(';').filter(s => s.trim().length > 0);
+  
+  console.log(`Found ${statements.length} SQL statements to execute`);
+  
+  let success = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (let i = 0; i < statements.length; i++) {
+    const stmt = statements[i];
+    if (!stmt) continue;
+    
+    try { 
+      await connection.execute(stmt); 
+      success++;
+      console.log(`[${i + 1}/${statements.length}] OK: ${stmt.substring(0, 60).replace(/\n/g, ' ')}`);
+    } catch(e) { 
+      const errorMsg = e.message || e.code || 'unknown error';
+      if (
+        e.code === 'ER_TABLE_EXISTS_ERROR' || 
+        e.code === 'ER_DUP_FIELDNAME' ||
+        errorMsg.includes('already exists') ||
+        errorMsg.includes('Duplicate column')
+      ) {
+        skipped++;
+        console.log(`[${i + 1}/${statements.length}] SKIP: ${stmt.substring(0, 50).replace(/\n/g, ' ')}`);
+      } else {
+        failed++;
+        console.log(`[${i + 1}/${statements.length}] ERR: ${errorMsg.substring(0, 150)}`);
+      }
     }
+  }
+
+  const [tables] = await connection.execute('SHOW TABLES');
+  console.log(`\nTables in database: ${tables.length}`);
+  if (tables.length > 0) {
+    const tableNames = Object.keys(tables[0]);
+    tables.forEach(t => console.log('  -', t[tableNames[0]]));
+  }
+
+  await connection.end();
+  
+  console.log(`\nMigration complete!`);
+  console.log(`  Success: ${success}, Skipped: ${skipped}, Failed: ${failed}`);
+  
+  if (tables.length === 0) {
+    console.error('CRITICAL: No tables found!');
+    process.exit(1);
   }
 }
 
-const [tables] = await pool.execute('SHOW TABLES');
-console.log('\nTables in database:', tables.length);
-tables.forEach(t => console.log(' -', Object.values(t)[0]));
-
-await pool.end();
-console.log(`\nMigration complete! Success: ${success}, Failed/Skipped: ${failed}`);
+runMigration().catch(error => {
+  console.error('Migration crashed:', error.message);
+  process.exit(1);
+});

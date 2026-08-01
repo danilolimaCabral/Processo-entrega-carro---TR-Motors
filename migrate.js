@@ -92,6 +92,7 @@ async function runMigration() {
       if (
         e.code === 'ER_TABLE_EXISTS_ERROR' || 
         e.code === 'ER_DUP_FIELDNAME' ||
+        e.code === 'ER_DUP_ENTRY' ||
         errorMsg.includes('already exists') ||
         errorMsg.includes('Duplicate column')
       ) {

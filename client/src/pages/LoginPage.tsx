@@ -52,9 +52,6 @@ export default function LoginPage() {
         <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-between p-12 relative">
           {/* Top branding */}
           <div className="flex items-center gap-3">
-            <div className="bg-white rounded-xl p-3 shadow-2xl shadow-red-900/20">
-              <img src="/tr_logo.png" alt="TR Motors" className="h-16 w-auto object-contain" />
-            </div>
             <div>
               <h1 className="text-3xl font-bold text-white tracking-tight">TR Motors</h1>
               <p className="text-red-400 text-sm font-medium">Sistema ERP Profissional</p>

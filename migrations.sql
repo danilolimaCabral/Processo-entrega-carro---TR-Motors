@@ -2,6 +2,8 @@
 -- Generated from drizzle/schema.ts
 
 -- Drop existing tables (safe since we recreate everything)
+DROP TABLE IF EXISTS `inspection_photos`;
+DROP TABLE IF EXISTS `purchase_inspections`;
 DROP TABLE IF EXISTS `erp_modules`;
 DROP TABLE IF EXISTS `administrative_checklist_documents`;
 DROP TABLE IF EXISTS `approval_history`;
@@ -136,9 +138,69 @@ CREATE TABLE `erp_modules` (
   CONSTRAINT `erp_modules_moduleKey_unique` UNIQUE(`moduleKey`)
 );
 
+-- Purchase Inspections table
+CREATE TABLE `purchase_inspections` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `createdBy` int NOT NULL,
+  `ownerName` text,
+  `ownerContact` varchar(320),
+  `vehiclePlate` varchar(20),
+  `vehicleBrand` text,
+  `vehicleModel` text,
+  `vehicleYear` int,
+  `vehicleKm` int,
+  `vehicleFuel` varchar(20),
+  `vehicleColor` varchar(50),
+  `fipeCode` varchar(20),
+  `fipePrice` decimal(12,2),
+  `engineCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `transmissionCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `bodyworkCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `interiorCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `tiresCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `suspensionCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `electricCondition` enum('otimo','bom','regular','ruim','nao_verificado') DEFAULT 'nao_verificado' NOT NULL,
+  `generalNotes` longtext,
+  `purchasePrice` decimal(12,2),
+  `status` enum('rascunho','em_andamento','concluida','cancelada') DEFAULT 'rascunho' NOT NULL,
+  `inspectorId` int,
+  `inspectedAt` timestamp,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `purchase_inspections_id` PRIMARY KEY(`id`)
+);
+
+-- Inspection Photos table
+CREATE TABLE `inspection_photos` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `inspectionId` int NOT NULL,
+  `photoCategory` enum('frontal','traseira','lateral_esquerda','lateral_direita','painel','motor','portamalas','interior','pneu_dianteiro_esq','pneu_dianteiro_dir','pneu_traseiro_esq','pneu_traseiro_dir','documentos','chassi','motor_number','danos','outros') NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  `fileKey` text NOT NULL,
+  `fileUrl` longtext NOT NULL,
+  `mimeType` varchar(100) DEFAULT 'image/jpeg',
+  `fileSize` int,
+  `notes` text,
+  `uploadedBy` int NOT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `inspection_photos_id` PRIMARY KEY(`id`)
+);
+
 -- Seed test users (password: 123456, bcrypt hash)
 INSERT INTO `users` (`openId`, `passwordHash`, `name`, `email`, `loginMethod`, `role`, `isActive`) VALUES
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrador', 'admin@test.com', 'local', 'admin', true),
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Vendedor', 'vendedor@test.com', 'local', 'vendedor', true),
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Financeiro', 'financeiro@test.com', 'local', 'financeiro', true),
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrativo', 'administrativo@test.com', 'local', 'administrativo', true);
+
+-- Seed ERP Modules
+INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, `allowedRoles`, `isActive`, `sortOrder`) VALUES
+('entrega', 'Entrega de Veículo', 'Processo completo de entrega de veículos ao cliente', 'Car', '/entrega', '["admin","vendedor","financeiro","administrativo"]', true, 1),
+('documentos', 'Check Financeiro', 'Checklist financeiro e documental', 'FileCheck', '/financeiro', '["admin","vendedor","financeiro"]', true, 2),
+('dashboard', 'Dashboard', 'Painel de documentos parados por vendedor e setor', 'LayoutDashboard', '/dashboard', '["admin","vendedor","financeiro","administrativo"]', true, 3),
+('vistoria', 'Vistoria de Compra', 'Vistoria completa de veículos para compra com API FIPE', 'CarFront', '/vistoria', '["admin","vendedor"]', true, 4),
+('relatorios', 'Relatórios', 'Relatórios e análises de vendas', 'BarChart3', '/relatorios', '["admin","financeiro"]', true, 5),
+('clientes', 'Clientes', 'Cadastro e gestão de clientes', 'Users', '/clientes', '["admin","vendedor"]', true, 6),
+('veiculos', 'Estoque', 'Gestão de estoque de veículos', 'Warehouse', '/veiculos', '["admin","vendedor"]', true, 7),
+('configuracoes', 'Configurações', 'Configurações do sistema e usuários', 'Settings', '/configuracoes', '["admin"]', true, 8),
+('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9);

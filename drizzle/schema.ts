@@ -228,3 +228,128 @@ export type AdministrativeChecklistDocument =
   typeof administrative_checklist_documents.$inferSelect;
 export type InsertAdministrativeChecklistDocument =
   typeof administrative_checklist_documents.$inferInsert;
+
+/**
+ * ERP Modules table — manages available modules in the system.
+ * Admin can enable/disable modules. Inactive modules are hidden from sidebar
+ * and their routes are blocked (redirect to /dashboard/modulos).
+ */
+export const erp_modules = mysqlTable("erp_modules", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Stable module key (e.g. "vendas", "checklist", "financeiro") */
+  moduleKey: varchar("moduleKey", { length: 64 }).unique().notNull(),
+  /** Display name */
+  name: text("name").notNull(),
+  /** Description of the module */
+  description: text("description"),
+  /** Lucide icon name (e.g. "Car", "FileText", "DollarSign") */
+  icon: varchar("icon", { length: 64 }).default("FileText"),
+  /** Route path for the module (e.g. "/vendedor/dashboard") */
+  route: varchar("route", { length: 255 }),
+  /** Which roles can access this module (comma-separated or JSON) */
+  allowedRoles: text("allowedRoles"),
+  /** Whether the module is active/visible */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** Sort order */
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ErpModule = typeof erp_modules.$inferSelect;
+export type InsertErpModule = typeof erp_modules.$inferInsert;
+/**
+ * Purchase inspection table — vistoria de carro para compra
+ * Tracks vehicle inspection for purchase decisions with photos, evaluations, and pricing
+ */
+export const purchase_inspections = mysqlTable("purchase_inspections", {
+  id: int("id").autoincrement().primaryKey(),
+  /** User who created the inspection (vendedor/admin) */
+  createdBy: int("createdBy").notNull(),
+  /** Owner name */
+  ownerName: text("ownerName"),
+  /** Owner contact */
+  ownerContact: varchar("ownerContact", { length: 320 }),
+  /** Vehicle identification */
+  vehiclePlate: varchar("vehiclePlate", { length: 20 }),
+  vehicleBrand: text("vehicleBrand"),
+  vehicleModel: text("vehicleModel"),
+  vehicleYear: int("vehicleYear"),
+  vehicleKm: int("vehicleKm"),
+  vehicleFuel: varchar("vehicleFuel", { length: 20 }),
+  vehicleColor: varchar("vehicleColor", { length: 50 }),
+  /** FIPE data */
+  fipeCode: varchar("fipeCode", { length: 20 }),
+  fipePrice: decimal("fipePrice", { precision: 12, scale: 2 }),
+  /** Inspection items - JSON with scores */
+  engineCondition: mysqlEnum("engineCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  transmissionCondition: mysqlEnum("transmissionCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  bodyworkCondition: mysqlEnum("bodyworkCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  interiorCondition: mysqlEnum("interiorCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  tiresCondition: mysqlEnum("tiresCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  suspensionCondition: mysqlEnum("suspensionCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  electricCondition: mysqlEnum("electricCondition", ["otimo", "bom", "regular", "ruim", "nao_verificado"]).default("nao_verificado").notNull(),
+  /** Overall evaluation notes */
+  generalNotes: longtext("generalNotes"),
+  /** Calculated purchase price */
+  purchasePrice: decimal("purchasePrice", { precision: 12, scale: 2 }),
+  /** Inspection status */
+  status: mysqlEnum("status", ["rascunho", "em_andamento", "concluida", "cancelada"])
+    .default("rascunho")
+    .notNull(),
+  /** Who performed the inspection */
+  inspectorId: int("inspectorId"),
+  inspectedAt: timestamp("inspectedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PurchaseInspection = typeof purchase_inspections.$inferSelect;
+export type InsertPurchaseInspection = typeof purchase_inspections.$inferInsert;
+
+/**
+ * Inspection photos table — stores photos taken during vehicle inspection
+ */
+export const inspection_photos = mysqlTable("inspection_photos", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Reference to purchase_inspections */
+  inspectionId: int("inspectionId").notNull(),
+  /** Photo category */
+  photoCategory: mysqlEnum("photoCategory", [
+    "frontal",
+    "traseira",
+    "lateral_esquerda",
+    "lateral_direita",
+    "painel",
+    "motor",
+    "portamalas",
+    "interior",
+    "pneu_dianteiro_esq",
+    "pneu_dianteiro_dir",
+    "pneu_traseiro_esq",
+    "pneu_traseiro_dir",
+    "documentos",
+    "chassi",
+    "motor_number",
+    "danos",
+    "outros",
+  ]).notNull(),
+  /** Original filename */
+  filename: varchar("filename", { length: 255 }).notNull(),
+  /** File key (local placeholder) */
+  fileKey: text("fileKey").notNull(),
+  /** File data as base64/data URI */
+  fileUrl: longtext("fileUrl").notNull(),
+  /** MIME type */
+  mimeType: varchar("mimeType", { length: 100 }).default("image/jpeg"),
+  /** File size in bytes */
+  fileSize: int("fileSize"),
+  /** Notes about this specific photo */
+  notes: text("notes"),
+  /** User who uploaded */
+  uploadedBy: int("uploadedBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type InspectionPhoto = typeof inspection_photos.$inferSelect;
+export type InsertInspectionPhoto = typeof inspection_photos.$inferInsert;

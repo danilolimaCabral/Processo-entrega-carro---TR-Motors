@@ -3,20 +3,20 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
 import LoginPage from "./LoginPage";
 import AdminPage from "./AdminPage";
+import DashboardLayout from "@/components/DashboardLayout";
 import { useLocation } from "wouter";
 
 export default function Home() {
   const { user, loading } = useAuth();
   const [, navigate] = useLocation();
 
-  // Handle navigation in useEffect to avoid setState during render
   useEffect(() => {
     if (!user || loading) return;
 
     if (user.role === "vendedor") {
-      navigate("/vendedor/dashboard");
+      navigate("/dashboard");
     } else if (user.role === "financeiro" || user.role === "administrativo") {
-      navigate("/approval");
+      navigate("/dashboard");
     }
   }, [user, loading, navigate]);
 
@@ -32,12 +32,30 @@ export default function Home() {
   }
 
   if (user.role === "vendedor" || user.role === "financeiro" || user.role === "administrativo") {
-    return <DashboardLayoutSkeleton />;
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <img
+              src="/tr_logo.png"
+              alt="TR Motors"
+              className="h-16 w-auto object-contain mx-auto mb-4"
+            />
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">
+              Bem-vindo, {user.name}!
+            </h1>
+            <p className="text-slate-500">
+              Use o menu lateral para navegar.
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   // Fallback
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md text-center">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
           Bem-vindo, {user.name}!

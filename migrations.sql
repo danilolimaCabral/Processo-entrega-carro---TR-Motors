@@ -2,6 +2,7 @@
 -- Generated from drizzle/schema.ts
 
 -- Drop existing tables (safe since we recreate everything)
+DROP TABLE IF EXISTS `erp_modules`;
 DROP TABLE IF EXISTS `administrative_checklist_documents`;
 DROP TABLE IF EXISTS `approval_history`;
 DROP TABLE IF EXISTS `inspection_checklists`;
@@ -116,6 +117,23 @@ CREATE TABLE `administrative_checklist_documents` (
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT `administrative_checklist_documents_id` PRIMARY KEY(`id`)
+);
+
+-- ERP Modules table
+CREATE TABLE `erp_modules` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `moduleKey` varchar(64) NOT NULL,
+  `name` text NOT NULL,
+  `description` text,
+  `icon` varchar(64) DEFAULT 'FileText',
+  `route` varchar(255),
+  `allowedRoles` text,
+  `isActive` boolean DEFAULT true NOT NULL,
+  `sortOrder` int DEFAULT 0,
+  `createdAt` timestamp NOT NULL DEFAULT (now()),
+  `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `erp_modules_id` PRIMARY KEY(`id`),
+  CONSTRAINT `erp_modules_moduleKey_unique` UNIQUE(`moduleKey`)
 );
 
 -- Seed test users (password: 123456, bcrypt hash)

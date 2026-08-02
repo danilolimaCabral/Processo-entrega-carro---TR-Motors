@@ -35,7 +35,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,8 +49,14 @@ import {
   Edit,
   LogOut,
   AlertCircle,
+  LayoutDashboard,
+  Blocks,
+  Users,
+  ShieldCheck,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
+import DashboardLayout from "@/components/DashboardLayout";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -69,92 +74,84 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function AdminPage() {
   const { logout } = useAuth();
+  const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-
-  const [formData, setFormData] = useState({
+  const [createForm, setCreateForm] = useState({
     name: "",
     email: "",
     password: "",
-    role: "vendedor" as "vendedor" | "financeiro" | "administrativo",
+    role: "vendedor",
+  });
+  const [resetForm, setResetForm] = useState({
+    userId: 0,
+    userName: "",
+    newPassword: "",
   });
 
-  const [resetPassword, setResetPassword] = useState("");
-
-  const utils = trpc.useUtils();
-  const { data: users = [], isLoading } = trpc.admin.listUsers.useQuery();
-
+  const usersQuery = trpc.admin.users.useQuery();
   const createUserMutation = trpc.admin.createUser.useMutation({
     onSuccess: () => {
       toast.success("Usuário criado com sucesso!");
-      setFormData({ name: "", email: "", password: "", role: "vendedor" });
       setIsCreateDialogOpen(false);
-      utils.admin.listUsers.invalidate();
+      setCreateForm({ name: "", email: "", password: "", role: "vendedor" });
+      usersQuery.refetch();
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.error(error.message || "Erro ao criar usuário");
     },
   });
 
   const resetPasswordMutation = trpc.admin.resetPassword.useMutation({
     onSuccess: () => {
       toast.success("Senha redefinida com sucesso!");
-      setResetPassword("");
       setIsResetDialogOpen(false);
-      setSelectedUserId(null);
+      setResetForm({ userId: 0, userName: "", newPassword: "" });
     },
     onError: (error) => {
-      toast.error(error.message);
+      const msg = error.message;
+      if (msg.includes("newPassword") && msg.includes("too_small")) {
+        toast.error("A senha deve ter pelo menos 6 caracteres");
+      } else {
+        toast.error(msg || "Erro ao redefinir senha");
+      }
+    },
+  });
+
+  const toggleActiveMutation = trpc.admin.toggleUserActive.useMutation({
+    onSuccess: () => {
+      toast.success("Status atualizado!");
+      usersQuery.refetch();
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao atualizar status");
     },
   });
 
   const deleteUserMutation = trpc.admin.deleteUser.useMutation({
     onSuccess: () => {
-      toast.success("Usuário deletado com sucesso!");
+      toast.success("Usuário deletado!");
       setIsDeleteDialogOpen(false);
-      setSelectedUserId(null);
-      utils.admin.listUsers.invalidate();
+      usersQuery.refetch();
     },
     onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const toggleActiveMutation = trpc.admin.toggleActive.useMutation({
-    onSuccess: () => {
-      toast.success("Status do usuário atualizado!");
-      utils.admin.listUsers.invalidate();
-    },
-    onError: (error) => {
-      toast.error(error.message);
+      toast.error(error.message || "Erro ao deletar usuário");
     },
   });
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.password) {
-      toast.error("Preencha todos os campos");
-      return;
-    }
-    await createUserMutation.mutateAsync(formData);
+    await createUserMutation.mutateAsync(createForm);
   };
 
-  const handleResetPassword = async () => {
-    if (!selectedUserId || !resetPassword) {
-      toast.error("Preencha todos os campos");
-      return;
-    }
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
     await resetPasswordMutation.mutateAsync({
-      userId: selectedUserId,
-      newPassword: resetPassword,
+      userId: resetForm.userId,
+      newPassword: resetForm.newPassword,
     });
-  };
-
-  const handleDeleteUser = async () => {
-    if (!selectedUserId) return;
-    await deleteUserMutation.mutateAsync({ userId: selectedUserId });
   };
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
@@ -164,16 +161,49 @@ export default function AdminPage() {
     });
   };
 
+  const handleDeleteUser = async (userId: number) => {
+    await deleteUserMutation.mutateAsync({ userId });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Navigation Tabs */}
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/dashboard")}
+            className="gap-2"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/modulos")}
+            className="gap-2"
+          >
+            <Blocks className="h-4 w-4" />
+            Módulos
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/")}
+            className="gap-2 bg-red-50 text-red-700 border-red-200"
+          >
+            <Users className="h-4 w-4" />
+            Usuários
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck className="h-7 w-7 text-red-600" />
               Painel Administrativo
             </h1>
-            <p className="text-slate-600 mt-1">
+            <p className="text-slate-500 mt-1 text-sm">
               Gerenciamento de usuários e sistema
             </p>
           </div>
@@ -190,7 +220,7 @@ export default function AdminPage() {
         {/* Create User Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 bg-red-600 hover:bg-red-700">
               <Plus className="h-4 w-4" />
               Criar Usuário
             </Button>
@@ -199,51 +229,52 @@ export default function AdminPage() {
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
               <DialogDescription>
-                Preencha os dados para criar um novo usuário no sistema
+                Preencha os dados do novo usuário do sistema.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
+                <Label>Nome</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
                   placeholder="Nome completo"
+                  value={createForm.name}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, name: e.target.value })
+                  }
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label>Email</Label>
                 <Input
-                  id="email"
                   type="email"
-                  value={formData.email}
+                  placeholder="email@empresa.com"
+                  value={createForm.email}
                   onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                    setCreateForm({ ...createForm, email: e.target.value })
                   }
-                  placeholder="email@example.com"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha Inicial</Label>
+                <Label>Senha</Label>
                 <Input
-                  id="password"
                   type="password"
-                  value={formData.password}
+                  placeholder="Mínimo 6 caracteres"
+                  value={createForm.password}
                   onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
+                    setCreateForm({ ...createForm, password: e.target.value })
                   }
-                  placeholder="••••••••"
+                  required
+                  minLength={6}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Papel</Label>
+                <Label>Papel</Label>
                 <Select
-                  value={formData.role}
-                  onValueChange={(value: any) =>
-                    setFormData({ ...formData, role: value })
+                  value={createForm.role}
+                  onValueChange={(val) =>
+                    setCreateForm({ ...createForm, role: val })
                   }
                 >
                   <SelectTrigger>
@@ -252,15 +283,14 @@ export default function AdminPage() {
                   <SelectContent>
                     <SelectItem value="vendedor">Vendedor</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="administrativo">
-                      Administrativo
-                    </SelectItem>
+                    <SelectItem value="administrativo">Administrativo</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full bg-red-600 hover:bg-red-700"
                 disabled={createUserMutation.isPending}
               >
                 {createUserMutation.isPending ? (
@@ -276,6 +306,47 @@ export default function AdminPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Reset Password Dialog */}
+        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Redefinir Senha</DialogTitle>
+              <DialogDescription>
+                Digite a nova senha para {resetForm.userName}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nova Senha</Label>
+                <Input
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  value={resetForm.newPassword}
+                  onChange={(e) =>
+                    setResetForm({ ...resetForm, newPassword: e.target.value })
+                  }
+                  required
+                  minLength={6}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-red-600 hover:bg-red-700"
+                disabled={resetPasswordMutation.isPending}
+              >
+                {resetPasswordMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Redefinindo...
+                  </>
+                ) : (
+                  "Redefinir"
+                )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Users Table */}
         <Card>
           <CardHeader>
@@ -285,19 +356,19 @@ export default function AdminPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {usersQuery.isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
-            ) : users.length === 0 ? (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Nenhum usuário cadastrado ainda
-                </AlertDescription>
-              </Alert>
+            ) : usersQuery.isError ? (
+              <div className="text-center py-8">
+                <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
+                <p className="text-sm text-red-600">
+                  Erro ao carregar usuários
+                </p>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -305,159 +376,121 @@ export default function AdminPage() {
                       <TableHead>Email</TableHead>
                       <TableHead>Papel</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Criado em</TableHead>
+                      <TableHead>Último Acesso</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
+                    {usersQuery.data?.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">
                           {user.name}
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge className={ROLE_COLORS[user.role]}>
-                            {ROLE_LABELS[user.role]}
+                          <Badge className={ROLE_COLORS[user.role] || ""}>
+                            {ROLE_LABELS[user.role] || user.role}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={
-                              user.isActive ? "default" : "secondary"
+                            variant={user.isActive ? "default" : "secondary"}
+                            className={
+                              user.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-600"
                             }
                           >
                             {user.isActive ? "Ativo" : "Inativo"}
                           </Badge>
                         </TableCell>
-                        <TableCell>
-                          {new Date(user.createdAt).toLocaleDateString(
-                            "pt-BR"
-                          )}
+                        <TableCell className="text-sm text-slate-500">
+                          {user.lastSignedIn
+                            ? new Date(user.lastSignedIn).toLocaleDateString(
+                                "pt-BR"
+                              )
+                            : "-"}
                         </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Dialog
-                            open={
-                              isResetDialogOpen &&
-                              selectedUserId === user.id
-                            }
-                            onOpenChange={(open) => {
-                              setIsResetDialogOpen(open);
-                              if (open) setSelectedUserId(user.id);
-                            }}
-                          >
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1"
-                              >
-                                <Edit className="h-3 w-3" />
-                                Redefinir Senha
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Redefinir Senha</DialogTitle>
-                                <DialogDescription>
-                                  Digite a nova senha para {user.name}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="new-password">
-                                    Nova Senha
-                                  </Label>
-                                  <Input
-                                    id="new-password"
-                                    type="password"
-                                    value={resetPassword}
-                                    onChange={(e) =>
-                                      setResetPassword(e.target.value)
-                                    }
-                                    placeholder="••••••••"
-                                  />
-                                </div>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => {
+                                setResetForm({
+                                  userId: user.id,
+                                  userName: user.name,
+                                  newPassword: "",
+                                });
+                                setIsResetDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="h-3 w-3" />
+                              Redefinir Senha
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleToggleActive(user.id, user.isActive)
+                              }
+                            >
+                              {user.isActive ? "Desativar" : "Ativar"}
+                            </Button>
+
+                            <AlertDialog
+                              open={
+                                isDeleteDialogOpen &&
+                                selectedUserId === user.id
+                              }
+                              onOpenChange={(open) => {
+                                setIsDeleteDialogOpen(open);
+                                if (open) setSelectedUserId(user.id);
+                              }}
+                            >
+                              <AlertDialogTrigger asChild>
                                 <Button
-                                  onClick={handleResetPassword}
-                                  className="w-full"
-                                  disabled={
-                                    resetPasswordMutation.isPending ||
-                                    !resetPassword
-                                  }
+                                  variant="destructive"
+                                  size="sm"
+                                  className="gap-1"
                                 >
-                                  {resetPasswordMutation.isPending ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Redefinindo...
-                                    </>
-                                  ) : (
-                                    "Redefinir"
-                                  )}
+                                  <Trash2 className="h-3 w-3" />
                                 </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleToggleActive(user.id, user.isActive)
-                            }
-                            disabled={toggleActiveMutation.isPending}
-                          >
-                            {user.isActive ? "Desativar" : "Ativar"}
-                          </Button>
-
-                          <AlertDialog
-                            open={
-                              isDeleteDialogOpen &&
-                              selectedUserId === user.id
-                            }
-                            onOpenChange={(open) => {
-                              setIsDeleteDialogOpen(open);
-                              if (open) setSelectedUserId(user.id);
-                            }}
-                          >
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                className="gap-1"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <div className="space-y-2">
-                                <h2 className="text-lg font-semibold">
-                                  Deletar Usuário
-                                </h2>
-                                <p className="text-sm text-slate-600">
-                                  Tem certeza que deseja deletar {user.name}?
-                                  Esta ação não pode ser desfeita.
-                                </p>
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={handleDeleteUser}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  disabled={deleteUserMutation.isPending}
-                                >
-                                  {deleteUserMutation.isPending ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Deletando...
-                                    </>
-                                  ) : (
-                                    "Deletar"
-                                  )}
-                                </AlertDialogAction>
-                              </div>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <div className="space-y-2">
+                                  <h2 className="text-lg font-semibold">
+                                    Deletar Usuário
+                                  </h2>
+                                  <p className="text-sm text-slate-600">
+                                    Tem certeza que deseja deletar {user.name}?
+                                    Esta ação não pode ser desfeita.
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <AlertDialogCancel>
+                                    Cancelar
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteUser(user.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    disabled={deleteUserMutation.isPending}
+                                  >
+                                    {deleteUserMutation.isPending ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Deletando...
+                                      </>
+                                    ) : (
+                                      "Deletar"
+                                    )}
+                                  </AlertDialogAction>
+                                </div>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -468,8 +501,6 @@ export default function AdminPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
-
-

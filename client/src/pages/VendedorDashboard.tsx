@@ -46,6 +46,7 @@ import {
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
+import DashboardLayout from "@/components/DashboardLayout";
 import {
   getOverallSaleStatus,
   OVERALL_STATUS_LABELS,
@@ -207,8 +208,8 @@ export default function VendedorDashboard() {
   }).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -220,14 +221,6 @@ export default function VendedorDashboard() {
               Gerencie seus registros de venda e documentos
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sair</span>
-          </Button>
         </div>
 
         {/* Stats */}
@@ -731,6 +724,6 @@ export default function VendedorDashboard() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

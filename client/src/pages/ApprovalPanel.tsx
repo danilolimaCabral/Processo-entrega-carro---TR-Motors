@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DEPARTMENT_STATUS_LABELS, DEPARTMENT_STATUS_COLORS, type DepartmentStatus } from "@shared/saleStatus";
+import DashboardLayout from "@/components/DashboardLayout";
 
 export default function ApprovalPanel() {
   const { user, logout } = useAuth();
@@ -185,8 +186,8 @@ export default function ApprovalPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -195,14 +196,6 @@ export default function ApprovalPanel() {
             </h1>
             <p className="text-sm sm:text-base text-slate-600 mt-1">{getPanelDescription()}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -515,7 +508,7 @@ export default function ApprovalPanel() {
           </Card>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 

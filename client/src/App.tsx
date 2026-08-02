@@ -8,6 +8,9 @@ import Home from "./pages/Home";
 import ProcessoPublicoPage from "./pages/ProcessoPublicoPage";
 import VendedorDashboard from "./pages/VendedorDashboard";
 import ApprovalPanel from "./pages/ApprovalPanel";
+import DashboardPage from "./pages/DashboardPage";
+import ModulesPage from "./pages/ModulesPage";
+import PurchaseInspectionPage from "./pages/PurchaseInspectionPage";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -28,6 +31,14 @@ function Router() {
       <Route path="/vendedor/dashboard" component={VendedorDashboard} />
       {/* Painel de aprovação para financeiro e administrativo */}
       <Route path="/approval" component={ApprovalPanel} />
+      {/* Dashboard geral (todos) */}
+      <Route path="/dashboard" component={DashboardPage} />
+      {/* Gestão de módulos (admin) */}
+      <Route path="/modulos" component={ModulesPage} />
+      {/* Vistoria de compra */}
+      <Route path="/vistoria" component={PurchaseInspectionPage} />
+      <Route path="/vistoria/nova" component={PurchaseInspectionPage} />
+      <Route path="/vistoria/:id" component={PurchaseInspectionPage} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

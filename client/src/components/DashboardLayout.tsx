@@ -158,7 +158,7 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
             alt="TR Motors"
             className="h-10 w-auto object-contain"
           />
-          <span className="font-bold text-slate-800">TR Motors</span>
+          
         </div>
       </SidebarHeader>
 
@@ -301,7 +301,7 @@ function DashboardLayoutContent({
               alt="TR Motors"
               className="h-8 w-auto object-contain"
             />
-            <span className="font-bold text-slate-800 text-lg">TR Motors</span>
+            
           </div>
           <button
             onClick={logout}
@@ -467,9 +467,7 @@ function DashboardLayoutContent({
                 alt="TR Motors"
                 className="h-8 w-auto object-contain"
               />
-              <span className="tracking-tight text-slate-900 font-semibold text-lg">
-                {title ?? activeMenuItem?.label ?? "TR Motors"}
-              </span>
+
             </div>
           </div>
           <button

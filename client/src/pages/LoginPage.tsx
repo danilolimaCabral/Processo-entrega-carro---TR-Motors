@@ -21,14 +21,12 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: () => {
       toast.success("Login realizado com sucesso!");
-      setEmail("");
-      setPassword("");
-      setError(null);
-      if (onLoginSuccess) {
-        setTimeout(onLoginSuccess, 500);
-      } else {
+      // Force a full page reload after 1 second to ensure the JWT cookie is picked up
+      // by the server-side session check. This avoids issues with React state not
+      // reflecting the new authenticated user immediately.
+      setTimeout(() => {
         window.location.reload();
-      }
+      }, 1000);
     },
     onError: (error) => {
       setError(error.message || "Erro ao fazer login");

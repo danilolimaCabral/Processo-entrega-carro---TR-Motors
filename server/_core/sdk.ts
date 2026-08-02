@@ -211,9 +211,12 @@ class SDKServer {
       });
       const { openId, appId, name } = payload as Record<string, unknown>;
 
+      // For local users (openId starts with 'local_'), appId can be empty
+      // since they don't use OAuth. Only require appId for OAuth users.
+      const isLocalUser = typeof openId === 'string' && openId.startsWith('local_');
       if (
         !isNonEmptyString(openId) ||
-        !isNonEmptyString(appId) ||
+        (!isLocalUser && !isNonEmptyString(appId)) ||
         !isNonEmptyString(name)
       ) {
         console.warn("[Auth] Session payload missing required fields");
@@ -221,9 +224,9 @@ class SDKServer {
       }
 
       return {
-        openId,
-        appId,
-        name,
+        openId: String(openId),
+        appId: typeof appId === 'string' ? appId : '',
+        name: String(name),
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));

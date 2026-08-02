@@ -6,7 +6,7 @@ import AdminPage from "./AdminPage";
 import { useLocation } from "wouter";
 
 export default function Home() {
-  const { user, loading, refresh } = useAuth();
+  const { user, loading } = useAuth();
   const [, navigate] = useLocation();
 
   // Handle navigation in useEffect to avoid setState during render
@@ -23,14 +23,7 @@ export default function Home() {
   if (loading) return <DashboardLayoutSkeleton />;
 
   if (!user) {
-    return (
-      <LoginPage
-        onLoginSuccess={() => {
-          if (refresh) refresh();
-          else window.location.reload();
-        }}
-      />
-    );
+    return <LoginPage />;
   }
 
   // Route users to their respective panels

@@ -48,6 +48,8 @@ import {
   MessageCircle,
   Printer,
   Send,
+  Loader2,
+  Car,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -157,6 +159,34 @@ function DocumentForm({
     setForm({ ...form, [field]: value });
   };
 
+  // Consulta placa via API
+  const { mutate: consultPlate, isPending: consultingPlate } = trpc.despachante.consultPlate.useMutation();
+
+  const handleConsultPlate = () => {
+    if (!form.vehiclePlate || form.vehiclePlate.replace(/[^a-zA-Z0-9]/g, "").length < 7) {
+      toast.error("Digite uma placa válida (mínimo 7 caracteres)");
+      return;
+    }
+    consultPlate(
+      { plate: form.vehiclePlate },
+      {
+        onSuccess: (result) => {
+          if (result.success && result.data) {
+            updateField("vehicleBrand", result.data.brand || "");
+            updateField("vehicleModel", result.data.model || "");
+            updateField("vehicleYear", result.data.year ? String(result.data.year) : "");
+            toast.success("Dados do veículo encontrados!");
+          } else {
+            toast.warning(result.message || "Veículo não encontrado");
+          }
+        },
+        onError: () => {
+          toast.error("Erro ao consultar placa");
+        },
+      }
+    );
+  };
+
   return (
     <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
       {/* Dados do Cliente */}
@@ -209,11 +239,38 @@ function DocumentForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Placa</Label>
-            <Input
-              placeholder="ABC-1234"
-              value={form.vehiclePlate}
-              onChange={(e) => updateField("vehiclePlate", e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                placeholder="ABC-1234"
+                value={form.vehiclePlate}
+                onChange={(e) => updateField("vehiclePlate", e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleConsultPlate();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleConsultPlate}
+                disabled={consultingPlate || !form.vehiclePlate || form.vehiclePlate.replace(/[^a-zA-Z0-9]/g, "").length < 7}
+                className="shrink-0"
+                title="Consultar placa automaticamente"
+              >
+                {consultingPlate ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Search size={16} />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 flex items-center gap-1">
+              <Car size={12} />
+              Preencha a placa e pressione Enter ou clique na lupa para buscar dados
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Marca</Label>

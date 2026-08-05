@@ -4,6 +4,129 @@ import { protectedProcedure, router, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { despachante_documents, type InsertDespachanteDocument } from "../../drizzle/schema";
 
+/**
+ * Consulta placa via APIBrasil (100 req/dia grátis)
+ */
+async function queryApiBrasil(plate: string): Promise<Record<string, any> | null> {
+  const token = process.env.APIBRASIL_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(
+      `https://app.apibrasil.io/api/v1/veiculos/dados?placa=${plate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      brand: data.marca || data.brand || null,
+      model: data.modelo || data.model || null,
+      year: data.ano || data.year || null,
+      fuel: data.combustivel || data.fuel || null,
+      color: data.cor || data.color || null,
+      uf: data.uf || data.state || null,
+      city: data.municipio || data.city || null,
+      chassi: data.chassi || data.chassis || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consulta placa via PuxaPlaca (usa token se configurado)
+ */
+async function queryPuxaPlaca(plate: string): Promise<Record<string, any> | null> {
+  const token = process.env.PUXAPLACA_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(
+      `https://sis.puxaplaca.app/api/consulta/placa/${plate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      brand: data.marca || data.brand || null,
+      model: data.modelo || data.model || null,
+      year: data.ano || data.year || null,
+      fuel: data.combustivel || data.fuel || null,
+      color: data.cor || data.color || null,
+      uf: data.uf || null,
+      chassi: data.chassi || null,
+      renavam: data.renavam || null,
+      fipe: data.fipe || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consulta placa via APIPlacas (usa token se configurado)
+ */
+async function queryApiPlacas(plate: string): Promise<Record<string, any> | null> {
+  const token = process.env.APIPLACAS_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(
+      `https://apiplacas.com.br/api/consulta/${plate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      brand: data.marca || data.brand || null,
+      model: data.modelo || data.model || null,
+      year: data.ano || data.year || null,
+      fuel: data.combustivel || data.fuel || null,
+      color: data.cor || data.color || null,
+      uf: data.uf || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consulta placa com fallback entre APIs gratuitas
+ * Tenta: APIBrasil -> PuxaPlaca -> APIPlacas
+ */
+async function queryPlateWithFallback(plate: string): Promise<Record<string, any> | null> {
+  const cleanPlate = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  if (cleanPlate.length < 7 || cleanPlate.length > 8) {
+    return null;
+  }
+
+  // Tenta cada API em ordem de preferência
+  const apis = [queryApiBrasil, queryPuxaPlaca, queryApiPlacas];
+  for (const apiFn of apis) {
+    const result = await apiFn(cleanPlate);
+    if (result && (result.brand || result.model)) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
 export const despachanteRouter = router({
   /**
    * List all despachante documents with optional search
@@ -220,6 +343,37 @@ export const despachanteRouter = router({
         .where(eq(despachante_documents.id, input.id));
 
       return { success: true, url: whatsappUrl };
+    }),
+
+  /**
+   * Consulta dados do veículo pela placa usando APIs gratuitas
+   */
+  consultPlate: protectedProcedure
+    .input(z.object({ plate: z.string().min(7) }))
+    .query(async ({ input }) => {
+      const result = await queryPlateWithFallback(input.plate);
+      if (!result) {
+        return {
+          success: false,
+          message: "Veículo não encontrado. Verifique a placa ou configure uma API de consulta.",
+          data: null,
+          configuredApis: {
+            apiBrasil: !!process.env.APIBRASIL_TOKEN,
+            puxaPlaca: !!process.env.PUXAPLACA_TOKEN,
+            apiPlacas: !!process.env.APIPLACAS_TOKEN,
+          },
+        };
+      }
+      return {
+        success: true,
+        message: "Dados encontrados com sucesso!",
+        data: result,
+        configuredApis: {
+          apiBrasil: !!process.env.APIBRASIL_TOKEN,
+          puxaPlaca: !!process.env.PUXAPLACA_TOKEN,
+          apiPlacas: !!process.env.APIPLACAS_TOKEN,
+        },
+      };
     }),
 
   /**

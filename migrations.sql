@@ -2,6 +2,7 @@
 -- Generated from drizzle/schema.ts
 
 -- Drop existing tables (safe since we recreate everything)
+DROP TABLE IF EXISTS `despachante_documents`;
 DROP TABLE IF EXISTS `inspection_photos`;
 DROP TABLE IF EXISTS `purchase_inspections`;
 DROP TABLE IF EXISTS `erp_modules`;
@@ -170,6 +171,46 @@ CREATE TABLE `purchase_inspections` (
   CONSTRAINT `purchase_inspections_id` PRIMARY KEY(`id`)
 );
 
+-- Despachante Documents table
+CREATE TABLE `despachante_documents` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `client_name` varchar(255) NOT NULL,
+  `client_cpf` varchar(20) NOT NULL,
+  `client_phone` varchar(20),
+  `client_email` varchar(255),
+  `vehicle_plate` varchar(10),
+  `vehicle_brand` varchar(100),
+  `vehicle_model` varchar(100),
+  `vehicle_year` int,
+  `doc_rg` boolean DEFAULT false,
+  `doc_cpf` boolean DEFAULT false,
+  `doc_comprovante_residencia` boolean DEFAULT false,
+  `doc_cnh` boolean DEFAULT false,
+  `doc_certificado_nascimento` boolean DEFAULT false,
+  `doc_comprovante_pagamento` boolean DEFAULT false,
+  `doc_poder_juridica` boolean DEFAULT false,
+  `doc_dut` boolean DEFAULT false,
+  `doc_outro` varchar(255),
+  `service_transferencia` boolean DEFAULT false,
+  `service_emplacamento` boolean DEFAULT false,
+  `service_licenciamento` boolean DEFAULT false,
+  `service_crv_crlv` boolean DEFAULT false,
+  `service_cartorio` boolean DEFAULT false,
+  `service_reconhecimento_firma` boolean DEFAULT false,
+  `status` enum('pendente','documentos_coletados','em_processamento','cartorio','detran','concluido','cancelado') DEFAULT 'pendente',
+  `sent_via_whatsapp` boolean DEFAULT false,
+  `sent_via_email` boolean DEFAULT false,
+  `whatsapp_at` datetime,
+  `email_at` datetime,
+  `observations` text,
+  `cartorio_status` enum('nao_necessario','pendente','enviado','registrado','rejeitado') DEFAULT 'nao_necessario',
+  `cartorio_observation` varchar(500),
+  `user_id` int,
+  `created_at` datetime NOT NULL DEFAULT (now()),
+  `updated_at` datetime NOT NULL DEFAULT (now()),
+  CONSTRAINT `despachante_documents_id` PRIMARY KEY(`id`)
+);
+
 -- Inspection Photos table
 CREATE TABLE `inspection_photos` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -203,4 +244,5 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('clientes', 'Clientes', 'Cadastro e gestão de clientes', 'Users', '/clientes', '["admin","vendedor"]', true, 6),
 ('veiculos', 'Estoque', 'Gestão de estoque de veículos', 'Warehouse', '/veiculos', '["admin","vendedor"]', true, 7),
 ('configuracoes', 'Configurações', 'Configurações do sistema e usuários', 'Settings', '/configuracoes', '["admin"]', true, 8),
-('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9);
+('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9),
+('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10);

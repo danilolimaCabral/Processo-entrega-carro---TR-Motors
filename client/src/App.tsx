@@ -11,6 +11,7 @@ import ApprovalPanel from "./pages/ApprovalPanel";
 import DashboardPage from "./pages/DashboardPage";
 import ModulesPage from "./pages/ModulesPage";
 import PurchaseInspectionPage from "./pages/PurchaseInspectionPage";
+import DespachantePage from "./pages/DespachantePage";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -39,6 +40,8 @@ function Router() {
       <Route path="/vistoria" component={PurchaseInspectionPage} />
       <Route path="/vistoria/nova" component={PurchaseInspectionPage} />
       <Route path="/vistoria/:id" component={PurchaseInspectionPage} />
+      {/* Despachante */}
+      <Route path="/despachante" component={DespachantePage} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

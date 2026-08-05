@@ -353,3 +353,68 @@ export const inspection_photos = mysqlTable("inspection_photos", {
 
 export type InspectionPhoto = typeof inspection_photos.$inferSelect;
 export type InsertInspectionPhoto = typeof inspection_photos.$inferInsert;
+
+// ============================================================
+// Despachante - Documentos e Serviços de Despachante
+// ============================================================
+export const despachante_documents = mysqlTable("despachante_documents", {
+  id: int("id").primaryKey().autoincrement(),
+  clientName: varchar("client_name", { length: 255 }).notNull(),
+  clientCpf: varchar("client_cpf", { length: 20 }).notNull(),
+  clientPhone: varchar("client_phone", { length: 20 }),
+  clientEmail: varchar("client_email", { length: 255 }),
+  vehiclePlate: varchar("vehicle_plate", { length: 10 }),
+  vehicleBrand: varchar("vehicle_brand", { length: 100 }),
+  vehicleModel: varchar("vehicle_model", { length: 100 }),
+  vehicleYear: int("vehicle_year"),
+  // Documentos obrigatórios
+  docRg: boolean("doc_rg").default(false),
+  docCpf: boolean("doc_cpf").default(false),
+  docComprovanteResidencia: boolean("doc_comprovante_residencia").default(false),
+  docCnh: boolean("doc_cnh").default(false),
+  docCertificadoNascimento: boolean("doc_certificado_nascimento").default(false),
+  docComprovantePagamento: boolean("doc_comprovante_pagamento").default(false),
+  docPoderJuridica: boolean("doc_poder_juridica").default(false),
+  docDut: boolean("doc_dut").default(false),
+  docOutro: varchar("doc_outro", { length: 255 }),
+  // Serviços de despachante
+  serviceTransferencia: boolean("service_transferencia").default(false),
+  serviceEmplacamento: boolean("service_emplacamento").default(false),
+  serviceLicenciamento: boolean("service_licenciamento").default(false),
+  serviceCrvCrlv: boolean("service_crv_crlv").default(false),
+  serviceCartorio: boolean("service_cartorio").default(false),
+  serviceReconhecimentoFirma: boolean("service_reconhecimento_firma").default(false),
+  // Status
+  status: mysqlEnum("status", [
+    "pendente",
+    "documentos_coletados",
+    "em_processamento",
+    "cartorio",
+    "detran",
+    "concluido",
+    "cancelado",
+  ]).default("pendente"),
+  // Comunicação
+  sentViaWhatsapp: boolean("sent_via_whatsapp").default(false),
+  sentViaEmail: boolean("sent_via_email").default(false),
+  whatsappAt: datetime("whatsapp_at"),
+  emailAt: datetime("email_at"),
+  // Observações
+  observations: text("observations"),
+  // Cartório
+  cartorioStatus: mysqlEnum("cartorio_status", [
+    "nao_necessario",
+    "pendente",
+    "enviado",
+    "registrado",
+    "rejeitado",
+  ]).default("nao_necessario"),
+  cartorioObservation: varchar("cartorio_observation", { length: 500 }),
+  // Meta
+  userId: int("user_id").references(() => users.id),
+  createdAt: datetime("created_at").defaultNow().notNull(),
+  updatedAt: datetime("updated_at").defaultNow().notNull(),
+});
+
+export type DespachanteDocument = typeof despachante_documents.$inferSelect;
+export type InsertDespachanteDocument = typeof despachante_documents.$inferInsert;

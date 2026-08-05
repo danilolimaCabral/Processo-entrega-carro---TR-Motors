@@ -9,6 +9,7 @@ import { checklistRouter } from "./routers/checklist";
 import { administrativeChecklistRouter } from "./routers/administrativeChecklist";
 import { modulesRouter } from "./routers/modules";
 import { purchaseInspectionRouter } from "./routers/purchaseInspection";
+import { despachanteRouter } from "./routers/despachante";
 
 export const appRouter = router({
   system: systemRouter,
@@ -32,6 +33,7 @@ export const appRouter = router({
   administrativeChecklist: administrativeChecklistRouter,
   modules: modulesRouter,
   purchaseInspection: purchaseInspectionRouter,
+  despachante: despachanteRouter,
 });
 
 export type AppRouter = typeof appRouter;

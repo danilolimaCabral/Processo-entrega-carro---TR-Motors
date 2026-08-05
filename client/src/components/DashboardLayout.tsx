@@ -18,6 +18,8 @@ import {
   Blocks,
   ClipboardList,
   Camera,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -47,6 +49,7 @@ function getMenuItems(role: string) {
     items.push({ icon: Car, label: "Vendas", path: "/vendedor/dashboard" });
     items.push({ icon: ClipboardList, label: "Checklist", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", path: "/vistoria" });
+    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
     items.push({ icon: DollarSign, label: "Financeiro", path: "/approval" });
     items.push({ icon: Building2, label: "Administrativo", path: "/approval" });
     items.push({ icon: Users, label: "Usuários", path: "/" });
@@ -55,10 +58,13 @@ function getMenuItems(role: string) {
     items.push({ icon: Car, label: "Vendas", path: "/vendedor/dashboard" });
     items.push({ icon: ClipboardList, label: "Checklist", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", path: "/vistoria" });
+    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
   } else if (role === "financeiro") {
     items.push({ icon: DollarSign, label: "Financeiro", path: "/approval" });
+    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
   } else if (role === "administrativo") {
     items.push({ icon: Building2, label: "Administrativo", path: "/approval" });
+    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
   }
 
   return items;

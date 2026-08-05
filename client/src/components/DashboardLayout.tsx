@@ -20,6 +20,8 @@ import {
   Camera,
   FileSpreadsheet,
   FileText,
+  Briefcase,
+  Settings,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -40,31 +42,31 @@ import {
 } from "@/components/ui/sidebar";
 
 function getMenuItems(role: string) {
-  const items: { icon: typeof LayoutDashboard; label: string; path: string }[] = [];
+  const items: { icon: typeof LayoutDashboard; label: string; shortLabel: string; path: string }[] = [];
 
   // Dashboard visible for all roles
-  items.push({ icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" });
+  items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard" });
 
   if (role === "admin") {
-    items.push({ icon: Car, label: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: ClipboardList, label: "Checklist", path: "/vendedor/dashboard" });
-    items.push({ icon: Camera, label: "Vistoria Compra", path: "/vistoria" });
-    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
-    items.push({ icon: DollarSign, label: "Financeiro", path: "/approval" });
-    items.push({ icon: Building2, label: "Administrativo", path: "/approval" });
-    items.push({ icon: Users, label: "Usuários", path: "/" });
-    items.push({ icon: Blocks, label: "Módulos", path: "/modulos" });
+    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
+    items.push({ icon: ClipboardList, label: "Checklist", shortLabel: "Check", path: "/vendedor/dashboard" });
+    items.push({ icon: Camera, label: "Vistoria", shortLabel: "Vistoria", path: "/vistoria" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
+    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
+    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
+    items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/" });
+    items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos" });
   } else if (role === "vendedor") {
-    items.push({ icon: Car, label: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: ClipboardList, label: "Checklist", path: "/vendedor/dashboard" });
-    items.push({ icon: Camera, label: "Vistoria Compra", path: "/vistoria" });
-    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
+    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
+    items.push({ icon: ClipboardList, label: "Checklist", shortLabel: "Check", path: "/vendedor/dashboard" });
+    items.push({ icon: Camera, label: "Vistoria", shortLabel: "Vistoria", path: "/vistoria" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
   } else if (role === "financeiro") {
-    items.push({ icon: DollarSign, label: "Financeiro", path: "/approval" });
-    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
+    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
   } else if (role === "administrativo") {
-    items.push({ icon: Building2, label: "Administrativo", path: "/approval" });
-    items.push({ icon: FileSpreadsheet, label: "Despachante", path: "/despachante" });
+    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
   }
 
   return items;
@@ -157,14 +159,13 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
 }) {
   return (
     <div className="flex flex-col h-full bg-slate-900">
-      <SidebarHeader className="h-20 justify-center bg-white border-b border-slate-200">
+      <SidebarHeader className="h-16 justify-center bg-white border-b border-slate-200">
         <div className="flex items-center gap-3 px-2 w-full">
           <img
             src="/tr_logo.png"
             alt="TR Motors"
-            className="h-10 w-auto object-contain"
+            className="h-9 w-auto object-contain"
           />
-          
         </div>
       </SidebarHeader>
 
@@ -179,7 +180,7 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
                   onClick={() => {
                     setLocation(item.path);
                   }}
-                  className={`h-11 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
+                  className={`h-10 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
                     isActive
                       ? "bg-red-600/20 text-red-400 hover:bg-red-600/20 hover:text-red-400 border-l-2 border-red-500"
                       : ""
@@ -295,52 +296,69 @@ function DashboardLayoutContent({
     };
   }, [isResizing, setSidebarWidth]);
 
-  // MOBILE: Use a bottom navigation bar instead of sidebar
+  // MOBILE: Use a compact bottom navigation bar
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Mobile Header */}
-        <header className="bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-          <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-gray-50 flex flex-col h-screen overflow-hidden">
+        {/* Mobile Header - compact */}
+        <header className="bg-white border-b border-gray-200 px-3 h-12 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
+          <div className="flex items-center gap-2">
             <img
               src="/tr_logo.png"
-              alt="TR Motors"
-              className="h-8 w-auto object-contain"
+              alt="TR"
+              className="h-7 w-auto object-contain"
             />
-            
           </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-1 text-sm text-slate-500 hover:text-red-600 transition"
-          >
-            <LogOut size={18} />
-            <span className="hidden sm:inline">Sair</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
+                <Avatar className="h-6 w-6 border border-slate-300 bg-red-600">
+                  <AvatarFallback className="text-[9px] font-medium text-white">
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem className="text-xs text-slate-500" disabled>
+                {user?.name}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={logout}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <LogOut className="mr-2 h-3.5 w-3.5" />
+                <span className="text-sm">Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
-        {/* Main Content */}
-        <main className="flex-1 p-3 pb-20 overflow-y-auto">
-          {children}
+        {/* Main Content - scrollable */}
+        <main className="flex-1 overflow-y-auto pb-16">
+          <div className="p-3">
+            {children}
+          </div>
         </main>
 
-        {/* Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom">
-          <div className="flex items-center justify-around px-1 py-1">
+        {/* Bottom Navigation - compact & scrollable horizontally */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center overflow-x-auto scrollbar-hide px-1 py-1.5 gap-0.5">
             {menuItems.map((item) => {
               const isActive = location === item.path;
               return (
                 <button
                   key={item.path}
                   onClick={() => setLocation(item.path)}
-                  className={`flex flex-col items-center justify-center px-2 py-2 rounded-lg transition min-w-0 ${
+                  className={`flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg transition min-w-0 flex-1 ${
                     isActive
-                      ? "text-red-600"
-                      : "text-slate-400 hover:text-slate-600"
+                      ? "text-red-600 bg-red-50"
+                      : "text-slate-400 hover:text-slate-600 hover:bg-gray-50"
                   }`}
                 >
-                  <item.icon size={20} />
-                  <span className="text-[10px] mt-0.5 font-medium truncate max-w-[60px]">
-                    {item.label.split(" ").slice(0, 2).join(" ")}
+                  <item.icon size={18} className="shrink-0" />
+                  <span className="text-[9px] mt-0.5 font-medium truncate leading-tight">
+                    {item.shortLabel}
                   </span>
                 </button>
               );
@@ -360,7 +378,7 @@ function DashboardLayoutContent({
           className="border-r-0 bg-slate-900 border-slate-800"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-20 justify-center bg-white border-b border-slate-200">
+          <SidebarHeader className="h-16 justify-center bg-white border-b border-slate-200">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
@@ -374,14 +392,14 @@ function DashboardLayoutContent({
                   <img
                     src="/tr_logo.png"
                     alt="TR Motors"
-                    className="h-10 w-auto object-contain"
+                    className="h-9 w-auto object-contain"
                   />
                 </div>
               ) : (
                 <img
                   src="/tr_logo.png"
                   alt="TR"
-                  className="h-8 w-8 object-contain"
+                  className="h-7 w-7 object-contain"
                 />
               )}
             </div>
@@ -397,7 +415,7 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-11 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
+                      className={`h-10 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
                         isActive
                           ? "bg-red-600/20 text-red-400 hover:bg-red-600/20 hover:text-red-400 border-l-2 border-red-500"
                           : ""
@@ -464,16 +482,15 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset className="bg-gray-50">
-        <div className="flex border-b h-14 items-center justify-between bg-white px-4 sticky top-0 z-40">
+        <div className="flex border-b h-12 items-center justify-between bg-white px-4 sticky top-0 z-40">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="h-9 w-9 rounded-lg bg-slate-100" />
-            <div className="flex items-center gap-3">
+            <SidebarTrigger className="h-8 w-8 rounded-lg bg-slate-100" />
+            <div className="flex items-center gap-2">
               <img
                 src="/tr_logo.png"
-                alt="TR Motors"
-                className="h-8 w-auto object-contain"
+                alt="TR"
+                className="h-7 w-auto object-contain"
               />
-
             </div>
           </div>
           <button

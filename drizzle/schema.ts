@@ -397,8 +397,8 @@ export const despachante_documents = mysqlTable("despachante_documents", {
   // Comunicação
   sentViaWhatsapp: boolean("sent_via_whatsapp").default(false),
   sentViaEmail: boolean("sent_via_email").default(false),
-  whatsappAt: datetime("whatsapp_at"),
-  emailAt: datetime("email_at"),
+  whatsappAt: timestamp("whatsapp_at"),
+  emailAt: timestamp("email_at"),
   // Observações
   observations: text("observations"),
   // Cartório
@@ -412,8 +412,8 @@ export const despachante_documents = mysqlTable("despachante_documents", {
   cartorioObservation: varchar("cartorio_observation", { length: 500 }),
   // Meta
   userId: int("user_id").references(() => users.id),
-  createdAt: datetime("created_at").defaultNow().notNull(),
-  updatedAt: datetime("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export type DespachanteDocument = typeof despachante_documents.$inferSelect;

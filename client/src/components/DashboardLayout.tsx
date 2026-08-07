@@ -45,13 +45,11 @@ import {
 
 function getMenuItems(role: string) {
   const items: { icon: typeof LayoutDashboard; label: string; shortLabel: string; path: string }[] = [];
-
   // Dashboard visible for all roles
   items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard" });
-
   if (role === "admin") {
+    // Admin sees everything
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: ClipboardList, label: "Checklist", shortLabel: "Check", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
     items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
@@ -61,9 +59,7 @@ function getMenuItems(role: string) {
     items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos" });
   } else if (role === "vendedor") {
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: ClipboardList, label: "Checklist", shortLabel: "Check", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
-    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
   } else if (role === "financeiro") {
     items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
@@ -73,7 +69,6 @@ function getMenuItems(role: string) {
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
     items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
   }
-
   return items;
 }
 

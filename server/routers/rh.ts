@@ -9,12 +9,14 @@ import {
   rh_leave_requests,
   rh_attendance,
   rh_holidays,
+  rh_sales_commissions,
   type InsertDepartment,
   type InsertPosition,
   type InsertEmployee,
   type InsertLeaveRequest,
   type InsertAttendance,
   type InsertHoliday,
+  type InsertSalesCommission,
 } from "../../drizzle/schema";
 
 export const rhRouter = router({
@@ -357,6 +359,110 @@ export const rhRouter = router({
       const db = await getDb();
       await db.delete(rh_holidays).where(eq(rh_holidays.id, input.id));
       return { success: true };
+    }),
+
+  // ==================== Sales Commissions ====================
+  listCommissions: protectedProcedure
+    .input(
+      z.object({
+        employeeId: z.number().optional(),
+        month: z.string().optional(),
+        status: z.string().optional(),
+      }).optional()
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      let query = db
+        .select({
+          commission: rh_sales_commissions,
+          employee: rh_employees,
+        })
+        .from(rh_sales_commissions)
+        .innerJoin(rh_employees, eq(rh_sales_commissions.employeeId, rh_employees.id));
+
+      if (input?.employeeId) {
+        query = query.where(eq(rh_sales_commissions.employeeId, input.employeeId));
+      } else if (input?.month) {
+        query = query.where(eq(rh_sales_commissions.month, input.month));
+      } else if (input?.status) {
+        query = query.where(eq(rh_sales_commissions.status, input.status as any));
+      }
+      return query.orderBy(desc(rh_sales_commissions.createdAt));
+    }),
+
+  createCommission: protectedProcedure
+    .input(
+      z.object({
+        employeeId: z.number(),
+        saleRecordId: z.number().optional(),
+        vehicleDescription: z.string().optional(),
+        salePrice: z.string(),
+        commissionPercent: z.string(),
+        helpCost: z.string().optional(),
+        month: z.string().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const salePrice = parseFloat(input.salePrice);
+      const commissionPercent = parseFloat(input.commissionPercent);
+      const helpCost = parseFloat(input.helpCost || "0");
+      const commissionAmount = (salePrice * commissionPercent) / 100;
+      const month = input.month || new Date().toISOString().slice(0, 7);
+
+      const result = await db.insert(rh_sales_commissions).values({
+        ...input,
+        helpCost: helpCost,
+        commissionAmount: commissionAmount.toString(),
+        month,
+        status: "pendente",
+        createdBy: ctx.user?.id,
+      } as InsertSalesCommission);
+
+      // Update employee stats
+      await db.update(rh_employees)
+        .set({
+          salesCount: (await db.select({ c: count() }).from(rh_employees).where(eq(rh_employees.id, input.employeeId)))[0]?.c !== undefined
+            ? 1
+            : undefined,
+        })
+        .where(eq(rh_employees.id, input.employeeId));
+
+      return { success: true, id: result[0].insertId, commissionAmount };
+    }),
+
+  updateCommissionStatus: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.enum(["pendente", "pago", "cancelado"]),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const data: any = { status: input.status };
+      if (input.status === "pago") data.paidAt = new Date();
+      await db.update(rh_sales_commissions).set(data).where(eq(rh_sales_commissions.id, input.id));
+      return { success: true };
+    }),
+
+  commissionSummary: protectedProcedure
+    .input(z.object({ month: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const month = input?.month || new Date().toISOString().slice(0, 7);
+      const commissions = await db
+        .select()
+        .from(rh_sales_commissions)
+        .where(eq(rh_sales_commissions.month, month));
+
+      const totalCommission = commissions.reduce((sum, c) => sum + parseFloat(c.commissionAmount || "0"), 0);
+      const totalHelpCost = commissions.reduce((sum, c) => sum + parseFloat(c.helpCost || "0"), 0);
+      const paid = commissions.filter(c => c.status === "pago").length;
+      const pending = commissions.filter(c => c.status === "pendente").length;
+
+      return { totalCommission, totalHelpCost, paid, pending, count: commissions.length, month };
     }),
 
   // ==================== Dashboard Stats ====================

@@ -454,6 +454,10 @@ export const rh_employees = mysqlTable("rh_employees", {
   departmentId: int("department_id").references(() => rh_departments.id),
   hireDate: varchar("hire_date", { length: 10 }), // YYYY-MM-DD
   salary: decimal("salary", { precision: 12, scale: 2 }),
+  helpCost: decimal("help_cost", { precision: 12, scale: 2 }),
+  commissionPercent: decimal("commission_percent", { precision: 5, scale: 2 }),
+  salesCount: int("sales_count").default(0),
+  totalSales: decimal("total_sales", { precision: 14, scale: 2 }).default("0"),
   status: mysqlEnum("status", ["ativo", "ativo_ferias", "desligado", "afastado"]).default("ativo").notNull(),
   address: text("address"),
   emergencyContact: varchar("emergency_contact", { length: 255 }),
@@ -508,3 +512,23 @@ export const rh_holidays = mysqlTable("rh_holidays", {
 });
 export type Holiday = typeof rh_holidays.$inferSelect;
 export type InsertHoliday = typeof rh_holidays.$inferInsert;
+// RH Sales Commissions - registro de vendas e comissões por funcionário
+export const rh_sales_commissions = mysqlTable("rh_sales_commissions", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").references(() => rh_employees.id).notNull(),
+  saleRecordId: int("sale_record_id"),
+  vehicleDescription: varchar("vehicle_description", { length: 255 }), // e.g. "Honda Civic 2024"
+  salePrice: decimal("sale_price", { precision: 12, scale: 2 }),
+  commissionPercent: decimal("commission_percent", { precision: 5, scale: 2 }),
+  commissionAmount: decimal("commission_amount", { precision: 12, scale: 2 }),
+  helpCost: decimal("help_cost", { precision: 12, scale: 2 }),
+  month: varchar("month", { length: 7 }), // YYYY-MM
+  status: mysqlEnum("status", ["pendente", "pago", "cancelado"]).default("pendente").notNull(),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type SalesCommission = typeof rh_sales_commissions.$inferSelect;
+export type InsertSalesCommission = typeof rh_sales_commissions.$inferInsert;

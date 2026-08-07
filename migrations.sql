@@ -266,6 +266,10 @@ CREATE TABLE `rh_employees` (
   `department_id` int,
   `hire_date` varchar(10),
   `salary` decimal(12,2),
+  `help_cost` decimal(12,2),
+  `commission_percent` decimal(5,2),
+  `sales_count` int DEFAULT 0,
+  `total_sales` decimal(14,2) DEFAULT 0,
   `status` enum('ativo','ativo_ferias','desligado','afastado') NOT NULL DEFAULT 'ativo',
   `address` text,
   `emergency_contact` varchar(255),
@@ -318,6 +322,26 @@ CREATE TABLE `rh_holidays` (
   `type` enum('nacional','municipal','empresa') NOT NULL DEFAULT 'nacional',
   `created_at` timestamp NOT NULL DEFAULT (now()),
   CONSTRAINT `rh_holidays_id` PRIMARY KEY(`id`)
+);
+
+-- RH Sales Commissions table
+CREATE TABLE `rh_sales_commissions` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `sale_record_id` int,
+  `vehicle_description` varchar(255),
+  `sale_price` decimal(12,2),
+  `commission_percent` decimal(5,2),
+  `commission_amount` decimal(12,2),
+  `help_cost` decimal(12,2),
+  `month` varchar(7),
+  `status` enum('pendente','pago','cancelado') NOT NULL DEFAULT 'pendente',
+  `paid_at` timestamp,
+  `notes` text,
+  `created_by` int,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_sales_commissions_id` PRIMARY KEY(`id`)
 );
 
 -- Seed test users (password: 123456, bcrypt hash)

@@ -16,10 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Users, Briefcase, Building2, Calendar, Clock, Plus, Edit, Trash2,
-  UserCheck, UserX, Coffee, CalendarDays, Activity,
+  UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
 } from "lucide-react";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "ferias" | "ponto" | "feriados";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "comissoes" | "ferias" | "ponto" | "feriados";
 
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -30,6 +30,7 @@ export default function RhPage() {
     { id: "funcionarios" as Tab, label: "Funcionários", icon: Users },
     { id: "departamentos" as Tab, label: "Departamentos", icon: Building2 },
     { id: "cargos" as Tab, label: "Cargos", icon: Briefcase },
+    { id: "comissoes" as Tab, label: "Comissões", icon: DollarSign },
     { id: "ferias" as Tab, label: "Férias", icon: Calendar },
     { id: "ponto" as Tab, label: "Ponto", icon: Clock },
     { id: "feriados" as Tab, label: "Feriados", icon: CalendarDays },
@@ -62,6 +63,7 @@ export default function RhPage() {
         {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
         {activeTab === "departamentos" && <DepartmentsTab />}
         {activeTab === "cargos" && <PositionsTab />}
+        {activeTab === "comissoes" && <CommissionsTab />}
         {activeTab === "ferias" && <LeavesTab />}
         {activeTab === "ponto" && <AttendanceTab />}
         {activeTab === "feriados" && <HolidaysTab />}
@@ -189,7 +191,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     name: "", cpf: "", email: "", phone: "",
     positionId: undefined as number | undefined,
     departmentId: undefined as number | undefined,
-    hireDate: "", salary: "", status: "ativo",
+    hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo",
     address: "", emergencyContact: "", emergencyPhone: "", notes: "",
   });
 
@@ -214,7 +216,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     setForm({
       name: emp.name, cpf: emp.cpf || "", email: emp.email || "", phone: emp.phone || "",
       positionId: emp.positionId || undefined, departmentId: emp.departmentId || undefined,
-      hireDate: emp.hireDate || "", salary: emp.salary || "", status: emp.status,
+      hireDate: emp.hireDate || "", salary: emp.salary || "", helpCost: emp.helpCost || "", commissionPercent: emp.commissionPercent || "", status: emp.status,
       address: emp.address || "", emergencyContact: emp.emergencyContact || "",
       emergencyPhone: emp.emergencyPhone || "", notes: emp.notes || "",
     });
@@ -245,7 +247,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <Input placeholder="Buscar por nome, CPF ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", hireDate: "", salary: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "" }); } setDialogOpen(o); }}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "" }); } setDialogOpen(o); }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus size={16} /> Novo Funcionário</Button>
           </DialogTrigger>
@@ -281,6 +283,10 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5"><Label>Data Admissão</Label><Input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>Salário (R$)</Label><Input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label>Ajuda de Custo (R$)</Label><Input type="number" value={form.helpCost} onChange={(e) => setForm({ ...form, helpCost: e.target.value })} placeholder="0,00" /></div>
+                <div className="space-y-1.5"><Label>Comissão Vendas (%)</Label><Input type="number" value={form.commissionPercent} onChange={(e) => setForm({ ...form, commissionPercent: e.target.value })} placeholder="0,00" step="0.01" /></div>
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
@@ -478,6 +484,142 @@ function PositionsTab() {
 }
 
 // ==================== Leaves Tab ====================
+// ==================== Commissions Tab ====================
+function CommissionsTab() {
+  const { data: commissions, refetch } = trpc.rh.listCommissions.useQuery({});
+  const { data: summary } = trpc.rh.commissionSummary.useQuery({});
+  const { data: employees } = trpc.rh.listEmployees.useQuery({});
+  const createMutation = trpc.rh.createCommission.useMutation();
+  const updateMutation = trpc.rh.updateCommissionStatus.useMutation();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState({
+    employeeId: undefined as number | undefined,
+    vehicleDescription: "",
+    salePrice: "",
+    commissionPercent: "",
+    helpCost: "",
+    month: new Date().toISOString().slice(0, 7),
+    notes: "",
+  });
+
+  const handleSubmit = () => {
+    if (!form.employeeId || !form.salePrice || !form.commissionPercent) {
+      toast.error("Funcionário, preço de venda e % de comissão são obrigatórios");
+      return;
+    }
+    createMutation.mutate(form as any, {
+      onSuccess: (res: any) => {
+        toast.success(`Comissão de R$ ${parseFloat(res.commissionAmount).toFixed(2)} calculada!`);
+        setDialogOpen(false);
+        refetch();
+      },
+      onError: () => toast.error("Erro ao criar comissão"),
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card><CardContent className="pt-4"><p className="text-xs text-slate-500">Total Comissões (Mês)</p><p className="text-xl font-bold text-blue-600">R$ {summary?.totalCommission.toFixed(2) || "0.00"}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-slate-500">Ajuda de Custo (Mês)</p><p className="text-xl font-bold text-green-600">R$ {summary?.totalHelpCost.toFixed(2) || "0.00"}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-slate-500">Pagas</p><p className="text-xl font-bold text-emerald-600">{summary?.paid || 0}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-slate-500">Pendentes</p><p className="text-xl font-bold text-amber-600">{summary?.pending || 0}</p></CardContent></Card>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setForm({ employeeId: undefined, vehicleDescription: "", salePrice: "", commissionPercent: "", helpCost: "", month: new Date().toISOString().slice(0, 7), notes: "" }); } setDialogOpen(o); }}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus size={16} /> Nova Comissão</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Nova Comissão de Venda</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Funcionário *</Label>
+                <Select value={form.employeeId ? String(form.employeeId) : undefined} onValueChange={(v) => setForm({ ...form, employeeId: Number(v) })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o funcionário..." /></SelectTrigger>
+                  <SelectContent>
+                    {employees?.map(e => (
+                      <SelectItem key={e.id} value={String(e.id)}>{e.name} ({e.commissionPercent || 0}%)</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5"><Label>Veículo (marca/modelo/ano)</Label><Input value={form.vehicleDescription} onChange={(e) => setForm({ ...form, vehicleDescription: e.target.value })} placeholder="Ex: Honda Civic 2024" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5"><Label>Preço de Venda (R$)</Label><Input type="number" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label>Comissão (%)</Label><Input type="number" value={form.commissionPercent} onChange={(e) => setForm({ ...form, commissionPercent: e.target.value })} step="0.01" /></div>
+              </div>
+              <div className="space-y-1.5"><Label>Ajuda de Custo (R$)</Label><Input type="number" value={form.helpCost} onChange={(e) => setForm({ ...form, helpCost: e.target.value })} placeholder="0,00" /></div>
+              <div className="space-y-1.5"><Label>Mês</Label><Input type="month" value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
+              <Button onClick={handleSubmit} className="w-full" disabled={createMutation.isPending}>
+                {createMutation.isPending ? "Salvando..." : "Calcular e Salvar"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Commissions Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-slate-600">
+              <th className="p-2">Funcionário</th>
+              <th className="p-2 hidden md:table-cell">Veículo</th>
+              <th className="p-2">Preço Venda</th>
+              <th className="p-2">Comissão %</th>
+              <th className="p-2">Comissão R$</th>
+              <th className="p-2 hidden md:table-cell">Ajuda Custo</th>
+              <th className="p-2 hidden lg:table-cell">Mês</th>
+              <th className="p-2">Status</th>
+              <th className="p-2">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {commissions?.map(({ commission, employee }: any) => (
+              <tr key={commission.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="p-2">{employee?.name || "-"}</td>
+                <td className="p-2 hidden md:table-cell">{commission.vehicleDescription || "-"}</td>
+                <td className="p-2">R$ {parseFloat(commission.salePrice || "0").toFixed(2)}</td>
+                <td className="p-2">{commission.commissionPercent}%</td>
+                <td className="p-2 font-semibold text-blue-600">R$ {parseFloat(commission.commissionAmount || "0").toFixed(2)}</td>
+                <td className="p-2 hidden md:table-cell">R$ {parseFloat(commission.helpCost || "0").toFixed(2)}</td>
+                <td className="p-2 hidden lg:table-cell">{commission.month || "-"}</td>
+                <td className="p-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    commission.status === "pago" ? "bg-green-100 text-green-700" :
+                    commission.status === "pendente" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                  }`}>
+                    {commission.status === "pago" ? "Pago" : commission.status === "pendente" ? "Pendente" : "Cancelado"}
+                  </span>
+                </td>
+                <td className="p-2">
+                  {commission.status === "pendente" && (
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "pago" }, { onSuccess: () => { toast.success("Comissão marcada como paga!"); refetch(); } })}>
+                        <UserCheck size={12} />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "cancelado" }, { onSuccess: () => { toast.success("Comissão cancelada"); refetch(); } })}>
+                        <Trash2 size={12} />
+                      </Button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!commissions?.length && (
+              <tr><td colSpan={9} className="p-8 text-center text-slate-500">Nenhuma comissão registrada</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function LeavesTab() {
   const { data: leaves, refetch } = trpc.rh.listLeaveRequests.useQuery();
   const { data: employees } = trpc.rh.listEmployees.useQuery();

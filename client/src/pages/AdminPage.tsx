@@ -92,7 +92,13 @@ export default function AdminPage() {
     newPassword: "",
   });
 
-  const usersQuery = trpc.admin.users.useQuery();
+  const usersQuery = trpc.admin.users.useQuery(undefined, {
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    enabled: true,
+  });
   const createUserMutation = trpc.admin.createUser.useMutation({
     onSuccess: () => {
       toast.success("Usuário criado com sucesso!");

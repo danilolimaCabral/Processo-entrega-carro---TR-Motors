@@ -2,6 +2,7 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -363,12 +364,22 @@ export default function AdminPage() {
             ) : usersQuery.isError ? (
               <div className="text-center py-8">
                 <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-2" />
-                <p className="text-sm text-red-600">
+                <p className="text-sm text-red-600 mb-3">
                   Erro ao carregar usuários
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => usersQuery.refetch()}
+                  className="mx-auto"
+                >
+                  Tentar novamente
+                </Button>
               </div>
             ) : (
-              <div className="rounded-md border overflow-x-auto">
+              <div>
+                {/* Desktop Table */}
+                <div className="hidden md:block rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -496,6 +507,104 @@ export default function AdminPage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="md:hidden space-y-3">
+                  {usersQuery.data?.map((user) => (
+                    <Card key={user.id} className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8 bg-red-100">
+                            <AvatarFallback className="text-xs font-medium text-red-700">
+                              {user.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="text-sm font-medium">{user.name}</p>
+                            <p className="text-xs text-slate-500">{user.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Badge className={ROLE_COLORS[user.role] || ""}>
+                            {ROLE_LABELS[user.role] || user.role}
+                          </Badge>
+                          <Badge
+                            variant={user.isActive ? "default" : "secondary"}
+                            className={
+                              user.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-600"
+                            }
+                          >
+                            {user.isActive ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-1 justify-end border-t pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => {
+                            setResetForm({
+                              userId: user.id,
+                              userName: user.name,
+                              newPassword: "",
+                            });
+                            setIsResetDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Senha
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleToggleActive(user.id, user.isActive)}
+                        >
+                          {user.isActive ? "Desativar" : "Ativar"}
+                        </Button>
+                        <AlertDialog
+                          open={isDeleteDialogOpen && selectedUserId === user.id}
+                          onOpenChange={(open) => {
+                            setIsDeleteDialogOpen(open);
+                            if (open) setSelectedUserId(user.id);
+                          }}
+                        >
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="flex-1 text-xs"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Deletar
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <div className="space-y-2">
+                              <h2 className="text-lg font-semibold">Deletar Usuário</h2>
+                              <p className="text-sm text-slate-600">
+                                Tem certeza que deseja deletar {user.name}?
+                              </p>
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="bg-destructive text-destructive-foreground"
+                              >
+                                Deletar
+                              </AlertDialogAction>
+                            </div>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

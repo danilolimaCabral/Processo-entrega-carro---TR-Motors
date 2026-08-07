@@ -301,13 +301,16 @@ function DashboardLayoutContent({
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header - compact */}
-        <header className="bg-white border-b border-gray-200 px-3 h-12 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
+        <header className="bg-white border-b border-gray-200 px-3 h-14 flex items-center justify-between sticky top-0 z-40 shadow-sm shrink-0">
           <div className="flex items-center gap-2">
             <img
               src="/tr_logo.png"
               alt="TR"
-              className="h-7 w-auto object-contain"
+              className="h-8 w-auto object-contain"
             />
+            <h1 className="text-sm font-semibold text-slate-800 truncate ml-1">
+              {title || activeMenuItem?.label || "TR Motors"}
+            </h1>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -342,22 +345,22 @@ function DashboardLayoutContent({
         </main>
 
         {/* Bottom Navigation - compact & scrollable horizontally */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center overflow-x-auto scrollbar-hide px-1 py-1.5 gap-0.5">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-inset-bottom shadow-[0_-4px_10px_rgba(0,0,0,0.08)]">
+          <div className="flex items-center overflow-x-auto overflow-y-hidden scrollbar-hide px-2 py-1 gap-0.5 -webkit-overflow-scrolling-touch">
             {menuItems.map((item) => {
               const isActive = location === item.path;
               return (
                 <button
                   key={item.path}
                   onClick={() => setLocation(item.path)}
-                  className={`flex flex-col items-center justify-center px-2.5 py-1.5 rounded-lg transition min-w-0 flex-1 ${
+                  className={`flex flex-col items-center justify-center px-2 py-1.5 rounded-lg transition shrink-0 min-w-[56px] max-w-[72px] ${
                     isActive
                       ? "text-red-600 bg-red-50"
                       : "text-slate-400 hover:text-slate-600 hover:bg-gray-50"
                   }`}
                 >
-                  <item.icon size={18} className="shrink-0" />
-                  <span className="text-[9px] mt-0.5 font-medium truncate leading-tight">
+                  <item.icon size={20} className="shrink-0" />
+                  <span className="text-[10px] mt-0.5 font-medium truncate leading-tight">
                     {item.shortLabel}
                   </span>
                 </button>

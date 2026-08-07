@@ -40,12 +40,12 @@ export default function RhPage() {
     <DashboardLayout title="Recursos Humanos">
       <div className="space-y-4">
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-2">
+        <div className="flex gap-1 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-hide -webkit-overflow-scrolling-touch">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 ${
                 activeTab === tab.id
                   ? "bg-blue-100 text-blue-700"
                   : "text-slate-600 hover:bg-slate-100"

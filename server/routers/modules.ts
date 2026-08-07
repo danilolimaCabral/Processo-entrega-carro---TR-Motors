@@ -133,10 +133,37 @@ export const modulesRouter = router({
       0
     );
 
+    // Sales stats for this month
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const monthSales = allSales.filter(s => {
+      const saleDate = new Date(s.createdAt);
+      return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+    });
+
+    // Status is derived: approved = both financial and admin approved
+    const isCompleted = (s: typeof allSales[0]) => 
+      s.financialStatus === "approved" && s.adminStatus === "approved";
+    const isPending = (s: typeof allSales[0]) => !isCompleted(s);
+
+    const completedSales = monthSales.filter(isCompleted).length;
+    const pendingSales = monthSales.filter(isPending).length;
+    const totalRevenue = monthSales.reduce((sum, s) => sum + parseFloat(s.vehiclePrice || "0"), 0);
+    const avgSaleValue = monthSales.length > 0 ? totalRevenue / monthSales.length : 0;
+
     return {
       vendedorStats: Object.values(vendedorStats),
       setorStats,
       totalPending,
+      salesStats: {
+        totalSales: monthSales.length,
+        completedSales,
+        pendingSales,
+        totalRevenue,
+        averageSaleValue: Math.round(avgSaleValue),
+      },
     };
   }),
 

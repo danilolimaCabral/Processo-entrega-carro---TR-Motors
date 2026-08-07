@@ -11,6 +11,9 @@ import {
   FileText,
   LayoutDashboard,
   Users,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -47,60 +50,116 @@ export default function DashboardPage() {
         </div>
         {/* Quick Stats */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-amber-100 rounded-lg">
-                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <>
+            {/* Alert de pendências */}
+            {stats.totalPending > 0 && (
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
+                <p className="text-sm font-medium text-amber-800">
+                  <strong>{stats.totalPending} pendência(s)</strong> aguardando liberação — {stats.setorStats.financeiro} no Financeiro, {stats.setorStats.administrativo} no Administrativo
+                </p>
+              </div>
+            )}
+
+            {/* Sales section */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="border-green-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-green-100 rounded-lg">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-green-700">{stats.salesStats.totalSales}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Vendas do Mês</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.totalPending}</p>
-                    <p className="text-xs text-slate-500">Documentos Parados</p>
+                </CardContent>
+              </Card>
+              <Card className="border-emerald-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-emerald-100 rounded-lg">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-emerald-700">{stats.salesStats.completedSales}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Aprovadas</p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <DollarSign className="h-5 w-5 text-blue-600" />
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-blue-100 rounded-lg">
+                      <DollarSign className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-blue-700">R$ {stats.salesStats.totalRevenue.toLocaleString('pt-BR')}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Receita Total</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.setorStats.financeiro}</p>
-                    <p className="text-xs text-slate-500">Pendentes (Financeiro)</p>
+                </CardContent>
+              </Card>
+              <Card className="border-purple-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-purple-100 rounded-lg">
+                      <Car className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-purple-700">R$ {stats.salesStats.averageSaleValue.toLocaleString('pt-BR')}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Ticket Médio</p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Building2 className="h-5 w-5 text-purple-600" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Existing pending stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Card>
+                <CardContent className="pt-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{stats.totalPending}</p>
+                      <p className="text-xs text-slate-500">Documentos Parados</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.setorStats.administrativo}</p>
-                    <p className="text-xs text-slate-500">Pendentes (Administrativo)</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{stats.setorStats.financeiro}</p>
+                      <p className="text-xs text-slate-500">Pendentes (Financeiro)</p>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Car className="h-5 w-5 text-green-600" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-5">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Building2 className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{stats.setorStats.administrativo}</p>
+                      <p className="text-xs text-slate-500">Pendentes (Administrativo)</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold">{modules.filter(m => m.isActive).length}</p>
-                    <p className="text-xs text-slate-500">Módulos Ativos</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
         )}
 
         {/* Tabs */}

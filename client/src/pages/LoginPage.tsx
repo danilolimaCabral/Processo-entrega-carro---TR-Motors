@@ -11,7 +11,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Store token in localStorage for mobile WebView support
+      if (data?.token) {
+        try {
+          localStorage.setItem("trmotors_auth_token", data.token);
+          sessionStorage.setItem("manus-cookie", `app_session_id=${data.token}`);
+        } catch {}
+      }
       toast.success("Login realizado com sucesso!");
       setTimeout(() => {
         window.location.reload();

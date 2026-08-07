@@ -78,6 +78,7 @@ export const localAuthRouter = router({
 
       return {
         success: true,
+        token,
         user: {
           id: user.id,
           name: user.name,

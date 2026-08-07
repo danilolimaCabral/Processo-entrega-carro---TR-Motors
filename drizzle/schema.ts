@@ -418,3 +418,93 @@ export const despachante_documents = mysqlTable("despachante_documents", {
 
 export type DespachanteDocument = typeof despachante_documents.$inferSelect;
 export type InsertDespachanteDocument = typeof despachante_documents.$inferInsert;
+// ============================================================
+// Módulo RH - Recursos Humanos
+// ============================================================
+
+export const rh_departments = mysqlTable("rh_departments", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Department = typeof rh_departments.$inferSelect;
+export type InsertDepartment = typeof rh_departments.$inferInsert;
+
+export const rh_positions = mysqlTable("rh_positions", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  salaryMin: decimal("salary_min", { precision: 12, scale: 2 }),
+  salaryMax: decimal("salary_max", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Position = typeof rh_positions.$inferSelect;
+export type InsertPosition = typeof rh_positions.$inferInsert;
+
+export const rh_employees = mysqlTable("rh_employees", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  cpf: varchar("cpf", { length: 14 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
+  positionId: int("position_id").references(() => rh_positions.id),
+  departmentId: int("department_id").references(() => rh_departments.id),
+  hireDate: varchar("hire_date", { length: 10 }), // YYYY-MM-DD
+  salary: decimal("salary", { precision: 12, scale: 2 }),
+  status: mysqlEnum("status", ["ativo", "ativo_ferias", "desligado", "afastado"]).default("ativo").notNull(),
+  address: text("address"),
+  emergencyContact: varchar("emergency_contact", { length: 255 }),
+  emergencyPhone: varchar("emergency_phone", { length: 20 }),
+  notes: text("notes"),
+  userId: int("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Employee = typeof rh_employees.$inferSelect;
+export type InsertEmployee = typeof rh_employees.$inferInsert;
+
+export const rh_leave_requests = mysqlTable("rh_leave_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").references(() => rh_employees.id).notNull(),
+  type: mysqlEnum("type", ["ferias", "licenca_medica", "licenca_maternidade", "folga", "falta_justificada", "falta_injustificada"]).notNull(),
+  startDate: varchar("start_date", { length: 10 }).notNull(),
+  endDate: varchar("end_date", { length: 10 }).notNull(),
+  reason: text("reason"),
+  status: mysqlEnum("status", ["pendente", "aprovado", "rejeitado", "cancelado"]).default("pendente").notNull(),
+  approvedBy: int("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type LeaveRequest = typeof rh_leave_requests.$inferSelect;
+export type InsertLeaveRequest = typeof rh_leave_requests.$inferInsert;
+
+export const rh_attendance = mysqlTable("rh_attendance", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").references(() => rh_employees.id).notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  clockIn: varchar("clock_in", { length: 5 }), // HH:MM
+  clockOut: varchar("clock_out", { length: 5 }), // HH:MM
+  breakStart: varchar("break_start", { length: 5 }),
+  breakEnd: varchar("break_end", { length: 5 }),
+  type: mysqlEnum("type", ["presencial", "home_office", "campo"]).default("presencial"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type Attendance = typeof rh_attendance.$inferSelect;
+export type InsertAttendance = typeof rh_attendance.$inferInsert;
+
+export const rh_holidays = mysqlTable("rh_holidays", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  type: mysqlEnum("type", ["nacional", "municipal", "empresa"]).default("nacional"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type Holiday = typeof rh_holidays.$inferSelect;
+export type InsertHoliday = typeof rh_holidays.$inferInsert;

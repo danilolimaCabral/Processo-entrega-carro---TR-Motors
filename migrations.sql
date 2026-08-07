@@ -2,6 +2,12 @@
 -- Generated from drizzle/schema.ts
 
 -- Drop existing tables (safe since we recreate everything)
+DROP TABLE IF EXISTS `rh_holidays`;
+DROP TABLE IF EXISTS `rh_attendance`;
+DROP TABLE IF EXISTS `rh_leave_requests`;
+DROP TABLE IF EXISTS `rh_employees`;
+DROP TABLE IF EXISTS `rh_positions`;
+DROP TABLE IF EXISTS `rh_departments`;
 DROP TABLE IF EXISTS `despachante_documents`;
 DROP TABLE IF EXISTS `inspection_photos`;
 DROP TABLE IF EXISTS `purchase_inspections`;
@@ -227,6 +233,93 @@ CREATE TABLE `inspection_photos` (
   CONSTRAINT `inspection_photos_id` PRIMARY KEY(`id`)
 );
 
+-- RH Departments table
+CREATE TABLE `rh_departments` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `description` text,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_departments_id` PRIMARY KEY(`id`)
+);
+
+-- RH Positions table
+CREATE TABLE `rh_positions` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `salary_min` decimal(12,2),
+  `salary_max` decimal(12,2),
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_positions_id` PRIMARY KEY(`id`)
+);
+
+-- RH Employees table
+CREATE TABLE `rh_employees` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `cpf` varchar(14),
+  `email` varchar(320),
+  `phone` varchar(20),
+  `position_id` int,
+  `department_id` int,
+  `hire_date` varchar(10),
+  `salary` decimal(12,2),
+  `status` enum('ativo','ativo_ferias','desligado','afastado') NOT NULL DEFAULT 'ativo',
+  `address` text,
+  `emergency_contact` varchar(255),
+  `emergency_phone` varchar(20),
+  `notes` text,
+  `user_id` int,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_employees_id` PRIMARY KEY(`id`)
+);
+
+-- RH Leave Requests table
+CREATE TABLE `rh_leave_requests` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `type` enum('ferias','licenca_medica','licenca_maternidade','folga','falta_justificada','falta_injustificada') NOT NULL,
+  `start_date` varchar(10) NOT NULL,
+  `end_date` varchar(10) NOT NULL,
+  `reason` text,
+  `status` enum('pendente','aprovado','rejeitado','cancelado') NOT NULL DEFAULT 'pendente',
+  `approved_by` int,
+  `approved_at` timestamp,
+  `rejection_reason` text,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_leave_requests_id` PRIMARY KEY(`id`)
+);
+
+-- RH Attendance table
+CREATE TABLE `rh_attendance` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `date` varchar(10) NOT NULL,
+  `clock_in` varchar(5),
+  `clock_out` varchar(5),
+  `break_start` varchar(5),
+  `break_end` varchar(5),
+  `type` enum('presencial','home_office','campo') NOT NULL DEFAULT 'presencial',
+  `notes` text,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `rh_attendance_id` PRIMARY KEY(`id`)
+);
+
+-- RH Holidays table
+CREATE TABLE `rh_holidays` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `date` varchar(10) NOT NULL,
+  `type` enum('nacional','municipal','empresa') NOT NULL DEFAULT 'nacional',
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `rh_holidays_id` PRIMARY KEY(`id`)
+);
+
 -- Seed test users (password: 123456, bcrypt hash)
 INSERT INTO `users` (`openId`, `passwordHash`, `name`, `email`, `loginMethod`, `role`, `isActive`) VALUES
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrador', 'admin@test.com', 'local', 'admin', true),
@@ -245,4 +338,5 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('veiculos', 'Estoque', 'Gestão de estoque de veículos', 'Warehouse', '/veiculos', '["admin","vendedor"]', true, 7),
 ('configuracoes', 'Configurações', 'Configurações do sistema e usuários', 'Settings', '/configuracoes', '["admin"]', true, 8),
 ('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9),
-('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10);
+('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10),
+('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo"]', true, 11);

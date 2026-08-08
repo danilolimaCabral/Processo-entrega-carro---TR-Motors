@@ -18,33 +18,33 @@ import {
   XCircle, CheckCircle, Clock,
 } from "lucide-react";
 
-type PipelineStage = "lead" | "contacted" | "proposal" | "negotiation" | "closed_won" | "closed_lost";
+type PipelineStage = "novo_lead" | "qualificado" | "proposta_enviada" | "negociando" | "venda_fechada" | "perdido";
 
 const stageLabels: Record<PipelineStage, string> = {
-  lead: "Lead",
-  contacted: "Contatado",
-  proposal: "Proposta",
-  negotiation: "Negociação",
-  closed_won: "Fechado (Vendido)",
-  closed_lost: "Fechado (Perdido)",
+  novo_lead: "Novo Lead",
+  qualificado: "Qualificado",
+  proposta_enviada: "Proposta",
+  negociando: "Negociando",
+  venda_fechada: "Venda Fechada",
+  perdido: "Perdido",
 };
 
 const stageColors: Record<PipelineStage, string> = {
-  lead: "bg-gray-100 border-gray-300",
-  contacted: "bg-blue-50 border-blue-300",
-  proposal: "bg-yellow-50 border-yellow-300",
-  negotiation: "bg-orange-50 border-orange-300",
-  closed_won: "bg-green-50 border-green-300",
-  closed_lost: "bg-red-50 border-red-300",
+  novo_lead: "bg-gray-100 border-gray-300",
+  qualificado: "bg-blue-50 border-blue-300",
+  proposta_enviada: "bg-yellow-50 border-yellow-300",
+  negociando: "bg-orange-50 border-orange-300",
+  venda_fechada: "bg-green-50 border-green-300",
+  perdido: "bg-red-50 border-red-300",
 };
 
 const stageBadgeColors: Record<PipelineStage, string> = {
-  lead: "bg-gray-500",
-  contacted: "bg-blue-500",
-  proposal: "bg-yellow-500",
-  negotiation: "bg-orange-500",
-  closed_won: "bg-green-500",
-  closed_lost: "bg-red-500",
+  novo_lead: "bg-gray-500",
+  qualificado: "bg-blue-500",
+  proposta_enviada: "bg-yellow-500",
+  negociando: "bg-orange-500",
+  venda_fechada: "bg-green-500",
+  perdido: "bg-red-500",
 };
 
 export default function PipelinePage() {
@@ -53,7 +53,7 @@ export default function PipelinePage() {
 
   const [form, setForm] = useState({
     name: "", phone: "", email: "", interest: "",
-    vehicleId: "", stage: "lead" as PipelineStage, notes: "",
+    vehicleId: "", stage: "novo_lead" as PipelineStage, notes: "",
   });
 
   const { data: pipelineData, isLoading, refetch } = trpc.pipeline.list.useQuery(
@@ -68,7 +68,7 @@ export default function PipelinePage() {
       toast.success("Lead adicionado ao pipeline!");
       setDialogOpen(false);
       refetch();
-      setForm({ name: "", phone: "", email: "", interest: "", vehicleId: "", stage: "lead", notes: "" });
+      setForm({ name: "", phone: "", email: "", interest: "", vehicleId: "", stage: "novo_lead", notes: "" });
     },
     onError: (err) => toast.error(err.message),
   });
@@ -85,12 +85,12 @@ export default function PipelinePage() {
   const stats = statsData || { total: 0, byStage: {} };
 
   const nextStages: Record<PipelineStage, PipelineStage[]> = {
-    lead: ["contacted"],
-    contacted: ["proposal", "closed_lost"],
-    proposal: ["negotiation", "closed_lost"],
-    negotiation: ["closed_won", "closed_lost"],
-    closed_won: [],
-    closed_lost: ["lead"],
+    novo_lead: ["qualificado", "perdido"],
+    qualificado: ["proposta_enviada", "perdido"],
+    proposta_enviada: ["negociando", "perdido"],
+    negociando: ["venda_fechada", "perdido"],
+    venda_fechada: [],
+    perdido: ["novo_lead"],
   };
 
   const handleSubmit = () => {
@@ -193,12 +193,12 @@ export default function PipelinePage() {
                     <Select value={form.stage} onValueChange={(v) => setForm({ ...form, stage: v as PipelineStage })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="lead">Lead</SelectItem>
-                        <SelectItem value="contacted">Contatado</SelectItem>
-                        <SelectItem value="proposal">Proposta</SelectItem>
-                        <SelectItem value="negotiation">Negociação</SelectItem>
-                        <SelectItem value="closed_won">Fechado (Vendido)</SelectItem>
-                        <SelectItem value="closed_lost">Fechado (Perdido)</SelectItem>
+                        <SelectItem value="novo_lead">Novo Lead</SelectItem>
+                        <SelectItem value="qualificado">Qualificado</SelectItem>
+                        <SelectItem value="proposta_enviada">Proposta Enviada</SelectItem>
+                        <SelectItem value="negociando">Negociando</SelectItem>
+                        <SelectItem value="venda_fechada">Venda Fechada</SelectItem>
+                        <SelectItem value="perdido">Perdido</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -224,9 +224,9 @@ export default function PipelinePage() {
         </div>
 
         {/* Pipeline Board - Desktop */}
-        <div className="hidden lg:block">
+          <div className="hidden lg:block">
           <div className="grid grid-cols-6 gap-2">
-            {(["lead", "contacted", "proposal", "negotiation", "closed_won", "closed_lost"] as PipelineStage[]).map((stage) => {
+            {(["novo_lead", "qualificado", "proposta_enviada", "negociando", "venda_fechada", "perdido"] as PipelineStage[]).map((stage) => {
               const stagePipelines = pipeline.filter((p: any) => p.stage === stage);
               return (
                 <div key={stage} className={`rounded-lg border p-2 min-h-[300px] ${stageColors[stage]}`}>
@@ -240,25 +240,25 @@ export default function PipelinePage() {
                         <CardContent className="p-0">
                           <div className="flex items-center gap-1 mb-1">
                             <User className="h-3 w-3 text-gray-400" />
-                            <p className="text-xs font-medium truncate">{p.name}</p>
+                            <p className="text-xs font-medium truncate">{p.name || p.customerName || p.clientName || "-"}</p>
                           </div>
-                          {p.interest && (
-                            <p className="text-[10px] text-gray-500 truncate mb-1">🚗 {p.interest}</p>
-                          )}
-                          <div className="flex gap-1 flex-wrap">
-                            {nextStages[stage].map((next) => (
-                              <Button
-                                key={next}
-                                size="sm"
-                                variant="ghost"
-                                className="h-5 text-[10px] px-1 py-0"
-                                onClick={() => moveStageMutation.mutate({ id: p.id, stage: next })}
-                              >
-                                <ArrowRight className="h-2.5 w-2.5 mr-0.5" />
-                                {stageLabels[next].split(" ")[0]}
-                              </Button>
-                            ))}
-                          </div>
+                      {p.interest && (
+                        <p className="text-[10px] text-gray-500 truncate mb-1">🚗 {p.interest}</p>
+                      )}
+                      <div className="flex gap-1 flex-wrap">
+                        {nextStages[stage].map((next) => (
+                          <Button
+                            key={next}
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 text-[10px] px-1 py-0"
+                            onClick={() => moveStageMutation.mutate({ id: p.id, stage: next })}
+                          >
+                            <ArrowRight className="h-2.5 w-2.5 mr-0.5" />
+                            {stageLabels[next]}
+                          </Button>
+                        ))}
+                      </div>
                         </CardContent>
                       </Card>
                     ))}

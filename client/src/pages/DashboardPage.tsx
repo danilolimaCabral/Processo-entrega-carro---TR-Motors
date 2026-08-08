@@ -452,7 +452,7 @@ export default function DashboardPage() {
                           {v.fabricYear && v.year ? `${v.fabricYear}/${v.year}` : v.year || ""}
                           {v.km ? ` • ${v.km.toLocaleString()}km` : ""}
                         </p>
-                        <p className="text-sm font-bold text-green-700">R$ {v.salePrice?.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-green-700">{v.salePrice?.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })}</p>
                       </CardContent>
                     </Card>
                   );

@@ -152,6 +152,22 @@ export default function InventoryPage() {
     return 0;
   };
 
+  const formatPrice = (price: number | null | undefined): string => {
+    if (!price) return "R$ 0,00";
+    return price.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 });
+  };
+
+  const formatName = (brand: string, model: string): string => {
+    if (!model) return brand || "-";
+    const b = (brand || "").trim().toUpperCase();
+    const m = model.trim();
+    // Remove brand prefix from model if present
+    if (b && m.toUpperCase().startsWith(b.split(" ")[0])) {
+      return `${b} ${m}`;
+    }
+    return `${b} ${m}`;
+  };
+
   const formatFuel = (fuel: string) => {
     if (!fuel) return "-";
     const f = fuel.toLowerCase();
@@ -404,14 +420,14 @@ export default function InventoryPage() {
                       )}
                     </div>
                     <CardContent className="p-3">
-                      <p className="font-semibold text-sm truncate">{v.brand} {v.modelDetail || v.model}</p>
+                      <p className="font-semibold text-sm truncate">{formatName(v.brand, v.modelDetail || v.model)}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
                         {v.fabricYear && v.year ? `${v.fabricYear}/${v.year}` : v.year || ""}
                         {v.km ? ` • ${v.km.toLocaleString()} km` : ""}
                         {v.color ? ` • ${v.color}` : ""}
                       </p>
                       <div className="flex items-center justify-between mt-2">
-                        <p className="text-base font-bold text-green-700">R$ {v.salePrice?.toLocaleString()}</p>
+                        <p className="text-base font-bold text-green-700">{formatPrice(v.salePrice)}</p>
                         <div className="flex gap-1">
                           {v.status === "disponivel" && (
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => updateStatusMutation.mutate({ id: v.id, status: "reservado" })}>
@@ -456,7 +472,7 @@ export default function InventoryPage() {
                       {inventory.map((v: any) => (
                         <tr key={v.id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-medium">
-                            {v.brand} {v.modelDetail || v.model}
+                            {formatName(v.brand, v.modelDetail || v.model)}
                             {v.plate && <span className="text-gray-400 text-xs ml-1">({v.plate})</span>}
                           </td>
                           <td className="p-3">{v.fabricYear ? `${v.fabricYear}/${v.year}` : v.year || "-"}</td>
@@ -464,7 +480,7 @@ export default function InventoryPage() {
                           <td className="p-3">{v.color || "-"}</td>
                           <td className="p-3">{formatFuel(v.fuel)}</td>
                           <td className="p-3">{v.transmission === "manual" ? "Manual" : v.transmission === "automatic" ? "Auto" : "CVT"}</td>
-                          <td className="p-3 text-right font-medium text-green-700">R$ {v.salePrice?.toLocaleString()}</td>
+                          <td className="p-3 text-right font-medium text-green-700">{formatPrice(v.salePrice)}</td>
                           <td className="p-3 text-center">
                             <Badge className={statusColors[v.status] || "bg-gray-100 text-gray-800"}>
                               {statusLabels[v.status] || v.status}
@@ -502,14 +518,14 @@ export default function InventoryPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-semibold">{v.brand} {v.modelDetail || v.model}</p>
+                        <p className="font-semibold">{formatName(v.brand, v.modelDetail || v.model)}</p>
                         <p className="text-sm text-gray-500">
                           {v.fabricYear && v.year ? `${v.fabricYear}/${v.year} • ` : ""}
                           {v.km ? `${v.km.toLocaleString()} km` : ""}
                           {v.color ? ` • ${v.color}` : ""}
                           {v.fuel ? ` • ${formatFuel(v.fuel)}` : ""}
                         </p>
-                        <p className="text-lg font-bold text-green-700 mt-1">R$ {v.salePrice?.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-green-700 mt-1">{formatPrice(v.salePrice)}</p>
                       </div>
                       <Badge className={statusColors[v.status] || "bg-gray-100 text-gray-800"}>
                         {statusLabels[v.status] || v.status}

@@ -447,6 +447,14 @@ export const rhRouter = router({
       return { success: true };
     }),
 
+  deleteCommission: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      await db.delete(rh_sales_commissions).where(eq(rh_sales_commissions.id, input.id));
+      return { success: true };
+    }),
+
   commissionSummary: protectedProcedure
     .input(z.object({ month: z.string().optional() }).optional())
     .query(async ({ input }) => {

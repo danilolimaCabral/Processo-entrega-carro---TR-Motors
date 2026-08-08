@@ -486,11 +486,16 @@ function PositionsTab() {
 // ==================== Leaves Tab ====================
 // ==================== Commissions Tab ====================
 function CommissionsTab() {
-  const { data: commissions, refetch } = trpc.rh.listCommissions.useQuery({});
-  const { data: summary } = trpc.rh.commissionSummary.useQuery({});
+  const { data: commissions, refetch } = trpc.rh.listCommissions.useQuery({}, { refetchInterval: 5000 });
+  const { data: summary, refetch: refetchSummary } = trpc.rh.commissionSummary.useQuery({}, { refetchInterval: 5000 });
   const { data: employees } = trpc.rh.listEmployees.useQuery({});
   const createMutation = trpc.rh.createCommission.useMutation();
-  const updateMutation = trpc.rh.updateCommissionStatus.useMutation();
+  const updateMutation = trpc.rh.updateCommissionStatus.useMutation({
+    onSuccess: () => {
+      refetch();
+      refetchSummary();
+    },
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
     employeeId: undefined as number | undefined,
@@ -512,6 +517,7 @@ function CommissionsTab() {
         toast.success(`Comissão de R$ ${parseFloat(res.commissionAmount).toFixed(2)} calculada!`);
         setDialogOpen(false);
         refetch();
+        refetchSummary();
       },
       onError: () => toast.error("Erro ao criar comissão"),
     });
@@ -599,10 +605,10 @@ function CommissionsTab() {
                 <td className="p-2">
                   {commission.status === "pendente" && (
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "pago" }, { onSuccess: () => { toast.success("Comissão marcada como paga!"); refetch(); } })}>
+                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "pago" })}>
                         <UserCheck size={12} />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "cancelado" }, { onSuccess: () => { toast.success("Comissão cancelada"); refetch(); } })}>
+                      <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: commission.id, status: "cancelado" })}>
                         <Trash2 size={12} />
                       </Button>
                     </div>

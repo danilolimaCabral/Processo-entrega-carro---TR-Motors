@@ -11,42 +11,42 @@ import {
   ClipboardCheck, Key, FileText, Car, User,
 } from "lucide-react";
 
-type DeliveryStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
-
-const statusLabels: Record<DeliveryStatus, string> = {
-  scheduled: "Agendada",
-  in_progress: "Em Andamento",
-  completed: "Concluída",
-  cancelled: "Cancelada",
-};
-
-const statusColors: Record<DeliveryStatus, string> = {
-  scheduled: "bg-blue-100 text-blue-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  completed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-};
+const checklistConfig = [
+  { key: "checklistChaves", label: "Chaves entregues" },
+  { key: "checklistDocumentos", label: "Documentos do veículo" },
+  { key: "checklistManual", label: "Manual do proprietário" },
+  { key: "checklistKitPrimeirosSocorros", label: "Kit primeiros socorros" },
+  { key: "checklistMacaco", label: "Macaco" },
+  { key: "checklistEstepe", label: "Estepe" },
+  { key: "checklistChaveRodas", label: "Chave de rodas" },
+  { key: "checklistTanqueCheio", label: "Tanque cheio" },
+  { key: "checklistAcessorios", label: "Acessórios" },
+  { key: "checklistRevisao", label: "Revisão feita" },
+  { key: "checklistFotoPlaca", label: "Foto da placa" },
+  { key: "checklistOdometro", label: "Odômetro anotado" },
+  { key: "checklistCombustivel", label: "Nível de combustível" },
+  { key: "checklistAssinaturaContrato", label: "Contrato assinado" },
+];
 
 export default function DeliveryPage() {
   const [detailId, setDetailId] = useState<number | null>(null);
 
-  const { data: deliveriesData, isLoading, refetch } = trpc.deliveries.list.useQuery(
+  const { data: deliveriesData, isLoading, refetch } = trpc.delivery.list.useQuery(
     {},
     { refetchInterval: 10000 }
   );
 
-  const { data: statsData } = trpc.deliveries.stats.useQuery();
+  const { data: statsData } = trpc.delivery.stats.useQuery();
 
-  const updateStatusMutation = trpc.deliveries.updateStatus.useMutation({
+  const updateStatusMutation = trpc.delivery.update.useMutation({
     onSuccess: () => {
       toast.success("Status atualizado!");
       refetch();
-      setDetailId(null);
     },
     onError: (err) => toast.error(err.message),
   });
 
-  const updateChecklistMutation = trpc.deliveries.updateChecklist.useMutation({
+  const updateChecklistMutation = trpc.delivery.update.useMutation({
     onSuccess: () => {
       toast.success("Checklist atualizado!");
       refetch();
@@ -54,32 +54,19 @@ export default function DeliveryPage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const deliveries = deliveriesData?.data || [];
-  const stats = statsData || { total: 0, scheduled: 0, inProgress: 0, completed: 0 };
-
-  const checklistItems = [
-    "Documentos do veículo entregues",
-    "Chaves entregues",
-    "Manual do proprietário entregue",
-    "Nota fiscal emitida",
-    "Contrato assinado",
-    "Seguro contratado",
-    "IPVA/Detran regularizado",
-    "Carro limpo e revisado",
-    "Cliente orientado sobre garantia",
-    "Foto do cliente com o carro",
-  ];
+  const deliveries = deliveriesData || [];
+  const stats = statsData || { total: 0, scheduled: 0, preparing: 0, delivered: 0 };
 
   const selectedDelivery = detailId ? deliveries.find((d: any) => d.id === detailId) : null;
 
-  const toggleChecklistItem = (deliveryId: number, item: string, checked: boolean) => {
-    const delivery = deliveries.find((d: any) => d.id === deliveryId);
-    if (!delivery) return;
-    const currentChecklist = delivery.checklist || {};
-    updateChecklistMutation.mutate({
-      id: deliveryId,
-      checklist: { ...currentChecklist, [item]: checked },
-    });
+  const toggleChecklistItem = (deliveryId: number, key: string, checked: boolean) => {
+    const input: Record<string, any> = { id: deliveryId };
+    input[key] = checked;
+    updateChecklistMutation.mutate(input);
+  };
+
+  const getChecklistCount = (d: any) => {
+    return checklistConfig.filter(c => d[c.key]).length;
   };
 
   return (
@@ -109,8 +96,8 @@ export default function DeliveryPage() {
             <CardContent className="p-4 flex items-center gap-3">
               <Clock className="h-8 w-8 text-yellow-500" />
               <div>
-                <p className="text-2xl font-bold text-yellow-600">{stats.inProgress || 0}</p>
-                <p className="text-xs text-gray-500">Em Andamento</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.preparing || 0}</p>
+                <p className="text-xs text-gray-500">Em Preparação</p>
               </div>
             </CardContent>
           </Card>
@@ -118,8 +105,8 @@ export default function DeliveryPage() {
             <CardContent className="p-4 flex items-center gap-3">
               <CheckCircle className="h-8 w-8 text-green-500" />
               <div>
-                <p className="text-2xl font-bold text-green-600">{stats.completed || 0}</p>
-                <p className="text-xs text-gray-500">Concluídas</p>
+                <p className="text-2xl font-bold text-green-600">{stats.delivered || 0}</p>
+                <p className="text-xs text-gray-500">Entregues</p>
               </div>
             </CardContent>
           </Card>
@@ -137,10 +124,22 @@ export default function DeliveryPage() {
         ) : (
           <div className="space-y-3">
             {deliveries.map((d: any) => {
-              const checklist = d.checklist || {};
-              const checklistCount = Object.values(checklist).filter(Boolean).length;
-              const checklistTotal = checklistItems.length;
+              const checklistCount = getChecklistCount(d);
+              const checklistTotal = checklistConfig.length;
               const progress = Math.round((checklistCount / checklistTotal) * 100);
+
+              const statusColors: Record<string, string> = {
+                agendada: "bg-blue-100 text-blue-800",
+                em_preparacao: "bg-yellow-100 text-yellow-800",
+                entregue: "bg-green-100 text-green-800",
+                cancelada: "bg-red-100 text-red-800",
+              };
+              const statusLabels: Record<string, string> = {
+                agendada: "Agendada",
+                em_preparacao: "Em Preparação",
+                entregue: "Entregue",
+                cancelada: "Cancelada",
+              };
 
               return (
                 <Card key={d.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDetailId(d.id === detailId ? null : d.id)}>
@@ -151,7 +150,7 @@ export default function DeliveryPage() {
                           <Car className="h-5 w-5 text-gray-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-sm">{d.vehicleInfo || `Veículo #${d.saleRecordId}`}</p>
+                          <p className="font-semibold text-sm">{d.vehicleDescription || `Veículo #${d.saleRecordId}`}</p>
                           <p className="text-xs text-gray-500">Cliente: {d.customerName || "N/A"}</p>
                           <p className="text-xs text-gray-400">
                             {d.scheduledDate ? new Date(d.scheduledDate).toLocaleDateString("pt-BR") : "Sem data"}
@@ -184,45 +183,53 @@ export default function DeliveryPage() {
                           <ClipboardCheck className="h-4 w-4" /> Checklist de Entrega
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {checklistItems.map((item) => (
-                            <label key={item} className="flex items-center gap-2 text-xs cursor-pointer p-2 rounded hover:bg-gray-50">
+                          {checklistConfig.map((item) => (
+                            <label key={item.key} className="flex items-center gap-2 text-xs cursor-pointer p-2 rounded hover:bg-gray-50">
                               <input
                                 type="checkbox"
-                                checked={!!checklist[item]}
+                                checked={!!d[item.key]}
                                 onChange={(e) => {
                                   e.stopPropagation();
-                                  toggleChecklistItem(d.id, item, e.target.checked);
+                                  toggleChecklistItem(d.id, item.key, e.target.checked);
                                 }}
                                 className="h-4 w-4 rounded border-gray-300 text-red-600"
                               />
-                              <span className={checklist[item] ? "text-green-700 line-through" : ""}>{item}</span>
+                              <span className={d[item.key] ? "text-green-700 line-through" : ""}>{item.label}</span>
                             </label>
                           ))}
                         </div>
 
-                        <div className="flex gap-2 mt-4">
-                          {d.status === "scheduled" && (
+                        <div className="flex gap-2 mt-4 flex-wrap">
+                          {d.status === "agendada" && (
                             <Button size="sm" onClick={(e) => {
                               e.stopPropagation();
-                              updateStatusMutation.mutate({ id: d.id, status: "in_progress" });
+                              updateStatusMutation.mutate({ id: d.id, status: "em_preparacao" });
                             }}>
-                              <Eye className="h-4 w-4 mr-1" /> Iniciar
+                              <Eye className="h-4 w-4 mr-1" /> Iniciar Preparação
                             </Button>
                           )}
-                          {d.status === "in_progress" && (
-                            <Button size="sm" className="bg-green-600" onClick={(e) => {
+                          {d.status === "em_preparacao" && (
+                            <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={(e) => {
                               e.stopPropagation();
-                              updateStatusMutation.mutate({ id: d.id, status: "completed" });
+                              updateStatusMutation.mutate({ id: d.id, status: "entregue" });
                             }}>
-                              <CheckCircle className="h-4 w-4 mr-1" /> Concluir
+                              <CheckCircle className="h-4 w-4 mr-1" /> Marcar Entregue
                             </Button>
                           )}
-                          {d.status === "completed" && (
+                          {d.status === "entregue" && (
                             <Button size="sm" variant="outline" onClick={(e) => {
                               e.stopPropagation();
-                              updateStatusMutation.mutate({ id: d.id, status: "scheduled" });
+                              updateStatusMutation.mutate({ id: d.id, status: "agendada" });
                             }}>
                               <Clock className="h-4 w-4 mr-1" /> Reabrir
+                            </Button>
+                          )}
+                          {d.status !== "cancelada" && (
+                            <Button size="sm" variant="destructive" onClick={(e) => {
+                              e.stopPropagation();
+                              updateStatusMutation.mutate({ id: d.id, status: "cancelada" });
+                            }}>
+                              <XCircle className="h-4 w-4 mr-1" /> Cancelar
                             </Button>
                           )}
                         </div>

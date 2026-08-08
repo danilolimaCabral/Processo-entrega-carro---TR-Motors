@@ -73,7 +73,7 @@ export default function PipelinePage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const moveStageMutation = trpc.pipeline.moveStage.useMutation({
+  const moveStageMutation = trpc.pipeline.update.useMutation({
     onSuccess: () => {
       toast.success("Lead movido com sucesso!");
       refetch();
@@ -81,7 +81,7 @@ export default function PipelinePage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const pipeline = pipelineData?.data || [];
+  const pipeline = pipelineData || [];
   const stats = statsData || { total: 0, byStage: {} };
 
   const nextStages: Record<PipelineStage, PipelineStage[]> = {

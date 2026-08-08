@@ -72,7 +72,7 @@ export default function InventoryPage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const inventory = inventoryData?.data || [];
+  const inventory = inventoryData || [];
   const stats = statsData || { total: 0, available: 0, reserved: 0, sold: 0 };
 
   const handleSubmit = () => {

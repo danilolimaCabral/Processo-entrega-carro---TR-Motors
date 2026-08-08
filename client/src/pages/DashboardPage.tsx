@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const modulesQuery = trpc.modules.list.useQuery();
   const pipelineStatsQuery = trpc.pipeline.stats.useQuery();
   const inventoryStatsQuery = trpc.inventory.stats.useQuery();
-  const deliveryStatsQuery = trpc.deliveries.stats.useQuery();
+  const deliveryStatsQuery = trpc.delivery.stats.useQuery();
 
   const modules = modulesQuery.data || [];
   const stats = statsQuery.data;

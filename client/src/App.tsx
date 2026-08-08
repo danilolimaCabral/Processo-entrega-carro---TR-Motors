@@ -13,6 +13,9 @@ import ModulesPage from "./pages/ModulesPage";
 import PurchaseInspectionPage from "./pages/PurchaseInspectionPage";
 import DespachantePage from "./pages/DespachantePage";
 import RhPage from "./pages/RhPage";
+import InventoryPage from "./pages/InventoryPage";
+import PipelinePage from "./pages/PipelinePage";
+import DeliveryPage from "./pages/DeliveryPage";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -44,6 +47,9 @@ function Router() {
       {/* Despachante */}
       <Route path="/despachante" component={DespachantePage} />
       <Route path="/rh" component={RhPage} />
+      <Route path="/estoque" component={InventoryPage} />
+      <Route path="/pipeline" component={PipelinePage} />
+      <Route path="/entrega" component={DeliveryPage} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

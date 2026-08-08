@@ -24,6 +24,9 @@ import {
   Settings,
   UserCog,
   AlertTriangle,
+  Warehouse,
+  Target,
+  Truck,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -51,22 +54,29 @@ function getMenuItems(role: string) {
     // Admin sees everything
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
+    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque" });
+    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
     items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
     items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
     items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
     items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/" });
     items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos" });
   } else if (role === "vendedor") {
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
+    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline" });
+    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque" });
   } else if (role === "financeiro") {
     items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
     items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
   } else if (role === "administrativo") {
     items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
     items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
   }
   return items;

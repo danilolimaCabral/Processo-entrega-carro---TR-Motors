@@ -17,6 +17,104 @@ import {
   getApprovalHistory,
 } from "../db";
 import { storagePut, storageGet } from "../storage";
+import { getDb } from "../db";
+import { eq } from "drizzle-orm";
+import {
+  despachante_documents,
+  rh_sales_commissions,
+  rh_employees,
+  vehicle_deliveries,
+  vehicle_inventory,
+  type InsertDespachanteDocument,
+  type InsertSalesCommission,
+  type InsertVehicleDelivery,
+} from "../../drizzle/schema";
+
+/**
+ * Auto-automation when a sale is fully approved (both financial + admin)
+ * Creates: despachante document, commission, and delivery record
+ */
+async function autoProcessApprovedSale(saleId: number, userId: number) {
+  const db = await getDb();
+  
+  // Get the sale
+  const sale = await getSaleRecordById(saleId);
+  if (!sale) return;
+
+  // Check if BOTH are approved
+  if (sale.financialStatus !== "approved" || sale.adminStatus !== "approved") return;
+
+  // 1. Auto-create despachante document
+  await db.insert(despachante_documents).values({
+    clientName: sale.customerName ?? "Cliente",
+    clientCpf: "",
+    clientPhone: sale.customerContact ?? "",
+    vehiclePlate: sale.vehiclePlate ?? "",
+    vehicleBrand: "",
+    vehicleModel: sale.vehicleModel ?? "",
+    vehicleYear: sale.vehicleYear ?? null,
+    docRg: false,
+    docCpf: false,
+    docComprovanteResidencia: false,
+    docCnh: false,
+    docCertificadoNascimento: false,
+    docComprovantePagamento: false,
+    docPoderJuridica: false,
+    docDut: false,
+    serviceTransferencia: true,
+    serviceEmplacamento: true,
+    serviceLicenciamento: false,
+    serviceCrvCrlv: true,
+    serviceCartorio: false,
+    serviceReconhecimentoFirma: false,
+    observations: `Documento criado automaticamente após aprovação da venda #${saleId}`,
+    cartorioStatus: "nao_necessario",
+    userId,
+    status: "pendente",
+  } as InsertDespachanteDocument);
+
+  // 2. Auto-create commission for the seller
+  const sellerId = sale.vendedorId;
+  // Find the employee linked to this seller
+  const employees = await db
+    .select()
+    .from(rh_employees)
+    .where(eq(rh_employees.userId, sellerId))
+    .limit(1);
+
+  if (employees.length > 0) {
+    const employee = employees[0];
+    const salePrice = parseFloat(sale.vehiclePrice ?? "0");
+    const commissionPercent = parseFloat(employee.commissionPercent ?? "0");
+    const commissionAmount = (salePrice * commissionPercent) / 100;
+    const month = new Date().toISOString().slice(0, 7);
+
+    await db.insert(rh_sales_commissions).values({
+      employeeId: employee.id,
+      saleRecordId: saleId,
+      vehicleDescription: `${sale.vehicleModel ?? ""} ${sale.vehicleYear ?? ""}`.trim(),
+      salePrice: salePrice as any,
+      commissionPercent: commissionPercent as any,
+      commissionAmount: commissionAmount as any,
+      helpCost: (employee.helpCost ? parseFloat(employee.helpCost) : 0) as any,
+      month,
+      status: "pendente",
+      createdBy: userId,
+    } as InsertSalesCommission);
+  }
+
+  // 3. Auto-create delivery record
+  await db.insert(vehicle_deliveries).values({
+    saleRecordId: saleId,
+    customerName: sale.customerName ?? "Cliente",
+    customerPhone: sale.customerContact ?? "",
+    vehicleDescription: `${sale.vehicleModel ?? ""} ${sale.vehicleYear ?? ""}`.trim() || "Veículo vendido",
+    vehiclePlate: sale.vehiclePlate ?? "",
+    scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    status: "agendada",
+    notes: `Entrega criada automaticamente após aprovação da venda #${saleId}`,
+  } as InsertVehicleDelivery);
+}
 
 /**
  * Procedure for vendedor (seller)
@@ -219,13 +317,14 @@ export const salesRouter = router({
 
       await updateSaleFinancialStatus(input.saleId, "approved", ctx.user!.id);
 
-      await recordApprovalHistory({
+            await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "financial_approved",
         userRole: "financeiro",
         userId: ctx.user!.id,
       });
-
+      // Auto-automation: create despachante, commission, delivery
+      await autoProcessApprovedSale(input.saleId, ctx.user!.id);
       return {
         success: true,
         message: "Venda aprovada pelo financeiro",
@@ -304,13 +403,14 @@ export const salesRouter = router({
 
       await updateSaleAdminStatus(input.saleId, "approved", ctx.user!.id);
 
-      await recordApprovalHistory({
+            await recordApprovalHistory({
         saleRecordId: input.saleId,
         actionType: "admin_approved",
         userRole: "administrativo",
         userId: ctx.user!.id,
       });
-
+      // Auto-automation: create despachante, commission, delivery
+      await autoProcessApprovedSale(input.saleId, ctx.user!.id);
       return {
         success: true,
         message: "Venda aprovada pelo administrativo",

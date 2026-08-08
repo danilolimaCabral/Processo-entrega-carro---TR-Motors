@@ -532,3 +532,152 @@ export const rh_sales_commissions = mysqlTable("rh_sales_commissions", {
 });
 export type SalesCommission = typeof rh_sales_commissions.$inferSelect;
 export type InsertSalesCommission = typeof rh_sales_commissions.$inferInsert;
+// ============================================================
+// Módulo Estoque - Veículos disponíveis para venda
+// ============================================================
+export const vehicle_inventory = mysqlTable("vehicle_inventory", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Source inspection (if bought from trade-in) */
+  inspectionId: int("inspection_id").references(() => purchase_inspections.id),
+  /** Vehicle details */
+  brand: varchar("brand", { length: 100 }).notNull(),
+  model: varchar("model", { length: 200 }).notNull(),
+  year: int("year"),
+  km: int("km"),
+  fuel: varchar("fuel", { length: 20 }),
+  color: varchar("color", { length: 50 }),
+  plate: varchar("plate", { length: 20 }),
+  chassi: varchar("chassi", { length: 50 }),
+  renavam: varchar("renavam", { length: 30 }),
+  /** Pricing */
+  purchasePrice: decimal("purchase_price", { precision: 12, scale: 2 }),
+  reconditionCost: decimal("recondition_cost", { precision: 12, scale: 2 }).default("0"),
+  salePrice: decimal("sale_price", { precision: 12, scale: 2 }),
+  fipePrice: decimal("fipe_price", { precision: 12, scale: 2 }),
+  /** Status */
+  status: mysqlEnum("status", [
+    "disponivel",
+    "reservado",
+    "vendido",
+    "em_preparacao",
+    "transferido",
+  ]).default("disponivel").notNull(),
+  /** Location */
+  location: varchar("location", { length: 100 }),
+  /** Notes */
+  notes: text("notes"),
+  /** Who added to inventory */
+  addedBy: int("added_by").references(() => users.id),
+  /** Who sold it */
+  soldBy: int("sold_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type VehicleInventory = typeof vehicle_inventory.$inferSelect;
+export type InsertVehicleInventory = typeof vehicle_inventory.$inferInsert;
+
+// ============================================================
+// Módulo Pipeline/CRM - Funil de vendas
+// ============================================================
+export const sales_pipeline = mysqlTable("sales_pipeline", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Lead name */
+  leadName: varchar("lead_name", { length: 255 }).notNull(),
+  leadPhone: varchar("lead_phone", { length: 20 }),
+  leadEmail: varchar("lead_email", { length: 255 }),
+  /** Lead source */
+  source: mysqlEnum("source", [
+    "balcao",
+    "whatsapp",
+    "portal",
+    "instagram",
+    "indicacao",
+    "telefone",
+    "outro",
+  ]).default("balcao"),
+  /** Pipeline stage */
+  stage: mysqlEnum("stage", [
+    "novo_lead",
+    "qualificado",
+    "proposta_enviada",
+    "negociando",
+    "venda_fechada",
+    "perdido",
+  ]).default("novo_lead").notNull(),
+  /** Vehicle of interest (from inventory) */
+  vehicleId: int("vehicle_id").references(() => vehicle_inventory.id),
+  vehicleDescription: varchar("vehicle_description", { length: 300 }),
+  /** Assigned seller */
+  sellerId: int("seller_id").references(() => rh_employees.id),
+  sellerUserId: int("seller_user_id").references(() => users.id),
+  /** Proposal details */
+  proposedPrice: decimal("proposed_price", { precision: 12, scale: 2 }),
+  tradeInValue: decimal("trade_in_value", { precision: 12, scale: 2 }),
+  downPayment: decimal("down_payment", { precision: 12, scale: 2 }),
+  financingAmount: decimal("financing_amount", { precision: 12, scale: 2 }),
+  financingBank: varchar("financing_bank", { length: 100 }),
+  /** Notes and follow-up */
+  notes: text("notes"),
+  nextFollowUp: varchar("next_follow_up", { length: 10 }), // YYYY-MM-DD
+  /** Sale record reference (when converted) */
+  saleRecordId: int("sale_record_id"),
+  /** Lost reason */
+  lostReason: text("lost_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type SalesPipeline = typeof sales_pipeline.$inferSelect;
+export type InsertSalesPipeline = typeof sales_pipeline.$inferInsert;
+
+// ============================================================
+// Módulo Entrega - Checklist de entrega do veículo
+// ============================================================
+export const vehicle_deliveries = mysqlTable("vehicle_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  saleRecordId: int("sale_record_id").references(() => sale_records.id),
+  despachanteDocId: int("despachante_doc_id").references(() => despachante_documents.id),
+  /** Customer info */
+  customerName: varchar("customer_name", { length: 255 }).notNull(),
+  customerPhone: varchar("customer_phone", { length: 20 }),
+  customerCpf: varchar("customer_cpf", { length: 20 }),
+  /** Vehicle */
+  vehicleDescription: varchar("vehicle_description", { length: 300 }).notNull(),
+  vehiclePlate: varchar("vehicle_plate", { length: 20 }),
+  /** Delivery checklist items */
+  checklistChaves: boolean("checklist_chaves").default(false),
+  checklistDocumentos: boolean("checklist_documentos").default(false),
+  checklistManual: boolean("checklist_manual").default(false),
+  checklistKitPrimeirosSocorros: boolean("checklist_kit_primeiros_socorros").default(false),
+  checklistMacaco: boolean("checklist_macaco").default(false),
+  checklistEstepe: boolean("checklist_estepe").default(false),
+  checklistChaveRodas: boolean("checklist_chave_rodas").default(false),
+  checklistTanqueCheio: boolean("checklist_tanque_cheio").default(false),
+  checklistAcessorios: boolean("checklist_acessorios").default(false),
+  checklistRevisao: boolean("checklist_revisao").default(false),
+  checklistFotoPlaca: boolean("checklist_foto_placa").default(false),
+  checklistOdometro: boolean("checklist_odometro").default(false),
+  checklistCombustivel: boolean("checklist_combustivel").default(false),
+  checklistAssinaturaContrato: boolean("checklist_assinatura_contrato").default(false),
+  /** Delivery status */
+  status: mysqlEnum("status", ["agendada", "em_preparacao", "entregue", "cancelada"])
+    .default("agendada")
+    .notNull(),
+  /** Scheduled date */
+  scheduledDate: varchar("scheduled_date", { length: 10 }), // YYYY-MM-DD
+  scheduledTime: varchar("scheduled_time", { length: 5 }), // HH:MM
+  /** Delivery details */
+  deliveredBy: int("delivered_by").references(() => users.id),
+  deliveredAt: timestamp("delivered_at"),
+  /** Odometer at delivery */
+  odometerAtDelivery: int("odometer_at_delivery"),
+  /** Fuel level at delivery */
+  fuelLevelAtDelivery: varchar("fuel_level_at_delivery", { length: 20 }),
+  /** Customer signature (name or base64) */
+  customerSignature: text("customer_signature"),
+  /** Notes */
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type VehicleDelivery = typeof vehicle_deliveries.$inferSelect;
+export type InsertVehicleDelivery = typeof vehicle_deliveries.$inferInsert;

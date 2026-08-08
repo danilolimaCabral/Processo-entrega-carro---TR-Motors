@@ -14,6 +14,9 @@ import {
   TrendingUp,
   CheckCircle2,
   Clock,
+  Truck,
+  Target,
+  Package,
 } from "lucide-react";
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -24,9 +27,15 @@ export default function DashboardPage() {
 
   const statsQuery = trpc.modules.dashboardStats.useQuery();
   const modulesQuery = trpc.modules.list.useQuery();
+  const pipelineStatsQuery = trpc.pipeline.stats.useQuery();
+  const inventoryStatsQuery = trpc.inventory.stats.useQuery();
+  const deliveryStatsQuery = trpc.deliveries.stats.useQuery();
 
   const modules = modulesQuery.data || [];
   const stats = statsQuery.data;
+  const pipelineStats = pipelineStatsQuery.data || { total: 0, byStage: {} };
+  const inventoryStats = inventoryStatsQuery.data || { total: 0, available: 0, reserved: 0, sold: 0 };
+  const deliveryStats = deliveryStatsQuery.data || { total: 0, scheduled: 0, inProgress: 0, completed: 0 };
 
   const iconMap: Record<string, React.ReactNode> = {
     Car: <Car className="h-5 w-5" />,
@@ -111,6 +120,75 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-xl font-bold text-purple-700">R$ {stats.salesStats.averageSaleValue.toLocaleString('pt-BR')}</p>
                       <p className="text-[10px] text-slate-500 leading-tight">Ticket Médio</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Pipeline / Estoque / Entrega */}
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+              <Card className="border-amber-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-amber-100 rounded-lg">
+                      <Target className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-amber-700">{pipelineStats.total}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Leads</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-cyan-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-cyan-100 rounded-lg">
+                      <Package className="h-4 w-4 text-cyan-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-cyan-700">{inventoryStats.available}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Estoque</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-orange-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-orange-100 rounded-lg">
+                      <Clock className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-orange-700">{deliveryStats.inProgress || deliveryStats.scheduled}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Entregas</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-indigo-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-indigo-100 rounded-lg">
+                      <Car className="h-4 w-4 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-indigo-700">{inventoryStats.sold}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Vendidos</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-teal-200">
+                <CardContent className="pt-5 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-teal-100 rounded-lg">
+                      <Truck className="h-4 w-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-teal-700">{deliveryStats.completed}</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Entregas OK</p>
                     </div>
                   </div>
                 </CardContent>

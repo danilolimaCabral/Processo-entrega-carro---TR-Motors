@@ -473,6 +473,83 @@ export const rhRouter = router({
       return { totalCommission, totalHelpCost, paid, pending, count: commissions.length, month };
     }),
 
+  // ==================== Payroll (Folha de Pagamento) ====================
+  payrollSummary: protectedProcedure
+    .input(z.object({ month: z.string().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const month = input?.month || new Date().toISOString().slice(0, 7);
+
+      // Get all active employees
+      const employees = await db
+        .select()
+        .from(rh_employees)
+        .where(eq(rh_employees.status, "ativo"));
+
+      // Get commissions for this month
+      const commissions = await db
+        .select()
+        .from(rh_sales_commissions)
+        .where(eq(rh_sales_commissions.month, month));
+
+      // Get attendance for this month
+      const attendanceStart = `${month}-01`;
+      const attendanceEnd = `${month}-31`;
+      const attendanceRecords = await db
+        .select()
+        .from(rh_attendance)
+        .where(between(rh_attendance.date, attendanceStart, attendanceEnd));
+
+      // Calculate payroll per employee
+      const payrollItems = employees.map((emp) => {
+        const baseSalary = parseFloat(emp.salary || "0");
+        const helpCost = parseFloat(emp.helpCost || "0");
+
+        // Commissions for this employee this month
+        const empCommissions = commissions.filter((c) => c.employeeId === emp.id);
+        const totalCommission = empCommissions.reduce(
+          (sum, c) => sum + parseFloat(c.commissionAmount || "0"),
+          0
+        );
+
+        // Attendance count this month
+        const empAttendance = attendanceRecords.filter(
+          (a) => a.employeeId === emp.id
+        );
+        const daysWorked = empAttendance.length;
+
+        const totalPayroll = baseSalary + helpCost + totalCommission;
+
+        return {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          baseSalary,
+          helpCost,
+          commission: totalCommission,
+          daysWorked,
+          totalPayroll,
+          status: emp.status,
+        };
+      });
+
+      const totalPayroll = payrollItems.reduce((sum, item) => sum + item.totalPayroll, 0);
+      const totalCommissions = payrollItems.reduce((sum, item) => sum + item.commission, 0);
+      const totalHelpCostAll = payrollItems.reduce((sum, item) => sum + item.helpCost, 0);
+      const totalBaseSalary = payrollItems.reduce((sum, item) => sum + item.baseSalary, 0);
+
+      return {
+        month,
+        payrollItems,
+        totals: {
+          totalPayroll,
+          totalCommissions,
+          totalHelpCost: totalHelpCostAll,
+          totalBaseSalary,
+          employeeCount: payrollItems.length,
+        },
+      };
+    }),
+
   // ==================== Dashboard Stats ====================
   dashboardStats: protectedProcedure.query(async () => {
     const db = await getDb();

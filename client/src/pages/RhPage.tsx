@@ -19,7 +19,7 @@ import {
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
 } from "lucide-react";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "comissoes" | "ferias" | "ponto" | "feriados";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados";
 
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -30,6 +30,7 @@ export default function RhPage() {
     { id: "funcionarios" as Tab, label: "Funcionários", icon: Users },
     { id: "departamentos" as Tab, label: "Departamentos", icon: Building2 },
     { id: "cargos" as Tab, label: "Cargos", icon: Briefcase },
+    { id: "folha" as Tab, label: "Folha", icon: DollarSign },
     { id: "comissoes" as Tab, label: "Comissões", icon: DollarSign },
     { id: "ferias" as Tab, label: "Férias", icon: Calendar },
     { id: "ponto" as Tab, label: "Ponto", icon: Clock },
@@ -63,6 +64,7 @@ export default function RhPage() {
         {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
         {activeTab === "departamentos" && <DepartmentsTab />}
         {activeTab === "cargos" && <PositionsTab />}
+        {activeTab === "folha" && <PayrollTab />}
         {activeTab === "comissoes" && <CommissionsTab />}
         {activeTab === "ferias" && <LeavesTab />}
         {activeTab === "ponto" && <AttendanceTab />}
@@ -867,6 +869,112 @@ function HolidaysTab() {
             </CardContent>
           </Card>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Payroll (Folha de Pagamento) Tab ====================
+function PayrollTab() {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const { data: payroll, refetch } = trpc.rh.payrollSummary.useQuery(
+    { month: selectedMonth },
+    { refetchInterval: 5000 }
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Month Selector */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <Calendar size={20} className="text-blue-600" />
+            <Label className="text-sm">Competência:</Label>
+            <Input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="max-w-[180px]"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Total Folha (R$)</p>
+            <p className="text-xl font-bold text-blue-700">
+              R$ {payroll?.totals.totalPayroll.toFixed(2) || "0.00"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-green-200 bg-green-50/50">
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Salários Base (R$)</p>
+            <p className="text-xl font-bold text-green-700">
+              R$ {payroll?.totals.totalBaseSalary.toFixed(2) || "0.00"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-purple-200 bg-purple-50/50">
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Comissões (R$)</p>
+            <p className="text-xl font-bold text-purple-700">
+              R$ {payroll?.totals.totalCommissions.toFixed(2) || "0.00"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="pt-4">
+            <p className="text-xs text-slate-500">Ajuda de Custo (R$)</p>
+            <p className="text-xl font-bold text-amber-700">
+              R$ {payroll?.totals.totalHelpCost.toFixed(2) || "0.00"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Employee Count */}
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <Users size={16} />
+        <span>{payroll?.totals.employeeCount || 0} funcionário(s) ativo(s) nesta competência</span>
+      </div>
+
+      {/* Payroll Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-slate-600">
+              <th className="p-2">Funcionário</th>
+              <th className="p-2 hidden md:table-cell">Salário Base</th>
+              <th className="p-2 hidden md:table-cell">Ajuda Custo</th>
+              <th className="p-2 hidden md:table-cell">Comissão</th>
+              <th className="p-2 hidden sm:table-cell">Dias</th>
+              <th className="p-2">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {payroll?.payrollItems.map((item) => (
+              <tr key={item.employeeId} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="p-2 font-medium">{item.employeeName}</td>
+                <td className="p-2 hidden md:table-cell">R$ {item.baseSalary.toFixed(2)}</td>
+                <td className="p-2 hidden md:table-cell">R$ {item.helpCost.toFixed(2)}</td>
+                <td className="p-2 hidden md:table-cell">R$ {item.commission.toFixed(2)}</td>
+                <td className="p-2 hidden sm:table-cell">{item.daysWorked}</td>
+                <td className="p-2 font-bold text-green-700">R$ {item.totalPayroll.toFixed(2)}</td>
+              </tr>
+            ))}
+            {(!payroll?.payrollItems || payroll.payrollItems.length === 0) && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-slate-500">
+                  Nenhum funcionário ativo para esta competência
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -50,6 +50,8 @@ export const createLead = protectedProcedure
       sellerId: z.number().optional(),
       notes: z.string().optional(),
       nextFollowUp: z.string().optional(),
+      stage: z.string().default("novo_lead"),
+      leadSource: z.string().optional(),
     })
   )
   .mutation(async ({ input, ctx }) => {
@@ -58,13 +60,13 @@ export const createLead = protectedProcedure
       leadName: input.leadName,
       leadPhone: input.leadPhone ?? null,
       leadEmail: input.leadEmail ?? null,
-      source: input.source as any,
+      source: (input.leadSource || input.source || "balcao") as any,
       vehicleId: input.vehicleId ?? null,
       vehicleDescription: input.vehicleDescription ?? null,
       sellerId: input.sellerId ?? null,
       notes: input.notes ?? null,
       nextFollowUp: input.nextFollowUp ?? null,
-      stage: "novo_lead",
+      stage: input.stage as any,
       sellerUserId: ctx.user.id,
     };
     const result = await db.insert(sales_pipeline).values(insertData);

@@ -330,7 +330,7 @@ export default function ApprovalPanel() {
                                     expandedHistoryId === sale.id ? null : sale.id
                                   )
                                 }
-                                className="h-8 w-8 p-0"
+                                className="min-h-[40px] min-w-[40px]"
                                 title="Histórico"
                               >
                                 <Eye className="h-4 w-4" />
@@ -344,7 +344,7 @@ export default function ApprovalPanel() {
                                     expandedChecklistId === sale.id ? null : sale.id
                                   )
                                 }
-                                className="h-8 w-8 p-0"
+                                className="min-h-[40px] min-w-[40px]"
                                 title="Checklist"
                               >
                                 <FileCheck className="h-4 w-4" />
@@ -355,7 +355,7 @@ export default function ApprovalPanel() {
                                 size="sm"
                                 onClick={() => handleApprove(sale.id)}
                                 disabled={approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending}
-                                className="gap-1 bg-green-600 hover:bg-green-700 h-8"
+                                className="gap-1 bg-green-600 hover:bg-green-700 min-h-[40px]"
                               >
                                 {approveSaleFinancialMutation.isPending || approveSaleAdminMutation.isPending ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -377,7 +377,7 @@ export default function ApprovalPanel() {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    className="gap-1 h-8"
+                                    className="gap-1 min-h-[40px]"
                                   >
                                     <XCircle className="h-3 w-3" />
                                     <span className="hidden sm:inline">Rejeitar</span>

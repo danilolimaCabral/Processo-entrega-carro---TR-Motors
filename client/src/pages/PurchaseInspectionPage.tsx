@@ -710,7 +710,7 @@ export default function PurchaseInspectionPage() {
             {/* Vehicle info */}
             <div className="bg-blue-50 rounded-lg p-4 mb-6">
               <h4 className="font-semibold text-blue-800 mb-2">Veículo</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                 <div><span className="text-gray-500">Marca:</span> <strong>{formData.vehicleBrand || "---"}</strong></div>
                 <div><span className="text-gray-500">Modelo:</span> <strong>{formData.vehicleModel || "---"}</strong></div>
                 <div><span className="text-gray-500">Ano:</span> <strong>{formData.vehicleYear || "---"}</strong></div>

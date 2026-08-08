@@ -574,7 +574,7 @@ export default function VendedorDashboard() {
                             className={`text-right space-x-1 transition-opacity ${
                               activeRowId === sale.id
                                 ? "opacity-100"
-                                : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+                                : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100"
                             }`}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -586,7 +586,7 @@ export default function VendedorDashboard() {
                                   expandedHistoryId === sale.id ? null : sale.id
                                 )
                               }
-                              className="h-8 w-8 p-0"
+                              className="min-h-[40px] min-w-[40px]"
                               title="Histórico"
                             >
                               <Clock className="h-4 w-4" />
@@ -600,7 +600,7 @@ export default function VendedorDashboard() {
                                   expandedChecklistId === sale.id ? null : sale.id
                                 )
                               }
-                              className="h-8 w-8 p-0"
+                              className="min-h-[40px] min-w-[40px]"
                               title="Checklist"
                             >
                               <CheckCircle2 className="h-4 w-4" />
@@ -620,7 +620,7 @@ export default function VendedorDashboard() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-8 w-8 p-0"
+                                  className="min-h-[40px] min-w-[40px]"
                                   title="Upload"
                                 >
                                   <FileUp className="h-4 w-4" />

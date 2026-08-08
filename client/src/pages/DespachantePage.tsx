@@ -666,27 +666,30 @@ export default function DespachantePage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
+                        <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSendWhatsapp(doc.id)}
                         title="Enviar via WhatsApp"
+                        className="min-h-[40px] min-w-[40px]"
                       >
                         <MessageCircle size={16} className="text-green-600" />
                       </Button>
-                      <Button
+                        <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => { setDetailId(doc.id); setDetailDialogOpen(true); }}
                         title="Ver detalhes"
+                        className="min-h-[40px] min-w-[40px]"
                       >
                         <Eye size={16} />
                       </Button>
-                      <Button
+                        <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => openEdit(doc)}
                         title="Editar"
+                        className="min-h-[40px] min-w-[40px]"
                       >
                         <Edit size={16} />
                       </Button>
@@ -727,11 +730,12 @@ export default function DespachantePage() {
                         </SelectContent>
                       </Select>
 
-                      <Button
+                        <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(doc.id)}
                         title="Excluir"
+                        className="min-h-[40px] min-w-[40px]"
                       >
                         <Trash2 size={16} className="text-red-500" />
                       </Button>
@@ -752,7 +756,7 @@ export default function DespachantePage() {
           </DialogHeader>
           {detailDoc && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs text-slate-500">Cliente</p>
                   <p className="font-medium">{detailDoc.clientName}</p>
@@ -813,11 +817,11 @@ export default function DespachantePage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2">
                 {detailDoc.clientPhone && (
                   <Button
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 gap-2"
+                    className="bg-green-600 hover:bg-green-700 gap-2 min-h-[44px] w-full"
                     onClick={() => handleSendWhatsapp(detailDoc.id)}
                   >
                     <MessageCircle size={14} /> Enviar WhatsApp
@@ -827,7 +831,7 @@ export default function DespachantePage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="gap-2"
+                    className="gap-2 min-h-[44px] w-full"
                     onClick={() => {
                       // Compose email with documents list
                       const subject = `TR Motors - Documentos para Despachante - ${detailDoc.clientName}`;

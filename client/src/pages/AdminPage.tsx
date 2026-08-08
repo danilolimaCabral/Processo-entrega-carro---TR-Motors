@@ -551,7 +551,7 @@ export default function AdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1 text-xs"
+                          className="flex-1 text-xs min-h-[40px]"
                           onClick={() => {
                             setResetForm({
                               userId: user.id,
@@ -567,7 +567,7 @@ export default function AdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1 text-xs"
+                          className="flex-1 text-xs min-h-[40px]"
                           onClick={() => handleToggleActive(user.id, user.isActive)}
                         >
                           {user.isActive ? "Desativar" : "Ativar"}
@@ -583,7 +583,7 @@ export default function AdminPage() {
                             <Button
                               variant="destructive"
                               size="sm"
-                              className="flex-1 text-xs"
+                              className="flex-1 text-xs min-h-[40px]"
                             >
                               <Trash2 className="h-3 w-3 mr-1" />
                               Deletar

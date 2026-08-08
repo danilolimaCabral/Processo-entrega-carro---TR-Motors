@@ -17,15 +17,118 @@ import {
   Truck,
   Target,
   Package,
+  Warehouse,
+  Handshake,
+  Camera,
+  ArrowRight,
+  CheckCircle2 as CheckCircle,
 } from "lucide-react";
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+
+// Flow step visual component
+function FlowStepCard({
+  label,
+  count,
+  total,
+  Icon,
+  color,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  Icon: React.ElementType;
+  color: string;
+}) {
+  const bgColors: Record<string, string> = {
+    slate: "bg-slate-50 border-slate-200",
+    cyan: "bg-cyan-50 border-cyan-200",
+    amber: "bg-amber-50 border-amber-200",
+    yellow: "bg-yellow-50 border-yellow-200",
+    blue: "bg-blue-50 border-blue-200",
+    green: "bg-green-50 border-green-200",
+    purple: "bg-purple-50 border-purple-200",
+    indigo: "bg-indigo-50 border-indigo-200",
+    teal: "bg-teal-50 border-teal-200",
+  };
+  const iconBgColors: Record<string, string> = {
+    slate: "bg-slate-100",
+    cyan: "bg-cyan-100",
+    amber: "bg-amber-100",
+    yellow: "bg-yellow-100",
+    blue: "bg-blue-100",
+    green: "bg-green-100",
+    purple: "bg-purple-100",
+    indigo: "bg-indigo-100",
+    teal: "bg-teal-100",
+  };
+  const iconColors: Record<string, string> = {
+    slate: "text-slate-600",
+    cyan: "text-cyan-600",
+    amber: "text-amber-600",
+    yellow: "text-yellow-600",
+    blue: "text-blue-600",
+    green: "text-green-600",
+    purple: "text-purple-600",
+    indigo: "text-indigo-600",
+    teal: "text-teal-600",
+  };
+  const badgeColors: Record<string, string> = {
+    slate: count > 0 ? "bg-slate-600 text-white" : "bg-slate-200 text-slate-500",
+    cyan: count > 0 ? "bg-cyan-600 text-white" : "bg-cyan-200 text-cyan-700",
+    amber: count > 0 ? "bg-amber-600 text-white" : "bg-amber-200 text-amber-700",
+    yellow: count > 0 ? "bg-yellow-600 text-white" : "bg-yellow-200 text-yellow-700",
+    blue: count > 0 ? "bg-blue-600 text-white" : "bg-blue-200 text-blue-700",
+    green: count > 0 ? "bg-green-600 text-white" : "bg-green-200 text-green-700",
+    purple: count > 0 ? "bg-purple-600 text-white" : "bg-purple-200 text-purple-700",
+    indigo: count > 0 ? "bg-indigo-600 text-white" : "bg-indigo-200 text-indigo-700",
+    teal: count > 0 ? "bg-teal-600 text-white" : "bg-teal-200 text-teal-700",
+  };
+  const textColors: Record<string, string> = {
+    slate: count > 0 ? "text-slate-800" : "text-slate-400",
+    cyan: count > 0 ? "text-cyan-800" : "text-cyan-400",
+    amber: count > 0 ? "text-amber-800" : "text-amber-400",
+    yellow: count > 0 ? "text-yellow-800" : "text-yellow-400",
+    blue: count > 0 ? "text-blue-800" : "text-blue-400",
+    green: count > 0 ? "text-green-800" : "text-green-400",
+    purple: count > 0 ? "text-purple-800" : "text-purple-400",
+    indigo: count > 0 ? "text-indigo-800" : "text-indigo-400",
+    teal: count > 0 ? "text-teal-800" : "text-teal-400",
+  };
+
+  return (
+    <div
+      className={`flex flex-col items-center gap-1.5 px-2.5 py-3 rounded-xl border min-w-[72px] ${bgColors[color]}`}
+    >
+      <div className={`p-1.5 rounded-lg ${iconBgColors[color]}`}>
+        <Icon className={`h-4 w-4 ${iconColors[color]}`} />
+      </div>
+      <span className={`text-[10px] font-medium leading-tight text-center ${textColors[color]}`}>
+        {label}
+      </span>
+      <span className={`text-lg font-bold leading-none ${badgeColors[color]} px-1.5 py-0.5 rounded-md text-sm`}>
+        {count}
+      </span>
+      {total > 0 && (
+        <span className="text-[9px] text-slate-400">de {total}</span>
+      )}
+    </div>
+  );
+}
+
+// Arrow between flow steps
+function FlowArrow() {
+  return (
+    <ArrowRight className="h-4 w-4 text-slate-300 shrink-0 hidden sm:block" />
+  );
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"vendedores" | "setores" | "modulos">("vendedores");
 
   const statsQuery = trpc.modules.dashboardStats.useQuery();
+  const flowStatusQuery = trpc.modules.flowStatus.useQuery();
   const modulesQuery = trpc.modules.list.useQuery();
   const pipelineStatsQuery = trpc.pipeline.stats.useQuery();
   const inventoryStatsQuery = trpc.inventory.stats.useQuery();
@@ -33,6 +136,85 @@ export default function DashboardPage() {
 
   const modules = modulesQuery.data || [];
   const stats = statsQuery.data;
+  const flowStatus = flowStatusQuery.data;
+
+  // Flow steps data — driven by flowStatus
+  const flowSteps = flowStatus
+    ? [
+        {
+          key: "vistoria",
+          label: "Vistoria",
+          count: flowStatus.vistoria.pending,
+          total: flowStatus.vistoria.total,
+          icon: "Camera",
+          color: "slate",
+        },
+        {
+          key: "estoque",
+          label: "Estoque",
+          count: flowStatus.estoque.available,
+          total: flowStatus.estoque.total,
+          icon: "Warehouse",
+          color: "cyan",
+        },
+        {
+          key: "pipeline",
+          label: "Pipeline",
+          count: flowStatus.pipeline.novoLead + flowStatus.pipeline.qualificado,
+          total: flowStatus.pipeline.total,
+          icon: "Target",
+          color: "amber",
+        },
+        {
+          key: "proposta",
+          label: "Proposta",
+          count: flowStatus.pipeline.proposta + flowStatus.pipeline.negociando,
+          total: flowStatus.pipeline.total,
+          icon: "Handshake",
+          color: "yellow",
+        },
+        {
+          key: "vendas",
+          label: "Venda",
+          count: flowStatus.vendas.pendingFinancial,
+          total: flowStatus.vendas.total,
+          icon: "Car",
+          color: "blue",
+        },
+        {
+          key: "financeiro",
+          label: "Financeiro",
+          count: flowStatus.vendas.pendingFinancial,
+          total: flowStatus.vendas.total,
+          icon: "DollarSign",
+          color: "green",
+        },
+        {
+          key: "administrativo",
+          label: "Administrativo",
+          count: flowStatus.vendas.pendingAdmin,
+          total: flowStatus.vendas.total,
+          icon: "Building2",
+          color: "purple",
+        },
+        {
+          key: "despachante",
+          label: "Despachante",
+          count: flowStatus.despachante.pending,
+          total: flowStatus.despachante.total,
+          icon: "FileText",
+          color: "indigo",
+        },
+        {
+          key: "entrega",
+          label: "Entrega",
+          count: flowStatus.entrega.pending,
+          total: flowStatus.entrega.total,
+          icon: "Truck",
+          color: "teal",
+        },
+      ]
+    : [];
   const pipelineStats = pipelineStatsQuery.data || { total: 0, byStage: {} };
   const inventoryStats = inventoryStatsQuery.data || { total: 0, available: 0, reserved: 0, sold: 0 };
   const deliveryStats = deliveryStatsQuery.data || { total: 0, scheduled: 0, inProgress: 0, completed: 0 };
@@ -194,6 +376,74 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* FLOW PANEL — Visual representation of the complete process */}
+            <Card className="border-2 border-slate-200">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-base font-semibold">Fluxo do Processo</CardTitle>
+                  <span className="text-xs text-slate-400 ml-auto">Onde cada item está parado</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Desktop: horizontal flow with arrows */}
+                <div className="hidden md:flex items-center justify-between gap-1 overflow-x-auto pb-2">
+                  {flowSteps.map((step, idx) => {
+                    const IconMap: Record<string, React.ElementType> = {
+                      Camera: Camera,
+                      Warehouse: Warehouse,
+                      Target: Target,
+                      Handshake: Handshake,
+                      Car: Car,
+                      DollarSign: DollarSign,
+                      Building2: Building2,
+                      FileText: FileText,
+                      Truck: Truck,
+                    };
+                    return (
+                      <div key={step.key} className="flex items-center gap-1">
+                        <FlowStepCard
+                          label={step.label}
+                          count={step.count}
+                          total={step.total}
+                          Icon={IconMap[step.icon] || Car}
+                          color={step.color}
+                        />
+                        {idx < flowSteps.length - 1 && <FlowArrow />}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile: 3-column grid with small arrows */}
+                <div className="md:hidden grid grid-cols-3 gap-2">
+                  {flowSteps.map((step) => {
+                    const IconMap: Record<string, React.ElementType> = {
+                      Camera: Camera,
+                      Warehouse: Warehouse,
+                      Target: Target,
+                      Handshake: Handshake,
+                      Car: Car,
+                      DollarSign: DollarSign,
+                      Building2: Building2,
+                      FileText: FileText,
+                      Truck: Truck,
+                    };
+                    return (
+                      <FlowStepCard
+                        key={step.key}
+                        label={step.label}
+                        count={step.count}
+                        total={step.total}
+                        Icon={IconMap[step.icon] || Car}
+                        color={step.color}
+                      />
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Existing pending stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

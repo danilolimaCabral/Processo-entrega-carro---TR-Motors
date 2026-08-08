@@ -73,6 +73,115 @@ export const modulesRouter = router({
   /**
    * Get dashboard stats — pending documents per seller and sector
    */
+  /**
+   * Get the full flow status — visual pipeline showing where each item is stuck
+   */
+  flowStatus: protectedProcedure.query(async () => {
+    const db = await getDb();
+    const schema = await import("../../drizzle/schema");
+
+    // Purchase inspections (vistoria de compra)
+    const inspections = await db.select().from(inspection_checklists);
+    const inspectionsPending = inspections.filter(
+      (i) => i.status === "pending" || i.status === "in_progress"
+    ).length;
+    const inspectionsCompleted = inspections.filter(
+      (i) => i.status === "completed" || i.status === "approved"
+    ).length;
+
+    // Inventory vehicles
+    const inventory = await db.select().from(schema.vehicle_inventory);
+    const availableVehicles = inventory.filter(
+      (v) => v.status === "disponivel"
+    ).length;
+    const reservedVehicles = inventory.filter(
+      (v) => v.status === "reservado"
+    ).length;
+
+    // Pipeline leads
+    const pipeline = await db.select().from(schema.sales_pipeline);
+    const pipelineByStage: Record<string, number> = {};
+    pipeline.forEach((l) => {
+      pipelineByStage[l.stage] = (pipelineByStage[l.stage] || 0) + 1;
+    });
+    const pipelineNovo = pipelineByStage["novo_lead"] || 0;
+    const pipelineQualificado = pipelineByStage["qualificado"] || 0;
+    const pipelineProposta = pipelineByStage["proposta_enviada"] || 0;
+    const pipelineNegociando = pipelineByStage["negociando"] || 0;
+    const pipelineVendido = pipelineByStage["venda_fechada"] || 0;
+
+    // Sales records
+    const sales = await db.select().from(sale_records);
+    const pendingSales = sales.filter(
+      (s) => s.financialStatus === "pending" || s.adminStatus === "pending"
+    ).length;
+    const approvedSales = sales.filter(
+      (s) => s.financialStatus === "approved" && s.adminStatus === "approved"
+    ).length;
+    const pendingFinancial = sales.filter(
+      (s) => s.financialStatus === "pending"
+    ).length;
+    const pendingAdmin = sales.filter(
+      (s) => s.adminStatus === "pending" && s.financialStatus === "approved"
+    ).length;
+
+    // Despachante documents
+    const docs = await db.select().from(schema.despachante_documents);
+    const despachantePending = docs.filter(
+      (d) => d.status === "pendente" || d.status === "processando"
+    ).length;
+    const despachanteCompleted = docs.filter(
+      (d) => d.status === "concluido" || d.status === "finalizado"
+    ).length;
+
+    // Delivery
+    const deliveries = await db.select().from(schema.vehicle_deliveries);
+    const pendingDeliveries = deliveries.filter(
+      (d) => d.status !== "entregue"
+    ).length;
+    const completedDeliveries = deliveries.filter(
+      (d) => d.status === "entregue"
+    ).length;
+
+    return {
+      vistoria: {
+        pending: inspectionsPending,
+        completed: inspectionsCompleted,
+        total: inspections.length,
+      },
+      estoque: {
+        available: availableVehicles,
+        reserved: reservedVehicles,
+        total: inventory.length,
+      },
+      pipeline: {
+        novoLead: pipelineNovo,
+        qualificado: pipelineQualificado,
+        proposta: pipelineProposta,
+        negociando: pipelineNegociando,
+        vendido: pipelineVendido,
+        total: pipeline.length,
+      },
+      vendas: {
+        pendingFinancial,
+        pendingAdmin,
+        pendingTotal: pendingSales,
+        approved: approvedSales,
+        total: sales.length,
+      },
+      despachante: {
+        pending: despachantePending,
+        completed: despachanteCompleted,
+        total: docs.length,
+      },
+      entrega: {
+        pending: pendingDeliveries,
+        completed: completedDeliveries,
+        total: deliveries.length,
+      },
+    };
+  }),
+
   dashboardStats: protectedProcedure.query(async () => {
     const db = await getDb();
 

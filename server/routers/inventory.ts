@@ -236,8 +236,8 @@ export const syncFromRevendaMais = protectedProcedure.mutation(async ({ ctx }) =
         salePrice: v.price ? (parseFloat(v.price) as any) : null,
         promoPrice: v.promotion_price && parseFloat(v.promotion_price) > 0 ? (parseFloat(v.promotion_price) as any) : null,
         fipePrice: v.valor_fipe ? (parseFloat(v.valor_fipe) as any) : null,
-        images: v.images ? JSON.stringify(v.images) : null,
-        imagesLarge: v.images_large ? JSON.stringify(v.images_large) : null,
+        images: v.images ? JSON.stringify(proxyImages(v.images)) : null,
+        imagesLarge: v.images_large ? JSON.stringify(proxyImages(v.images_large)) : null,
         location: [v.location_city, v.location_state].filter(Boolean).join(", "),
         status: "disponivel" as any,
         notes: `Sincronizado do Revenda Mais (ID: ${v.vehicle_id})`,
@@ -272,6 +272,13 @@ export const syncFromRevendaMais = protectedProcedure.mutation(async ({ ctx }) =
     });
   }
 });
+
+/**
+ * Proxy images through weserv to bypass S3 hotlink protection
+ */
+function proxyImages(urls: string[]): string[] {
+  return urls.map((url: string) => `https://images.weserv.nl/?url=${encodeURIComponent(url)}`);
+}
 
 /**
  * Get inventory stats

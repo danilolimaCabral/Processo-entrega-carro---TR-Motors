@@ -128,10 +128,10 @@ export const modulesRouter = router({
     // Despachante documents
     const docs = await db.select().from(schema.despachante_documents);
     const despachantePending = docs.filter(
-      (d) => d.status === "pendente" || d.status === "processando"
+      (d) => d.status === "pendente" || d.status === "documentos_coletados" || d.status === "em_processamento" || d.status === "cartorio" || d.status === "detran"
     ).length;
     const despachanteCompleted = docs.filter(
-      (d) => d.status === "concluido" || d.status === "finalizado"
+      (d) => d.status === "concluido"
     ).length;
 
     // Delivery

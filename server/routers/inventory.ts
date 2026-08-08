@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, like, desc, and, or } from "drizzle-orm";
+import { eq, like, desc, and, or, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -197,11 +197,58 @@ export const syncFromRevendaMais = protectedProcedure.mutation(async ({ ctx }) =
     const vehicles = data.vehicles || [];
 
     if (vehicles.length === 0) {
-      return { success: true, created: 0, updated: 0, total: 0, message: "Nenhum veículo encontrado na API" };
+      // Still try to match old vehicles even if API returns empty
+      const oldVehicles = await db.select().from(vehicle_inventory).where(isNull(vehicle_inventory.externalId));
+      let matched = 0;
+      for (const oldV of oldVehicles) {
+        const match = vehicles.find((v: any) => {
+          const apiBrand = (v.make || "").trim().toUpperCase();
+          const apiModel = (v.base_model || v.model || "").trim().toUpperCase();
+          const localBrand = (oldV.brand || "").trim().toUpperCase();
+          const localModel = (oldV.model || oldV.modelDetail || "").trim().toUpperCase();
+          return apiBrand === localBrand && (apiModel.includes(localModel) || localModel.includes(apiModel));
+        });
+        if (match && match.images) {
+          await db.update(vehicle_inventory).set({
+            images: JSON.stringify(proxyImages(match.images)),
+            imagesLarge: match.images_large ? JSON.stringify(proxyImages(match.images_large)) : null,
+            salePrice: match.price ? (parseFloat(match.price) as any) : null,
+            promoPrice: match.promotion_price && parseFloat(match.promotion_price) > 0 ? (parseFloat(match.promotion_price) as any) : null,
+            fipePrice: match.valor_fipe ? (parseFloat(match.valor_fipe) as any) : null,
+            updatedAt: new Date(),
+          }).where(eq(vehicle_inventory.id, oldV.id));
+          matched++;
+        }
+      }
+      return { success: true, created: 0, updated: matched, total: 0, message: `API vazia, mas ${matched} veículos antigos atualizados com fotos` };
     }
 
     let created = 0;
     let updated = 0;
+
+    // First pass: try to match old vehicles (without externalId) to Revenda Mais vehicles by brand+model
+    // This fills in images for old demo data
+    const oldVehicles = await db.select().from(vehicle_inventory).where(isNull(vehicle_inventory.externalId));
+    for (const oldV of oldVehicles) {
+      const match = vehicles.find((v: any) => {
+        const apiBrand = (v.make || "").trim().toUpperCase();
+        const apiModel = (v.base_model || v.model || "").trim().toUpperCase();
+        const localBrand = (oldV.brand || "").trim().toUpperCase();
+        const localModel = (oldV.model || oldV.modelDetail || "").trim().toUpperCase();
+        return apiBrand === localBrand && (apiModel.includes(localModel) || localModel.includes(apiModel));
+      });
+      if (match && match.images) {
+        await db.update(vehicle_inventory).set({
+          images: JSON.stringify(proxyImages(match.images)),
+          imagesLarge: match.images_large ? JSON.stringify(proxyImages(match.images_large)) : null,
+          salePrice: match.price ? (parseFloat(match.price) as any) : null,
+          promoPrice: match.promotion_price && parseFloat(match.promotion_price) > 0 ? (parseFloat(match.promotion_price) as any) : null,
+          fipePrice: match.valor_fipe ? (parseFloat(match.valor_fipe) as any) : null,
+          updatedAt: new Date(),
+        }).where(eq(vehicle_inventory.id, oldV.id));
+        updated++;
+      }
+    }
 
     for (const v of vehicles) {
       // Check if vehicle already exists (by vehicle_id from Revenda Mais)

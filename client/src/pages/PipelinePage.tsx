@@ -81,8 +81,11 @@ export default function PipelinePage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const pipeline = pipelineData || [];
+  const pipeline = (pipelineData || []).map((p: any) => p.lead || p);
   const stats = statsData || { total: 0, byStage: {} };
+
+  // Helper to get lead properties safely
+  const getLead = (p: any) => p.lead || p;
 
   const nextStages: Record<PipelineStage, PipelineStage[]> = {
     novo_lead: ["qualificado", "perdido"],
@@ -99,10 +102,10 @@ export default function PipelinePage() {
       return;
     }
     createMutation.mutate({
-      name: form.name,
-      phone: form.phone || undefined,
-      email: form.email || undefined,
-      interest: form.interest || undefined,
+      leadName: form.name,
+      leadPhone: form.phone || undefined,
+      leadEmail: form.email || undefined,
+      vehicleDescription: form.interest || undefined,
       vehicleId: form.vehicleId ? parseInt(form.vehicleId) : undefined,
       stage: form.stage,
       notes: form.notes || undefined,
@@ -128,7 +131,7 @@ export default function PipelinePage() {
               <Clock className="h-8 w-8 text-yellow-500" />
               <div>
                 <p className="text-2xl font-bold text-yellow-600">
-                  {pipeline.filter((p: any) => p.stage !== "closed_won" && p.stage !== "closed_lost").length}
+                  {pipeline.filter((p: any) => getLead(p).stage !== "venda_fechada" && getLead(p).stage !== "perdido").length}
                 </p>
                 <p className="text-xs text-gray-500">Em andamento</p>
               </div>
@@ -139,7 +142,7 @@ export default function PipelinePage() {
               <CheckCircle className="h-8 w-8 text-green-500" />
               <div>
                 <p className="text-2xl font-bold text-green-600">
-                  {pipeline.filter((p: any) => p.stage === "closed_won").length}
+                  {pipeline.filter((p: any) => getLead(p).stage === "venda_fechada").length}
                 </p>
                 <p className="text-xs text-gray-500">Vendidos</p>
               </div>
@@ -150,7 +153,7 @@ export default function PipelinePage() {
               <XCircle className="h-8 w-8 text-red-500" />
               <div>
                 <p className="text-2xl font-bold text-red-600">
-                  {pipeline.filter((p: any) => p.stage === "closed_lost").length}
+                  {pipeline.filter((p: any) => getLead(p).stage === "perdido").length}
                 </p>
                 <p className="text-xs text-gray-500">Perdidos</p>
               </div>
@@ -227,7 +230,7 @@ export default function PipelinePage() {
           <div className="hidden lg:block">
           <div className="grid grid-cols-6 gap-2">
             {(["novo_lead", "qualificado", "proposta_enviada", "negociando", "venda_fechada", "perdido"] as PipelineStage[]).map((stage) => {
-              const stagePipelines = pipeline.filter((p: any) => p.stage === stage);
+              const stagePipelines = pipeline.filter((p: any) => getLead(p).stage === stage);
               return (
                 <div key={stage} className={`rounded-lg border p-2 min-h-[300px] ${stageColors[stage]}`}>
                   <div className="flex items-center justify-between mb-2">
@@ -240,20 +243,20 @@ export default function PipelinePage() {
                         <CardContent className="p-0">
                           <div className="flex items-center gap-1 mb-1">
                             <User className="h-3 w-3 text-gray-400" />
-                            <p className="text-xs font-medium truncate">{p.name || p.customerName || p.clientName || "-"}</p>
+                            <p className="text-xs font-medium truncate">{getLead(p).leadName || "-"}</p>
                           </div>
-                      {p.interest && (
-                        <p className="text-[10px] text-gray-500 truncate mb-1">🚗 {p.interest}</p>
-                      )}
+                          {getLead(p).vehicleDescription && (
+                            <p className="text-[10px] text-gray-500 truncate mb-1">🚗 {getLead(p).vehicleDescription}</p>
+                          )}
                       <div className="flex gap-1 flex-wrap">
                         {nextStages[stage].map((next) => (
-                          <Button
-                            key={next}
-                            size="sm"
-                            variant="ghost"
-                            className="h-5 text-[10px] px-1 py-0"
-                            onClick={() => moveStageMutation.mutate({ id: p.id, stage: next })}
-                          >
+                              <Button
+                                key={next}
+                                size="sm"
+                                variant="ghost"
+                                className="h-5 text-[10px] px-1 py-0"
+                                onClick={() => moveStageMutation.mutate({ id: getLead(p).id, stage: next })}
+                              >
                             <ArrowRight className="h-2.5 w-2.5 mr-0.5" />
                             {stageLabels[next]}
                           </Button>
@@ -280,27 +283,29 @@ export default function PipelinePage() {
               <p className="text-sm mt-1">Adicione leads e acompanhe as vendas</p>
             </CardContent></Card>
           ) : (
-            pipeline.map((p: any) => (
-              <Card key={p.id}>
+            pipeline.map((p: any) => {
+              const lead = getLead(p);
+              return (
+              <Card key={lead.id}>
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-medium text-sm">{p.name}</p>
-                      {p.interest && <p className="text-xs text-gray-500">Interesse: {p.interest}</p>}
-                      <p className="text-xs text-gray-400">{p.phone || p.email || ""}</p>
+                      <p className="font-medium text-sm">{lead.leadName || "-"}</p>
+                      {lead.vehicleDescription && <p className="text-xs text-gray-500">Interesse: {lead.vehicleDescription}</p>}
+                      <p className="text-xs text-gray-400">{lead.leadPhone || lead.leadEmail || ""}</p>
                     </div>
-                    <Badge className={`${stageBadgeColors[p.stage] || "bg-gray-500"} text-white text-[10px]`}>
-                      {stageLabels[p.stage]}
+                    <Badge className={`${stageBadgeColors[lead.stage] || "bg-gray-500"} text-white text-[10px]`}>
+                      {stageLabels[lead.stage]}
                     </Badge>
                   </div>
                   <div className="flex gap-1 mt-2 flex-wrap">
-                    {nextStages[p.stage].map((next) => (
+                    {nextStages[lead.stage].map((next) => (
                       <Button
                         key={next}
                         size="sm"
                         variant="outline"
                         className="text-xs h-7"
-                        onClick={() => moveStageMutation.mutate({ id: p.id, stage: next })}
+                        onClick={() => moveStageMutation.mutate({ id: lead.id, stage: next })}
                       >
                         <ArrowRight className="h-3 w-3 mr-1" />
                         {stageLabels[next]}
@@ -309,7 +314,8 @@ export default function PipelinePage() {
                   </div>
                 </CardContent>
               </Card>
-            ))
+              );
+            })
           )}
         </div>
       </div>

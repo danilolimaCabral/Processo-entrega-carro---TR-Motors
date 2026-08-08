@@ -419,42 +419,48 @@ export default function DashboardPage() {
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {inventoryListQuery.data?.slice(0, 8).map((v: any) => {
+                {(inventoryListQuery.data || []).slice(0, 8).map((item: any) => {
+                  const v = item.inventory || item;
                   let imgUrl = "";
                   if (v.images) {
                     try {
-                      const imgs = JSON.parse(v.images);
+                      const imgs = typeof v.images === "string" ? JSON.parse(v.images) : v.images;
                       if (Array.isArray(imgs) && imgs.length > 0) imgUrl = imgs[0];
                     } catch {}
                   }
+                  const displayName = `${v.brand || ""} ${v.modelDetail || v.model || ""}`.trim();
                   return (
-                    <Card
+                    <div
                       key={v.id}
-                      className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                      className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm active:scale-[0.97] transition-all cursor-pointer hover:shadow-md hover:border-blue-300"
                       onClick={() => navigate("/estoque")}
+                      role="button"
+                      tabIndex={0}
                     >
                       {imgUrl ? (
                         <img
                           src={imgUrl}
-                          alt={`${v.brand} ${v.model}`}
-                          className="w-full h-28 object-cover"
+                          alt={displayName}
+                          className="w-full h-24 object-cover bg-gray-50"
                           loading="lazy"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                         />
                       ) : (
-                        <div className="w-full h-28 bg-gray-100 flex items-center justify-center">
+                        <div className="w-full h-24 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                           <Car className="h-8 w-8 text-gray-300" />
                         </div>
                       )}
-                      <CardContent className="p-2">
-                        <p className="text-xs font-semibold truncate">{v.brand} {v.modelDetail || v.model}</p>
-                        <p className="text-[10px] text-gray-500">
+                      <div className="p-2">
+                        <p className="text-[11px] font-semibold truncate text-gray-800">{displayName}</p>
+                        <p className="text-[10px] text-gray-400 truncate">
                           {v.fabricYear && v.year ? `${v.fabricYear}/${v.year}` : v.year || ""}
-                          {v.km ? ` • ${v.km.toLocaleString()}km` : ""}
+                          {v.km ? ` • ${Number(v.km).toLocaleString()}km` : ""}
                         </p>
-                        <p className="text-sm font-bold text-green-700">{v.salePrice?.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 })}</p>
-                      </CardContent>
-                    </Card>
+                        <p className="text-sm font-bold text-green-700 mt-0.5">
+                          {v.salePrice ? Number(v.salePrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0 }) : "Consultar"}
+                        </p>
+                      </div>
+                    </div>
                   );
                 })}
                 {!inventoryListQuery.data?.length && (

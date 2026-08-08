@@ -17,6 +17,7 @@ export const listInventory = protectedProcedure
     z.object({
       status: z.string().optional(),
       search: z.string().optional(),
+      limit: z.number().optional(),
     }).optional()
   )
   .query(async ({ input }) => {
@@ -39,7 +40,11 @@ export const listInventory = protectedProcedure
       );
     }
 
-    return query.orderBy(desc(vehicle_inventory.createdAt));
+    let results = await query.orderBy(desc(vehicle_inventory.createdAt));
+    if (input?.limit) {
+      results = results.slice(0, input.limit);
+    }
+    return results;
   });
 
 /**

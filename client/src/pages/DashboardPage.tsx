@@ -149,6 +149,7 @@ export default function DashboardPage() {
   const modulesQuery = trpc.modules.list.useQuery();
   const pipelineStatsQuery = trpc.pipeline.stats.useQuery();
   const inventoryStatsQuery = trpc.inventory.stats.useQuery();
+  const inventoryListQuery = trpc.inventory.list.useQuery({ limit: 8 });
   const deliveryStatsQuery = trpc.delivery.stats.useQuery();
 
   const modules = modulesQuery.data || [];
@@ -403,6 +404,67 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Recent Vehicles with Photos */}
+            <div className="mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Car className="h-5 w-5 text-red-600" />
+                <h3 className="text-sm font-semibold text-slate-700">Veículos no Estoque</h3>
+                <button
+                  onClick={() => navigate("/estoque")}
+                  className="ml-auto text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  Ver todos <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {inventoryListQuery.data?.slice(0, 8).map((v: any) => {
+                  let imgUrl = "";
+                  if (v.images) {
+                    try {
+                      const imgs = JSON.parse(v.images);
+                      if (Array.isArray(imgs) && imgs.length > 0) imgUrl = imgs[0];
+                    } catch {}
+                  }
+                  return (
+                    <Card
+                      key={v.id}
+                      className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => navigate("/estoque")}
+                    >
+                      {imgUrl ? (
+                        <img
+                          src={imgUrl}
+                          alt={`${v.brand} ${v.model}`}
+                          className="w-full h-28 object-cover"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-full h-28 bg-gray-100 flex items-center justify-center">
+                          <Car className="h-8 w-8 text-gray-300" />
+                        </div>
+                      )}
+                      <CardContent className="p-2">
+                        <p className="text-xs font-semibold truncate">{v.brand} {v.modelDetail || v.model}</p>
+                        <p className="text-[10px] text-gray-500">
+                          {v.fabricYear && v.year ? `${v.fabricYear}/${v.year}` : v.year || ""}
+                          {v.km ? ` • ${v.km.toLocaleString()}km` : ""}
+                        </p>
+                        <p className="text-sm font-bold text-green-700">R$ {v.salePrice?.toLocaleString()}</p>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {!inventoryListQuery.data?.length && (
+                  <Card className="col-span-full">
+                    <CardContent className="p-4 text-center text-gray-500 text-sm">
+                      Clique em "Sincronizar Revenda Mais" no módulo Estoque para carregar veículos
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
 
             {/* FLOW PANEL — Visual representation of the complete process */}

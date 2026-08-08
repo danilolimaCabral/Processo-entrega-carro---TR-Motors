@@ -17,14 +17,17 @@ import { toast } from "sonner";
 import {
   Car, Package, Plus, Edit, Trash2, Eye, RotateCcw,
   TrendingUp, AlertTriangle, CheckCircle, XCircle, RefreshCw,
+  Image, List,
 } from "lucide-react";
 
 type Tab = "lista" | "adicionar";
+type ViewMode = "grid" | "list";
 
 export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<Tab>("lista");
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   // Form state
   const [form, setForm] = useState({
@@ -80,7 +83,7 @@ export default function InventoryPage() {
     onError: (err) => toast.error(err.message),
   });
 
-  const inventory = inventoryData || [];
+  const inventory = (inventoryData || []).map((item: any) => item.inventory || item);
   const stats = statsData || { total: 0, available: 0, reserved: 0, sold: 0 };
 
   const handleSubmit = () => {
@@ -108,15 +111,45 @@ export default function InventoryPage() {
   };
 
   const statusColors: Record<string, string> = {
-    available: "bg-green-100 text-green-800",
-    reserved: "bg-yellow-100 text-yellow-800",
-    sold: "bg-blue-100 text-blue-800",
+    disponivel: "bg-green-100 text-green-800",
+    reservado: "bg-yellow-100 text-yellow-800",
+    vendido: "bg-blue-100 text-blue-800",
+    em_preparacao: "bg-orange-100 text-orange-800",
+    transferido: "bg-gray-100 text-gray-800",
   };
 
   const statusLabels: Record<string, string> = {
-    available: "Disponível",
-    reserved: "Reservado",
-    sold: "Vendido",
+    disponivel: "Disponível",
+    reservado: "Reservado",
+    vendido: "Vendido",
+    em_preparacao: "Em Preparação",
+    transferido: "Transferido",
+  };
+
+  const getFirstImage = (v: any): string => {
+    if (v.images) {
+      try {
+        const imgs = JSON.parse(v.images);
+        if (Array.isArray(imgs) && imgs.length > 0) return imgs[0];
+      } catch {}
+    }
+    if (v.imagesLarge) {
+      try {
+        const imgs = JSON.parse(v.imagesLarge);
+        if (Array.isArray(imgs) && imgs.length > 0) return imgs[0];
+      } catch {}
+    }
+    return "";
+  };
+
+  const getImageCount = (v: any): number => {
+    if (v.images) {
+      try {
+        const imgs = JSON.parse(v.images);
+        if (Array.isArray(imgs)) return imgs.length;
+      } catch {}
+    }
+    return 0;
   };
 
   const formatFuel = (fuel: string) => {
@@ -311,6 +344,26 @@ export default function InventoryPage() {
           </div>
         </div>
 
+        {/* View Toggle - Grid / List */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+          <Button
+            variant={viewMode === "grid" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("grid")}
+            className="h-8 px-3"
+          >
+            <Image className="h-4 w-4 mr-1" /> Fotos
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="h-8 px-3"
+          >
+            <List className="h-4 w-4 mr-1" /> Lista
+          </Button>
+        </div>
+
         {/* Content */}
         {isLoading ? (
           <Card><CardContent className="p-8 text-center text-gray-500">Carregando estoque...</CardContent></Card>
@@ -318,11 +371,70 @@ export default function InventoryPage() {
           <Card><CardContent className="p-8 text-center text-gray-500">
             <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
             <p>Nenhum veículo no estoque</p>
-            <p className="text-sm mt-1">Adicione veículos vindos da vistoria de compra ou manualmente</p>
+            <p className="text-sm mt-1">Clique em "Sincronizar Revenda Mais" para importar</p>
           </CardContent></Card>
         ) : (
           <div className="space-y-3">
-            {/* Desktop Table */}
+            {/* Photo Grid View */}
+            {viewMode === "grid" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {inventory.map((v: any) => (
+                  <Card key={v.id} className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="relative">
+                      {getFirstImage(v) ? (
+                        <img
+                          src={getFirstImage(v)}
+                          alt={`${v.brand} ${v.model}`}
+                          className="w-full h-40 object-cover"
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-full h-40 bg-gray-100 flex items-center justify-center">
+                          <Car className="h-12 w-12 text-gray-300" />
+                        </div>
+                      )}
+                      <Badge className={`absolute top-2 right-2 ${statusColors[v.status] || "bg-gray-100 text-gray-800"}`}>
+                        {statusLabels[v.status] || v.status}
+                      </Badge>
+                      {getImageCount(v) > 1 && (
+                        <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+                          {getImageCount(v)} fotos
+                        </div>
+                      )}
+                    </div>
+                    <CardContent className="p-3">
+                      <p className="font-semibold text-sm truncate">{v.brand} {v.modelDetail || v.model}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {v.fabricYear && v.year ? `${v.fabricYear}/${v.year}` : v.year || ""}
+                        {v.km ? ` • ${v.km.toLocaleString()} km` : ""}
+                        {v.color ? ` • ${v.color}` : ""}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-base font-bold text-green-700">R$ {v.salePrice?.toLocaleString()}</p>
+                        <div className="flex gap-1">
+                          {v.status === "disponivel" && (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => updateStatusMutation.mutate({ id: v.id, status: "reservado" })}>
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {v.status === "reservado" && (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => updateStatusMutation.mutate({ id: v.id, status: "disponivel" })}>
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => deleteMutation.mutate({ id: v.id })}>
+                            <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Desktop Table (List View) */}
             <div className="hidden lg:block overflow-x-auto">
               <Card>
                 <CardContent className="p-0">

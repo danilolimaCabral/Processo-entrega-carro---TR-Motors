@@ -171,6 +171,104 @@ export const deleteInventoryItem = protectedProcedure
   });
 
 /**
+ * Sync inventory from Revenda Mais API
+ * Fetches all vehicles from the external API and upserts them into the database
+ */
+export const syncFromRevendaMais = protectedProcedure.mutation(async ({ ctx }) => {
+  const db = await getDb();
+
+  const API_URL = "http://app.revendamais.com.br/application/index.php/apiGeneratorXml/generator/appdaloja/99700b3d91e196316183441a307a1e1e5555.json";
+
+  try {
+    const response = await fetch(API_URL, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Erro ao buscar dados do Revenda Mais: HTTP ${response.status}`,
+      });
+    }
+
+    const data: any = await response.json();
+    const vehicles = data.vehicles || [];
+
+    if (vehicles.length === 0) {
+      return { success: true, created: 0, updated: 0, total: 0, message: "Nenhum veículo encontrado na API" };
+    }
+
+    let created = 0;
+    let updated = 0;
+
+    for (const v of vehicles) {
+      // Check if vehicle already exists (by vehicle_id from Revenda Mais)
+      const existing = await db
+        .select()
+        .from(vehicle_inventory)
+        .where(eq(vehicle_inventory.externalId, v.vehicle_id))
+        .limit(1);
+
+      const vehicleData = {
+        externalId: v.vehicle_id,
+        externalSource: "revendamaais",
+        brand: v.make || "",
+        model: v.base_model || v.model || "",
+        modelDetail: v.model || "",
+        year: v.year ? parseInt(v.year) : null,
+        fabricYear: v.fabric_year ? parseInt(v.fabric_year) : null,
+        km: v.mileage ? parseInt(v.mileage) : null,
+        fuel: v.fuel || null,
+        color: v.color || null,
+        plate: v.plate || null,
+        chassi: v.chassi || null,
+        doors: v.doors ? parseInt(v.doors) : null,
+        motorization: v.motorization || null,
+        hp: v.hp ? parseInt(v.hp) : null,
+        bodyType: v.body_type || null,
+        condition: v.condition || null,
+        gear: v.gear || null,
+        accessories: v.accessories || null,
+        description: v.description || null,
+        purchasePrice: v.valor_fipe ? (parseFloat(v.valor_fipe) as any) : null,
+        salePrice: v.price ? (parseFloat(v.price) as any) : null,
+        promoPrice: v.promotion_price && parseFloat(v.promotion_price) > 0 ? (parseFloat(v.promotion_price) as any) : null,
+        fipePrice: v.valor_fipe ? (parseFloat(v.valor_fipe) as any) : null,
+        images: v.images ? JSON.stringify(v.images) : null,
+        imagesLarge: v.images_large ? JSON.stringify(v.images_large) : null,
+        location: [v.location_city, v.location_state].filter(Boolean).join(", "),
+        status: "disponivel" as any,
+        notes: `Sincronizado do Revenda Mais (ID: ${v.vehicle_id})`,
+        addedBy: ctx.user.id,
+        updatedAt: new Date(),
+      };
+
+      if (existing.length > 0) {
+        // Update existing vehicle
+        const { externalId, ...updateData } = vehicleData;
+        await db.update(vehicle_inventory).set(updateData).where(eq(vehicle_inventory.id, existing[0].id));
+        updated++;
+      } else {
+        // Create new vehicle
+        await db.insert(vehicle_inventory).values(vehicleData);
+        created++;
+      }
+    }
+
+    return {
+      success: true,
+      created,
+      updated,
+      total: vehicles.length,
+      message: `Sincronizado! ${created} novos, ${updated} atualizados de ${vehicles.length} veículos`,
+    };
+  } catch (error: any) {
+    if (error instanceof TRPCError) throw error;
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Erro ao sincronizar com Revenda Mais: ${error.message}`,
+    });
+  }
+});
+
+/**
  * Get inventory stats
  */
 export const inventoryStats = protectedProcedure.query(async () => {
@@ -203,4 +301,5 @@ export const inventoryRouter = router({
   updateStatus: updateInventoryStatus,
   delete: deleteInventoryItem,
   stats: inventoryStats,
+  syncRevendaMais: syncFromRevendaMais,
 });

@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Car, Package, Plus, Edit, Trash2, Eye, RotateCcw,
-  TrendingUp, AlertTriangle, CheckCircle, XCircle,
+  TrendingUp, AlertTriangle, CheckCircle, XCircle, RefreshCw,
 } from "lucide-react";
 
 type Tab = "lista" | "adicionar";
@@ -72,6 +72,14 @@ export default function InventoryPage() {
     onError: (err) => toast.error(err.message),
   });
 
+  const syncMutation = trpc.inventory.syncRevendaMais.useMutation({
+    onSuccess: (res) => {
+      toast.success(res.message || "Sincronização concluída!");
+      refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
   const inventory = inventoryData || [];
   const stats = statsData || { total: 0, available: 0, reserved: 0, sold: 0 };
 
@@ -109,6 +117,17 @@ export default function InventoryPage() {
     available: "Disponível",
     reserved: "Reservado",
     sold: "Vendido",
+  };
+
+  const formatFuel = (fuel: string) => {
+    if (!fuel) return "-";
+    const f = fuel.toLowerCase();
+    if (f.includes("flex")) return "Flex";
+    if (f.includes("gasol")) return "Gasolina";
+    if (f.includes("diesel")) return "Diesel";
+    if (f.includes("eléctric") || f.includes("electric")) return "Elétrico";
+    if (f.includes("híbrid") || f.includes("hybrid")) return "Híbrido";
+    return fuel;
   };
 
   return (
@@ -272,12 +291,22 @@ export default function InventoryPage() {
               </DialogContent>
             </Dialog>
           </div>
-          <div className="w-full sm:w-64">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-2 bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
+              {syncMutation.isPending ? "Sincronizando..." : "Sincronizar Revenda Mais"}
+            </Button>
             <Input
               placeholder="Buscar veículo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full"
+              className="w-full sm:w-64"
             />
           </div>
         </div>
@@ -315,15 +344,15 @@ export default function InventoryPage() {
                       {inventory.map((v: any) => (
                         <tr key={v.id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-medium">
-                            {v.brand} {v.model}
+                            {v.brand} {v.modelDetail || v.model}
                             {v.plate && <span className="text-gray-400 text-xs ml-1">({v.plate})</span>}
                           </td>
-                          <td className="p-3">{v.year || "-"}</td>
-                          <td className="p-3">{v.mileage ? `${v.mileage.toLocaleString()} km` : "-"}</td>
+                          <td className="p-3">{v.fabricYear ? `${v.fabricYear}/${v.year}` : v.year || "-"}</td>
+                          <td className="p-3">{v.km ? `${v.km.toLocaleString()} km` : "-"}</td>
                           <td className="p-3">{v.color || "-"}</td>
-                          <td className="p-3">{v.fuelType === "flex" ? "Flex" : v.fuelType === "gasoline" ? "Gasolina" : v.fuelType === "diesel" ? "Diesel" : v.fuelType}</td>
+                          <td className="p-3">{formatFuel(v.fuel)}</td>
                           <td className="p-3">{v.transmission === "manual" ? "Manual" : v.transmission === "automatic" ? "Auto" : "CVT"}</td>
-                          <td className="p-3 text-right font-medium text-green-700">R$ {v.price?.toLocaleString()}</td>
+                          <td className="p-3 text-right font-medium text-green-700">R$ {v.salePrice?.toLocaleString()}</td>
                           <td className="p-3 text-center">
                             <Badge className={statusColors[v.status] || "bg-gray-100 text-gray-800"}>
                               {statusLabels[v.status] || v.status}
@@ -361,12 +390,14 @@ export default function InventoryPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-semibold">{v.brand} {v.model}</p>
+                        <p className="font-semibold">{v.brand} {v.modelDetail || v.model}</p>
                         <p className="text-sm text-gray-500">
-                          {v.year ? `${v.year} • ` : ""}{v.mileage ? `${v.mileage.toLocaleString()} km` : ""}
+                          {v.fabricYear && v.year ? `${v.fabricYear}/${v.year} • ` : ""}
+                          {v.km ? `${v.km.toLocaleString()} km` : ""}
                           {v.color ? ` • ${v.color}` : ""}
+                          {v.fuel ? ` • ${formatFuel(v.fuel)}` : ""}
                         </p>
-                        <p className="text-lg font-bold text-green-700 mt-1">R$ {v.price?.toLocaleString()}</p>
+                        <p className="text-lg font-bold text-green-700 mt-1">R$ {v.salePrice?.toLocaleString()}</p>
                       </div>
                       <Badge className={statusColors[v.status] || "bg-gray-100 text-gray-800"}>
                         {statusLabels[v.status] || v.status}

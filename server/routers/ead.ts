@@ -309,6 +309,94 @@ export const listMyCertificates = protectedProcedure.query(async ({ ctx }) => {
 });
 
 // ============================================================
+// Student management (admin only - enroll users as students)
+// ============================================================
+export const enrollStudent = protectedProcedure
+  .input(z.object({ userId: z.number(), courseId: z.number() }))
+  .mutation(async ({ input }) => {
+    const db = await getDb();
+    // Get all lessons for this course
+    const lessons = await db
+      .select()
+      .from(ead_lessons)
+      .where(eq(ead_lessons.courseId, input.courseId));
+    // Insert progress for each lesson
+    for (const lesson of lessons) {
+      const [existing] = await db
+        .select()
+        .from(ead_progress)
+        .where(and(eq(ead_progress.userId, input.userId), eq(ead_progress.lessonId, lesson.id)));
+      if (!existing) {
+        await db.insert(ead_progress).values({
+          userId: input.userId,
+          courseId: input.courseId,
+          lessonId: lesson.id,
+          completed: false,
+          watchedPercent: 0,
+          completedAt: null,
+        });
+      }
+    }
+    return { success: true, enrolledLessons: lessons.length };
+  });
+
+export const listStudents = protectedProcedure
+  .input(z.object({ userId: z.number().optional() }).optional())
+  .query(async ({ input, ctx }) => {
+    const db = await getDb();
+    const query = input?.userId
+      ? db.select().from(ead_progress).where(eq(ead_progress.userId, input.userId))
+      : db.select().from(ead_progress);
+    const progress = await query;
+    // Get unique users from progress
+    const uniqueUserIds = [...new Set(progress.map(p => p.userId))];
+    if (uniqueUserIds.length === 0) return { students: [], progress: [] };
+    return { students: uniqueUserIds, progress };
+  });
+
+export const getStudentCourses = protectedProcedure
+  .input(z.object({ userId: z.number() }))
+  .query(async ({ input }) => {
+    const db = await getDb();
+    // Get all progress for this user grouped by course
+    const progress = await db
+      .select()
+      .from(ead_progress)
+      .where(eq(ead_progress.userId, input.userId));
+    const courseIds = [...new Set(progress.map(p => p.courseId))];
+    if (courseIds.length === 0) return { courses: [], progress: [] };
+    const courses = await db
+      .select()
+      .from(ead_courses)
+      .whereIn(ead_courses.id, courseIds);
+    // Calculate progress per course
+    const courseProgress = courses.map(course => {
+      const courseProgressItems = progress.filter(p => p.courseId === course.id);
+      const completedCount = courseProgressItems.filter(p => p.completed).length;
+      const totalLessons = course.totalLessons || 1;
+      const percentComplete = Math.round((completedCount / totalLessons) * 100);
+      return {
+        course,
+        completedCount,
+        totalLessons,
+        percentComplete,
+        progress: courseProgressItems,
+      };
+    });
+    return { courses: courseProgress, progress };
+  });
+
+export const unenrollStudent = protectedProcedure
+  .input(z.object({ userId: z.number(), courseId: z.number() }))
+  .mutation(async ({ input }) => {
+    const db = await getDb();
+    await db.delete(ead_progress).where(
+      and(eq(ead_progress.userId, input.userId), eq(ead_progress.courseId, input.courseId))
+    );
+    return { success: true };
+  });
+
+// ============================================================
 // Stats
 // ============================================================
 export const eadStats = protectedProcedure.query(async () => {
@@ -340,5 +428,9 @@ export const eadRouter = router({
   issueCertificate,
   listCertificates,
   listMyCertificates,
+  enrollStudent,
+  listStudents,
+  getStudentCourses,
+  unenrollStudent,
   stats: eadStats,
 });

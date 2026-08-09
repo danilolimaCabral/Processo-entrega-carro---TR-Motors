@@ -3,6 +3,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { DashboardLayoutSkeleton } from "@/components/DashboardLayoutSkeleton";
 import LoginPage from "./LoginPage";
 import AdminPage from "./AdminPage";
+import EadPage from "./EadPage";
+import RhPage from "./RhPage";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useLocation } from "wouter";
 
@@ -17,6 +19,10 @@ export default function Home() {
       navigate("/dashboard");
     } else if (user.role === "financeiro" || user.role === "administrativo") {
       navigate("/dashboard");
+    } else if (user.role === "aluno") {
+      navigate("/ead");
+    } else if (user.role === "rh") {
+      navigate("/rh");
     }
   }, [user, loading, navigate]);
 
@@ -51,6 +57,14 @@ export default function Home() {
         </div>
       </DashboardLayout>
     );
+  }
+
+  if (user.role === "aluno") {
+    return <EadPage />;
+  }
+
+  if (user.role === "rh") {
+    return <RhPage />;
   }
 
   // Fallback

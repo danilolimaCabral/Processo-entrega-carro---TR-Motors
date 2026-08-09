@@ -17,9 +17,10 @@ import { toast } from "sonner";
 import {
   Users, Briefcase, Building2, Calendar, Clock, Plus, Edit, Trash2,
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
+  Shirt, FileText,
 } from "lucide-react";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos";
 
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -35,6 +36,8 @@ export default function RhPage() {
     { id: "ferias" as Tab, label: "Férias", icon: Calendar },
     { id: "ponto" as Tab, label: "Ponto", icon: Clock },
     { id: "feriados" as Tab, label: "Feriados", icon: CalendarDays },
+    { id: "uniformes" as Tab, label: "Uniformes", icon: Shirt },
+    { id: "nf_custos" as Tab, label: "NF Custos", icon: FileText },
   ];
 
   return (
@@ -68,6 +71,8 @@ export default function RhPage() {
         {activeTab === "comissoes" && <CommissionsTab />}
         {activeTab === "ferias" && <LeavesTab />}
         {activeTab === "ponto" && <AttendanceTab />}
+        {activeTab === "uniformes" && <UniformsTab />}
+        {activeTab === "nf_custos" && <CostInvoicesTab />}
         {activeTab === "feriados" && <HolidaysTab />}
       </div>
     </DashboardLayout>
@@ -975,6 +980,214 @@ function PayrollTab() {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+// ============================================================
+// Uniformes Tab
+// ============================================================
+function UniformsTab() {
+  const { data: uniforms, refetch } = trpc.rh.listUniforms.useQuery();
+  const { data: employees } = trpc.rh.listEmployees.useQuery();
+  const createUniform = trpc.rh.createUniform.useMutation({
+    onSuccess: () => { toast.success("Uniforme cadastrado!"); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const deleteUniform = trpc.rh.deleteUniform.useMutation({
+    onSuccess: () => { toast.success("Uniforme removido!"); refetch(); },
+  });
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ employeeId: "", type: "", size: "", quantity: "1", dateIssued: "", status: "entregue" });
+
+  const handleCreate = () => {
+    if (!form.employeeId || !form.type) { toast.error("Preencha funcionário e tipo"); return; }
+    createUniform.mutate({
+      employeeId: Number(form.employeeId),
+      type: form.type,
+      size: form.size || undefined,
+      quantity: Number(form.quantity) || 1,
+      dateIssued: form.dateIssued || undefined,
+      status: form.status,
+    });
+    setShowDialog(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Controle de Uniformes</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Uniforme</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Registrar Uniforme</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Select value={form.employeeId || undefined} onValueChange={(v) => setForm({ ...form, employeeId: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Selecione o funcionário" /></SelectTrigger>
+                <SelectContent>{employees?.map(e => <SelectItem key={e.id} value={String(e.id)}>{e.name}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input placeholder="Tipo (ex: Camisa Polo)" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="min-h-[40px]" />
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={form.size || undefined} onValueChange={(v) => setForm({ ...form, size: v })}>
+                  <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Tamanho" /></SelectTrigger>
+                  <SelectContent>
+                    {["PP", "P", "M", "G", "GG", "XG"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input placeholder="Qtd" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} type="number" className="min-h-[40px]" />
+              </div>
+              <Input placeholder="Data de entrega" value={form.dateIssued} onChange={e => setForm({ ...form, dateIssued: e.target.value })} type="date" className="min-h-[40px]" />
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                  <SelectItem value="solicitado">Solicitado</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={handleCreate} className="w-full min-h-[40px]">Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-blue-600">{uniforms?.length || 0}</div><div className="text-xs text-muted-foreground">Total Uniformes</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-green-600">{uniforms?.filter(u => u.status === "entregue").length || 0}</div><div className="text-xs text-muted-foreground">Entregues</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-yellow-600">{uniforms?.filter(u => u.status === "pendente").length || 0}</div><div className="text-xs text-muted-foreground">Pendentes</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-purple-600">{uniforms?.filter(u => u.status === "solicitado").length || 0}</div><div className="text-xs text-muted-foreground">Solicitados</div></CardContent></Card>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {uniforms?.map(u => {
+          const emp = employees?.find(e => e.id === u.employeeId);
+          return (
+            <Card key={u.id}>
+              <CardContent className="p-3 flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{u.type} <Badge variant="secondary" className="ml-2">{u.size}</Badge></p>
+                  <p className="text-sm text-muted-foreground">{emp?.name || "Funcionário"} · Qtd: {u.quantity} · {u.dateIssued ? `Entrega: ${u.dateIssued}` : "Sem data"}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={u.status === "entregue" ? "default" : u.status === "pendente" ? "secondary" : "outline"}>{u.status}</Badge>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteUniform.mutate({ id: u.id })}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {!uniforms?.length && <p className="text-center text-muted-foreground py-4">Nenhum uniforme registrado</p>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// NF Custos Tab
+// ============================================================
+function CostInvoicesTab() {
+  const { data: invoices, refetch } = trpc.rh.listCostInvoices.useQuery();
+  const { data: summary } = trpc.rh.costInvoicesSummary.useQuery();
+  const createInvoice = trpc.rh.createCostInvoice.useMutation({
+    onSuccess: () => { toast.success("NF cadastrada!"); refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateInvoice = trpc.rh.updateCostInvoice.useMutation({
+    onSuccess: () => { toast.success("NF atualizada!"); refetch(); },
+  });
+  const deleteInvoice = trpc.rh.deleteCostInvoice.useMutation({
+    onSuccess: () => { toast.success("NF removida!"); refetch(); },
+  });
+
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ invoiceNumber: "", supplier: "", description: "", category: "Geral", amount: "", invoiceDate: "", status: "pendente" });
+
+  const handleCreate = () => {
+    if (!form.amount) { toast.error("Informe o valor"); return; }
+    createInvoice.mutate({
+      invoiceNumber: form.invoiceNumber || undefined,
+      supplier: form.supplier || undefined,
+      description: form.description || undefined,
+      category: form.category,
+      amount: Number(form.amount),
+      invoiceDate: form.invoiceDate || undefined,
+      status: form.status,
+    });
+    setShowDialog(false);
+  };
+
+  const toggleStatus = (id: number, current: string) => {
+    updateInvoice.mutate({ id, status: current === "pendente" ? "pago" : "pendente" });
+  };
+
+  const fmt = (val: string) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Notas Fiscais de Custos</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova NF</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Cadastrar NF de Custo</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Número da NF" value={form.invoiceNumber} onChange={e => setForm({ ...form, invoiceNumber: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Fornecedor" value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="min-h-[40px]" />
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["Geral", "EPI", "Material Escritório", "Veículo", "Combustível", "Manutenção"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Input placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+              <Input placeholder="Data" value={form.invoiceDate} onChange={e => setForm({ ...form, invoiceDate: e.target.value })} type="date" className="min-h-[40px]" />
+              <Button onClick={handleCreate} className="w-full min-h-[40px]">Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-blue-600">{fmt(String(summary?.total || 0))}</div><div className="text-xs text-muted-foreground">Total Geral</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-red-600">{fmt(String(summary?.totalPending || 0))}</div><div className="text-xs text-muted-foreground">Pendentes</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-green-600">{fmt(String(summary?.totalPaid || 0))}</div><div className="text-xs text-muted-foreground">Pagas</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-purple-600">{summary?.count || 0}</div><div className="text-xs text-muted-foreground">NFs</div></CardContent></Card>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {invoices?.map(inv => (
+          <Card key={inv.id}>
+            <CardContent className="p-3 flex items-center justify-between">
+              <div>
+                <p className="font-medium">{inv.supplier || "Sem fornecedor"} <Badge variant="outline" className="ml-2">{inv.category}</Badge></p>
+                <p className="text-sm text-muted-foreground">{inv.description} · NF: {inv.invoiceNumber} · {inv.invoiceDate || "Sem data"}</p>
+                <p className="text-lg font-bold text-green-600">{fmt(inv.amount)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[32px]"
+                  onClick={() => toggleStatus(inv.id, inv.status)}
+                >
+                  {inv.status === "pendente" ? "Marcar Pago" : "Marcar Pendente"}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteInvoice.mutate({ id: inv.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!invoices?.length && <p className="text-center text-muted-foreground py-4">Nenhuma NF registrada</p>}
       </div>
     </div>
   );

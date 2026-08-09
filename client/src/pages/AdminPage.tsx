@@ -64,6 +64,8 @@ const ROLE_LABELS: Record<string, string> = {
   vendedor: "Vendedor",
   financeiro: "Financeiro",
   administrativo: "Administrativo",
+  aluno: "Aluno",
+  rh: "RH",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -71,6 +73,8 @@ const ROLE_COLORS: Record<string, string> = {
   vendedor: "bg-blue-100 text-blue-800",
   financeiro: "bg-green-100 text-green-800",
   administrativo: "bg-purple-100 text-purple-800",
+  aluno: "bg-yellow-100 text-yellow-800",
+  rh: "bg-teal-100 text-teal-800",
 };
 
 export default function AdminPage() {
@@ -292,6 +296,8 @@ export default function AdminPage() {
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="administrativo">Administrativo</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="aluno">Aluno (EAD)</SelectItem>
+                    <SelectItem value="rh">RH</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

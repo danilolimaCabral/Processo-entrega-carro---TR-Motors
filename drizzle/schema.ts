@@ -24,8 +24,8 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }), // "oauth" or "local"
-  /** Role: admin, vendedor, financeiro, administrativo */
-  role: mysqlEnum("role", ["admin", "vendedor", "financeiro", "administrativo"])
+  /** Role: admin, vendedor, financeiro, administrativo, aluno */
+  role: mysqlEnum("role", ["admin", "vendedor", "financeiro", "administrativo", "aluno", "rh"])
     .default("vendedor")
     .notNull(),
   /** Whether the user account is active */
@@ -760,3 +760,39 @@ export const ead_certificates = mysqlTable("ead_certificates", {
 });
 export type EadCertificate = typeof ead_certificates.$inferSelect;
 export type InsertEadCertificate = typeof ead_certificates.$inferInsert;
+// ============================================================
+// RH Uniformes
+// ============================================================
+export const rh_uniforms = mysqlTable("rh_uniforms", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  size: varchar("size", { length: 10 }),
+  quantity: int("quantity").default(1),
+  dateIssued: date("date_issued"),
+  status: varchar("status", { length: 20 }).default("entregue"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type RhUniform = typeof rh_uniforms.$inferSelect;
+export type InsertRhUniform = typeof rh_uniforms.$inferInsert;
+
+// ============================================================
+// RH NF Custos (Notas Fiscais de Custos)
+// ============================================================
+export const rh_cost_invoices = mysqlTable("rh_cost_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceNumber: varchar("invoice_number", { length: 50 }),
+  supplier: varchar("supplier", { length: 100 }),
+  description: varchar("description", { length: 255 }),
+  category: varchar("category", { length: 50 }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  invoiceDate: date("invoice_date"),
+  status: varchar("status", { length: 20 }).default("pendente"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type RhCostInvoice = typeof rh_cost_invoices.$inferSelect;
+export type InsertRhCostInvoice = typeof rh_cost_invoices.$inferInsert;

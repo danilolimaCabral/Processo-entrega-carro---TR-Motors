@@ -10,6 +10,8 @@ import {
   rh_attendance,
   rh_holidays,
   rh_sales_commissions,
+  rh_uniforms,
+  rh_cost_invoices,
   type InsertDepartment,
   type InsertPosition,
   type InsertEmployee,
@@ -572,5 +574,103 @@ export const rhRouter = router({
       pendingLeaves: pendingLeaves[0]?.count || 0,
       todayAttendance: todayLeaves[0]?.count || 0,
     };
+  }),
+
+  // ==================== Uniformes ====================
+  listUniforms: protectedProcedure.query(async () => {
+    const db = await getDb();
+    return db.select().from(rh_uniforms).orderBy(desc(rh_uniforms.createdAt));
+  }),
+
+  createUniform: protectedProcedure
+    .input(
+      z.object({
+        employeeId: z.number(),
+        type: z.string().min(1, "Tipo obrigatório"),
+        size: z.string().optional(),
+        quantity: z.number().default(1),
+        dateIssued: z.string().optional(),
+        status: z.string().default("entregue"),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      await db.insert(rh_uniforms).values(input);
+      return { success: true };
+    }),
+
+  deleteUniform: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      await db.delete(rh_uniforms).where(eq(rh_uniforms.id, input.id));
+      return { success: true };
+    }),
+
+  // ==================== NF Custos ====================
+  listCostInvoices: protectedProcedure.query(async () => {
+    const db = await getDb();
+    return db.select().from(rh_cost_invoices).orderBy(desc(rh_cost_invoices.invoiceDate));
+  }),
+
+  createCostInvoice: protectedProcedure
+    .input(
+      z.object({
+        invoiceNumber: z.string().optional(),
+        supplier: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().default("Geral"),
+        amount: z.number().min(0),
+        invoiceDate: z.string().optional(),
+        status: z.string().default("pendente"),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      await db.insert(rh_cost_invoices).values(input);
+      return { success: true };
+    }),
+
+  updateCostInvoice: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        status: z.string().optional(),
+        invoiceNumber: z.string().optional(),
+        supplier: z.string().optional(),
+        description: z.string().optional(),
+        category: z.string().optional(),
+        amount: z.number().optional(),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const { id, ...data } = input;
+      if (Object.keys(data).length > 0) {
+        await db.update(rh_cost_invoices).set(data).where(eq(rh_cost_invoices.id, id));
+      }
+      return { success: true };
+    }),
+
+  deleteCostInvoice: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      await db.delete(rh_cost_invoices).where(eq(rh_cost_invoices.id, input.id));
+      return { success: true };
+    }),
+
+  costInvoicesSummary: protectedProcedure.query(async () => {
+    const db = await getDb();
+    const invoices = await db.select().from(rh_cost_invoices);
+    const total = invoices.reduce((acc, inv) => acc + parseFloat(inv.amount || "0"), 0);
+    const pending = invoices.filter(i => i.status === "pendente");
+    const paid = invoices.filter(i => i.status === "pago");
+    const totalPending = pending.reduce((acc, inv) => acc + parseFloat(inv.amount || "0"), 0);
+    const totalPaid = paid.reduce((acc, inv) => acc + parseFloat(inv.amount || "0"), 0);
+    return { total, totalPending, totalPaid, count: invoices.length, pendingCount: pending.length, paidCount: paid.length };
   }),
 });

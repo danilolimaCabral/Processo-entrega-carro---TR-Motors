@@ -68,6 +68,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       if (value === undefined) return;
       const normalized = value ?? null;
       values[field] = normalized;
+      // Don't include email in updateSet to avoid unique key conflict on duplicate
+      if (field === "email") return;
       updateSet[field] = normalized;
     };
 
@@ -233,7 +235,7 @@ export async function deleteUser(userId: number) {
  */
 export async function updateUserRole(
   userId: number,
-  role: "admin" | "vendedor" | "financeiro" | "administrativo"
+  role: "admin" | "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh"
 ) {
   const db = await getDb();
   if (!db) {

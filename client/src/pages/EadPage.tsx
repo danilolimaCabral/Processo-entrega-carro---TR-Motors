@@ -51,7 +51,7 @@ export default function EadPage() {
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // Manage state
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
@@ -369,86 +369,15 @@ export default function EadPage() {
         </div>
       </aside>
 
-      {/* ============ MOBILE HEADER ============ */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg">
-              <Menu size={20} />
-            </button>
-            <img src="/tr_logo.png" alt="TR Motors" className="h-8 w-auto object-contain" />
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
-          >
-            <LogOut size={14} /> Sair
-          </button>
-        </div>
-      </div>
-
-      {/* ============ MOBILE SIDEBAR OVERLAY ============ */}
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <img src="/tr_logo.png" alt="TR Motors" className="h-10 w-auto" />
-              <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
-            </div>
-            <nav className="space-y-1">
-              {navItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    activeTab === item.id
-                      ? "bg-blue-50 text-blue-700 shadow-sm"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  }`}
-                >
-                  <item.icon size={18} />
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors min-h-[40px]"
-              >
-                <LogOut size={16} /> Sair
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ============ MAIN CONTENT ============ */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-6">
-        {/* Tabs (mobile only - compact) */}
-        <div className="lg:hidden flex gap-1 bg-white rounded-xl p-1 mb-4 overflow-x-auto border border-gray-200">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); }}
-              className={`flex items-center gap-1 py-2 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                activeTab === item.id ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <item.icon size={14} />
-              {item.label}
-            </button>
-          ))}
-        </div>
+      <main className="flex-1 lg:ml-64 lg:pt-0 p-3 lg:p-6">
 
         {/* Content based on tab */}
         {activeTab === "dashboard" && <EadDashboardView courses={courses} certificates={certificates} userName={user?.name || "Aluno"} onSelectCourse={(id) => { setSelectedCourse(id); setActiveTab("cursos"); }} />}
         {activeTab === "cursos" && !selectedCourse && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">📚 Meus Cursos</h2>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               {courses.map((course) => (
                 <CourseCardWithProgress key={course.id} course={course} onClick={() => setSelectedCourse(course.id)} />
               ))}
@@ -531,12 +460,12 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
   onSelectCourse: (id: number) => void;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Welcome header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
-        <h2 className="text-xl font-bold">Olá, {userName}! 👋</h2>
-        <p className="text-sm text-blue-100 mt-1">Continue de onde parou</p>
-        <div className="grid grid-cols-3 gap-3 mt-4">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-5 text-white">
+        <h2 className="text-lg sm:text-xl font-bold">Olá, {userName}! 👋</h2>
+        <p className="text-xs sm:text-sm text-blue-100 mt-0.5 sm:mt-1">Continue de onde parou</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
           <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
             <p className="text-2xl font-bold">{courses.length}</p>
             <p className="text-xs text-blue-100">Cursos</p>
@@ -558,7 +487,7 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
       <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-1">
         <TrendingUp size={14} /> Continue estudando
       </h3>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {courses.map((course) => (
           <CourseCardWithProgress
             key={course.id}

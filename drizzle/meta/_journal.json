@@ -57,6 +57,13 @@
       "when": 1785523212161,
       "tag": "0007_living_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1786220000000,
+      "tag": "0008_role_enum_update",
+      "breakpoints": true
     }
   ]
 }

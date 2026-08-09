@@ -2,6 +2,7 @@ import { z } from "zod";
 import { eq, desc, and } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import { storagePut } from "../storage";
 import {
   ead_courses,
   ead_lessons,
@@ -399,6 +400,30 @@ export const unenrollStudent = protectedProcedure
 // ============================================================
 // Stats
 // ============================================================
+// ============================================================
+// Video upload endpoint (upload to S3 and get URL)
+// ============================================================
+export const uploadVideo = protectedProcedure
+  .input(
+    z.object({
+      courseId: z.number(),
+      fileName: z.string(),
+      fileData: z.string(), // base64 encoded
+      mimeType: z.string().default("video/mp4"),
+    })
+  )
+  .mutation(async ({ input }) => {
+    // Decode base64 to buffer
+    const buffer = Buffer.from(input.fileData, "base64");
+    // Upload to S3 via Forge
+    const result = await storagePut(
+      `ead/videos/${input.courseId}/${input.fileName}`,
+      buffer,
+      input.mimeType
+    );
+    return { success: true, url: result.url, key: result.key };
+  });
+
 export const eadStats = protectedProcedure.query(async () => {
   const db = await getDb();
   const courses = await db.select().from(ead_courses);
@@ -432,5 +457,6 @@ export const eadRouter = router({
   listStudents,
   getStudentCourses,
   unenrollStudent,
+  uploadVideo,
   stats: eadStats,
 });

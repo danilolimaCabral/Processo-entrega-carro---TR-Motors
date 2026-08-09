@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
@@ -15,6 +15,11 @@ import {
   GraduationCap,
   ChevronRight,
   Video,
+  Upload,
+  Plus,
+  Trash2,
+  Settings,
+  X,
 } from "lucide-react";
 
 type CourseCard = {
@@ -62,7 +67,16 @@ export default function EadPage() {
   const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"cursos" | "certificados" | "progresso">("cursos");
+  const [activeTab, setActiveTab] = useState<"cursos" | "certificados" | "progresso" | "gerenciar">("cursos");
+  // Manage state
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+  const [showLessonForm, setShowLessonForm] = useState<number | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: coursesData, refetch: refetchCourses } = trpc.ead.listCourses.useQuery(
     { status: "publicado" },
@@ -96,6 +110,59 @@ export default function EadPage() {
       alert("Certificado emitido com sucesso!");
     },
   });
+
+  // ============ MANAGE MUTATIONS ============
+  const createCourseMut = trpc.ead.createCourse.useMutation({
+    onSuccess: () => { setShowCourseForm(false); refetchCourses(); },
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const updateCourseMut = trpc.ead.updateCourse.useMutation({
+    onSuccess: () => { setShowCourseForm(false); setEditingCourseId(null); refetchCourses(); },
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const deleteCourseMut = trpc.ead.deleteCourse.useMutation({
+    onSuccess: () => refetchCourses(),
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const publishCourseMut = trpc.ead.publishCourse.useMutation({
+    onSuccess: () => refetchCourses(),
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const createLessonMut = trpc.ead.createLesson.useMutation({
+    onSuccess: () => { setShowLessonForm(null); refetchCourses(); },
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const deleteLessonMut = trpc.ead.deleteLesson.useMutation({
+    onSuccess: () => refetchCourses(),
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const uploadVideoMut = trpc.ead.uploadVideo.useMutation({
+    onSuccess: (data) => {
+      if (uploadingCourseId) {
+        const videoUrl = data.url;
+        createLessonMut.mutate({
+          courseId: uploadingCourseId,
+          title: newLessonTitle || (selectedFile?.name || "Aula"),
+          moduleName: newLessonModule || "",
+          videoType: "upload",
+          videoUrl: videoUrl,
+          durationMinutes: 0,
+        });
+      }
+      setSelectedFile(null);
+      setUploading(false);
+      setUploadProgress(0);
+    },
+    onError: (e) => {
+      setUploading(false);
+      alert("Erro no upload: " + e.message);
+    },
+  });
+  const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [newLessonModule, setNewLessonModule] = useState("");
+  const [uploadingCourseId, setUploadingCourseId] = useState<number | null>(null);
+  const { data: allCoursesData } = trpc.ead.listCourses.useQuery(undefined, { enabled: activeTab === "gerenciar" });
+  const allCourses = allCoursesData?.map((c) => c.course) ?? [];
 
   const handleMarkComplete = (lessonId: number) => {
     if (!selectedCourse) return;
@@ -381,6 +448,125 @@ export default function EadPage() {
     );
   }
 
+  // ============ GERENCIAR VIEW ============
+  if (activeTab === "gerenciar") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Gerenciar EAD</h2>
+          <button
+            onClick={() => { setShowCourseForm(true); setEditingCourseId(null); }}
+            className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[40px]"
+          >
+            <Plus size={14} /> Novo Curso
+          </button>
+        </div>
+
+        {/* Course form modal */}
+        {showCourseForm && (
+          <CourseForm
+            editingId={editingCourseId}
+            onClose={() => { setShowCourseForm(false); setEditingCourseId(null); }}
+            onCreate={(data) => createCourseMut.mutate(data)}
+            onUpdate={(data) => updateCourseMut.mutate(data)}
+            editingCourse={allCourses.find(c => c.id === editingCourseId)}
+          />
+        )}
+
+        {/* Course list with actions */}
+        <div className="space-y-3">
+          {allCourses.map((course) => (
+            <div key={course.id} className="border rounded-xl p-4 bg-white">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm">{course.title}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${course.status === "publicado" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                      {course.status === "publicado" ? "Publicado" : "Rascunho"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">{course.totalLessons ?? 0} aulas · {course.category}</p>
+                </div>
+                <div className="flex gap-1">
+                  {course.status !== "publicado" && (
+                    <button onClick={() => publishCourseMut.mutate({ id: course.id })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Publicar">
+                      <CheckCircle2 size={16} />
+                    </button>
+                  )}
+                  <button onClick={() => { setEditingCourseId(course.id); setShowCourseForm(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                    <Settings size={16} />
+                  </button>
+                  <button onClick={() => setShowLessonForm(course.id)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded" title="Adicionar Aula">
+                    <Plus size={16} />
+                  </button>
+                  <button onClick={() => { if (confirm("Deletar curso?")) deleteCourseMut.mutate({ id: course.id }); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Deletar">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Lesson form for this course */}
+              {showLessonForm === course.id && (
+                <LessonForm
+                  courseId={course.id}
+                  onClose={() => setShowLessonForm(null)}
+                  onUploadVideo={(file, title, module) => {
+                    setSelectedFile(file);
+                    setNewLessonTitle(title);
+                    setNewLessonModule(module);
+                    setUploadingCourseId(course.id);
+                    setUploading(true);
+                    setUploadProgress(0);
+                    // Read file as base64 and upload
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const base64 = (reader.result as string).split(",")[1];
+                      uploadVideoMut.mutate({
+                        courseId: course.id,
+                        fileName: file.name,
+                        fileData: base64,
+                        mimeType: file.type || "video/mp4",
+                      });
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  onDeleteLesson={(lessonId) => deleteLessonMut.mutate({ id: lessonId })}
+                  onYoutube={(title, module, videoId) => {
+                    createLessonMut.mutate({ courseId: course.id, title, moduleName: module, videoType: "youtube", videoId });
+                  }}
+                />
+              )}
+
+              {/* Upload progress */}
+              {uploading && uploadingCourseId === course.id && (
+                <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-2 text-xs text-blue-600">
+                    <Upload size={12} className="animate-pulse" />
+                    <span>Enviando vídeo...</span>
+                  </div>
+                  <div className="w-full bg-blue-100 rounded-full h-1.5 mt-2">
+                    <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "60%" }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Lessons list for this course */}
+              <LessonsList courseId={course.id} onDelete={(id) => deleteLessonMut.mutate({ id })} />
+            </div>
+          ))}
+        </div>
+
+        {allCourses.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <Settings size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhum curso cadastrado.</p>
+            <p className="text-sm mt-1">Clique em "Novo Curso" para começar!</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ============ COURSE LIST (main view) ============
   return (
     <div className="space-y-4">
@@ -404,6 +590,14 @@ export default function EadPage() {
         >
           🏆 Certificados
         </button>
+        {user?.role === "admin" && (
+          <button
+            onClick={() => setActiveTab("gerenciar")}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "gerenciar" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
+          >
+            ⚙️ Gerenciar
+          </button>
+        )}
       </div>
 
       {/* Course cards */}
@@ -491,6 +685,223 @@ function CourseProgressCard({ courseId, courseTitle }: { courseId: number; cours
       <p className="text-xs text-gray-400 mt-1">
         {progressData?.completedCount ?? 0} de {progressData?.totalLessons ?? 0} aulas
       </p>
+    </div>
+  );
+}
+// ============ Manage Sub-components ============
+
+function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
+  editingId: number | null;
+  editingCourse?: any;
+  onClose: () => void;
+  onCreate: (data: any) => void;
+  onUpdate: (data: any) => void;
+}) {
+  const [title, setTitle] = useState(editingCourse?.title || "");
+  const [description, setDescription] = useState(editingCourse?.description || "");
+  const [category, setCategory] = useState(editingCourse?.category || "Vendas");
+  const [instructor, setInstructor] = useState(editingCourse?.instructor || "");
+  const [durationHours, setDurationHours] = useState(editingCourse?.durationHours || "");
+
+  const handleSubmit = () => {
+    if (!title.trim()) return;
+    if (editingId && editingCourse) {
+      onUpdate({ id: editingId, title, description, category, instructor, durationHours });
+    } else {
+      onCreate({ title, description, category, instructor, durationHours, status: "rascunho" });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-4 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">{editingId ? "Editar Curso" : "Novo Curso"}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <input
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Título do curso *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Descrição"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+          />
+          <select
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="Vendas">Vendas</option>
+            <option value="Despachante">Despachante</option>
+            <option value="RH">RH</option>
+            <option value="Entrega">Entrega</option>
+            <option value="Técnico">Técnico</option>
+            <option value="Geral">Geral</option>
+          </select>
+          <input
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Instrutor"
+            value={instructor}
+            onChange={(e) => setInstructor(e.target.value)}
+          />
+          <input
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+            placeholder="Duração (ex: 4.5)"
+            value={durationHours}
+            onChange={(e) => setDurationHours(e.target.value)}
+          />
+          <button
+            onClick={handleSubmit}
+            className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[40px]"
+          >
+            {editingId ? "Salvar Alterações" : "Criar Curso"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LessonForm({ courseId, onClose, onUploadVideo, onYoutube, onDeleteLesson }: {
+  courseId: number;
+  onClose: () => void;
+  onUploadVideo: (file: File, title: string, module: string) => void;
+  onYoutube: (title: string, module: string, videoId: string) => void;
+  onDeleteLesson: (lessonId: number) => void;
+}) {
+  const [lessonTitle, setLessonTitle] = useState("");
+  const [lessonModule, setLessonModule] = useState("");
+  const [youtubeId, setYoutubeId] = useState("");
+  const [useUpload, setUseUpload] = useState(true);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      onUploadVideo(file, lessonTitle || file.name.replace(/\.[^/.]+$/, ""), lessonModule);
+    }
+    e.target.value = "";
+  };
+
+  const handleYoutubeSubmit = () => {
+    if (!youtubeId.trim()) return;
+    onYoutube(lessonTitle || "Aula " + youtubeId, lessonModule, youtubeId);
+  };
+
+  return (
+    <div className="mt-3 p-3 bg-gray-50 rounded-xl border space-y-3">
+      <h4 className="text-sm font-semibold">Adicionar Aula</h4>
+      <input
+        className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+        placeholder="Título da aula *"
+        value={lessonTitle}
+        onChange={(e) => setLessonTitle(e.target.value)}
+      />
+      <input
+        className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+        placeholder="Módulo (ex: Módulo 1)"
+        value={lessonModule}
+        onChange={(e) => setLessonModule(e.target.value)}
+      />
+
+      {/* Toggle between upload and YouTube */}
+      <div className="flex gap-1 bg-white border rounded-lg p-1">
+        <button
+          onClick={() => setUseUpload(true)}
+          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${useUpload ? "bg-blue-100 text-blue-700" : "text-gray-500"}`}
+        >
+          📤 Upload Vídeo
+        </button>
+        <button
+          onClick={() => setUseUpload(false)}
+          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${!useUpload ? "bg-red-100 text-red-700" : "text-gray-500"}`}
+        >
+          ▶️ YouTube
+        </button>
+      </div>
+
+      {useUpload ? (
+        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
+          <Upload size={24} className="text-gray-400 mb-1" />
+          <span className="text-xs text-gray-500">Toque para selecionar vídeo</span>
+          <span className="text-xs text-gray-300">MP4, WebM (máx 100MB)</span>
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+        </label>
+      ) : (
+        <div className="space-y-2">
+          <input
+            className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+            placeholder="ID do vídeo YouTube (ex: dQw4w9WgXcQ)"
+            value={youtubeId}
+            onChange={(e) => setYoutubeId(e.target.value)}
+          />
+          <button
+            onClick={handleYoutubeSubmit}
+            className="w-full py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+          >
+            Adicionar Vídeo YouTube
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LessonsList({ courseId, onDelete }: { courseId: number; onDelete: (id: number) => void }) {
+  const { data: lessonsData, refetch } = trpc.ead.listLessons.useQuery(
+    { courseId },
+    { enabled: !!courseId }
+  );
+  const lessons = lessonsData?.map((l) => l.lesson) ?? [];
+
+  if (lessons.length === 0) return null;
+
+  // Group by module
+  const grouped: Record<string, typeof lessons> = {};
+  lessons.forEach((l) => {
+    const mod = l.moduleName || "Geral";
+    if (!grouped[mod]) grouped[mod] = [];
+    grouped[mod].push(l);
+  });
+
+  return (
+    <div className="mt-3 space-y-2">
+      {Object.entries(grouped).map(([modName, modLessons]) => (
+        <div key={modName}>
+          <p className="text-xs font-medium text-gray-500 uppercase mb-1">{modName}</p>
+          {modLessons.map((lesson) => (
+            <div key={lesson.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                <Video size={12} className="text-gray-500" />
+              </div>
+              <span className="flex-1 text-xs">{lesson.title}</span>
+              <span className="text-xs text-gray-400">
+                {lesson.videoType === "upload" ? "📤" : "▶️"}
+              </span>
+              <button
+                onClick={() => { if (confirm("Deletar aula?")) onDelete(lesson.id); }}
+                className="p-1 text-red-400 hover:text-red-600"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

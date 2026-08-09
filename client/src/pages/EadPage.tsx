@@ -21,7 +21,15 @@ import {
   Trophy,
   TrendingUp,
   Target,
+  LogOut,
+  LayoutDashboard,
+  ListChecks,
+  ClipboardList,
+  Home,
+  Menu,
 } from "lucide-react";
+
+type TabType = "dashboard" | "cursos" | "feitas" | "faltam" | "certificados" | "gerenciar";
 
 type CourseCard = {
   course: {
@@ -38,27 +46,12 @@ type CourseCard = {
   };
 };
 
-type LessonItem = {
-  lesson: {
-    id: number;
-    courseId: number;
-    title: string;
-    description: string | null;
-    moduleName: string | null;
-    orderIndex: number;
-    videoType: string;
-    videoId: string | null;
-    videoUrl: string | null;
-    durationMinutes: number;
-    status: string;
-  };
-};
-
 export default function EadPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "cursos" | "certificados" | "gerenciar">("dashboard");
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // Manage state
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
@@ -94,12 +87,38 @@ export default function EadPage() {
   const { data: certificatesData } = trpc.ead.listMyCertificates.useQuery();
   const certificates = certificatesData ?? [];
 
-  // Compute overall progress
-  const overallStats = useMemo(() => {
-    const totalCerts = certificates.length;
-    const enrolledCourses = courses.length;
-    return { totalCerts, enrolledCourses };
-  }, [certificates, courses]);
+  // Progress for ALL courses (for Feitas/Faltam tabs)
+  const allCourseProgress = courses.map((course) => ({
+    course,
+    queryKey: course.id,
+  }));
+
+  // Per-course progress queries for Feitas/Faltam tabs
+  const completedLessonsList: { courseId: number; courseTitle: string; lessonId: number; lessonTitle: string }[] = [];
+  const pendingLessonsList: { courseId: number; courseTitle: string; lessonId: number; lessonTitle: string; courseStatus: string }[] = [];
+
+  // Use lessonsData when a course is selected to compute completed/pending
+  if (selectedCourse) {
+    lessons.forEach((lesson) => {
+      const isCompleted = progressData?.progress.some((p) => p.lessonId === lesson.id && p.completed);
+      if (isCompleted) {
+        completedLessonsList.push({
+          courseId: selectedCourse,
+          courseTitle: courses.find((c) => c.id === selectedCourse)?.title || "",
+          lessonId: lesson.id,
+          lessonTitle: lesson.title,
+        });
+      } else {
+        pendingLessonsList.push({
+          courseId: selectedCourse,
+          courseTitle: courses.find((c) => c.id === selectedCourse)?.title || "",
+          lessonId: lesson.id,
+          lessonTitle: lesson.title,
+          courseStatus: "pending",
+        });
+      }
+    });
+  }
 
   const markComplete = trpc.ead.markLessonComplete.useMutation({
     onSuccess: () => {
@@ -138,6 +157,7 @@ export default function EadPage() {
     onSuccess: () => refetchCourses(),
     onError: (e) => alert("Erro: " + e.message),
   });
+
   const uploadVideoMut = trpc.ead.uploadVideo.useMutation({
     onSuccess: (data) => {
       if (uploadingCourseId) {
@@ -170,207 +190,10 @@ export default function EadPage() {
     setSelectedCourse(null);
   };
 
-  // ============ DASHBOARD VIEW (new - replaces cursos as default for students) ============
-  if (activeTab === "dashboard") {
-    // Compute progress for each published course
-    const courseProgressList = courses.map((course) => {
-      // We need to query per-course progress; use a simple approach
-      return course;
-    });
-
-    return (
-      <div className="space-y-4">
-        {/* Welcome header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 text-white">
-          <h2 className="text-lg font-bold">Olá, {user?.name || "Aluno"}! 👋</h2>
-          <p className="text-sm text-blue-100 mt-1">Continue de onde parou</p>
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold">{overallStats.enrolledCourses}</p>
-              <p className="text-xs text-blue-100">Cursos</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold">{overallStats.totalCerts}</p>
-              <p className="text-xs text-blue-100">Certificados</p>
-            </div>
-            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold">
-                {overallStats.enrolledCourses > 0 ? Math.round((overallStats.totalCerts / Math.max(overallStats.enrolledCourses, 1)) * 100) : 0}%
-              </p>
-              <p className="text-xs text-blue-100">Concluídos</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Course cards with progress */}
-        <div className="grid gap-3 md:grid-cols-2">
-          {courses.map((course) => (
-            <CourseCardWithProgress
-              key={course.id}
-              course={course}
-              onClick={() => { setSelectedCourse(course.id); setActiveTab("cursos"); }}
-            />
-          ))}
-        </div>
-
-        {courses.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum curso disponível ainda.</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ============ PROGRESS/CURSOS VIEW ============
-  if (activeTab === "cursos") {
-    // Course detail view
-    if (selectedCourse) {
-      const course = courses.find((c) => c.id === selectedCourse);
-      if (!course) return null;
-      const completedCount = progressData?.completedCount ?? 0;
-      const totalLessons = progressData?.totalLessons ?? 0;
-      const percentComplete = progressData?.percentComplete ?? 0;
-      const remainingLessons = totalLessons - completedCount;
-
-      // Group lessons by module
-      const groupedLessons: Record<string, typeof lessons> = {};
-      lessons.forEach((l) => {
-        const moduleName = l.moduleName || "Sem módulo";
-        if (!groupedLessons[moduleName]) groupedLessons[moduleName] = [];
-        groupedLessons[moduleName].push(l);
-      });
-
-      return (
-        <div className="space-y-4">
-          <button onClick={handleBack} className="flex items-center gap-1 text-sm text-blue-600">
-            <ArrowLeft size={14} /> Voltar
-          </button>
-
-          {/* Course header */}
-          <div className="relative rounded-xl overflow-hidden">
-            {course.coverUrl ? (
-              <img src={course.coverUrl} alt={course.title} className="w-full h-32 object-cover" />
-            ) : (
-              <div className="w-full h-32 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-                <BookOpen size={40} className="text-white opacity-50" />
-              </div>
-            )}
-            <div className="p-4 bg-white">
-              <h2 className="font-bold text-lg">{course.title}</h2>
-              <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
-                {course.instructor && <span>{course.instructor}</span>}
-                <span className="flex items-center gap-1">
-                  <Clock size={12} /> {course.durationHours ? `${course.durationHours}h` : "-"}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Film size={12} /> {totalLessons} aulas
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress summary */}
-          <div className="p-3 bg-gray-50 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Seu progresso</span>
-              <span className="text-sm text-gray-500">{percentComplete}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
-              <div
-                className="bg-green-500 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${percentComplete}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><CheckCircle2 size={12} className="text-green-500" /> {completedCount} concluídas</span>
-              <span className="flex items-center gap-1"><Target size={12} className="text-orange-500" /> {remainingLessons} restantes</span>
-            </div>
-          </div>
-
-          {/* What's left section */}
-          {remainingLessons > 0 && (
-            <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl">
-              <div className="flex items-center gap-2 text-sm font-medium text-orange-700">
-                <Target size={16} />
-                <span>Faltam {remainingLessons} aula{remainingLessons > 1 ? "s" : ""} para concluir</span>
-              </div>
-            </div>
-          )}
-
-          {/* Lessons grouped by module */}
-          {Object.entries(groupedLessons).map(([moduleName, moduleLessons]) => (
-            <div key={moduleName}>
-              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">{moduleName}</h4>
-              <div className="space-y-1">
-                {moduleLessons.map((lesson, idx) => {
-                  const isLessonCompleted = progressData?.progress.some(
-                    (p) => p.lessonId === lesson.id && p.completed
-                  );
-                  return (
-                    <button
-                      key={lesson.id}
-                      onClick={() => handlePlayLesson(lesson.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ backgroundColor: isLessonCompleted ? "#dcfce7" : "#f3f4f6", color: isLessonCompleted ? "#16a34a" : "#6b7280" }}>
-                        {isLessonCompleted ? <CheckCircle2 size={16} /> : idx + 1}
-                      </div>
-                      <div className="flex-1">
-                        <p className={`text-sm ${isLessonCompleted ? "text-gray-400 line-through" : "text-gray-800"}`}>
-                          {lesson.title}
-                        </p>
-                        <p className="text-xs text-gray-400">{lesson.durationMinutes} min</p>
-                      </div>
-                      {isLessonCompleted ? (
-                        <CheckCircle2 size={16} className="text-green-500" />
-                      ) : (
-                        <Play size={16} className="text-blue-500" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Issue certificate if complete */}
-          {percentComplete === 100 && totalLessons > 0 && (
-            <button
-              onClick={() => issueCert.mutate({ courseId: selectedCourse, userId: user?.id ?? 0 })}
-              className="w-full py-3 bg-yellow-500 text-white font-semibold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
-            >
-              <Award size={20} /> Emitir Certificado de Conclusão
-            </button>
-          )}
-        </div>
-      );
-    }
-
-    // Course list (when no course selected)
-    return (
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">📚 Cursos Disponíveis</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          {courses.map((course) => (
-            <CourseCardWithProgress
-              key={course.id}
-              course={course}
-              onClick={() => setSelectedCourse(course.id)}
-            />
-          ))}
-        </div>
-        {courses.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum curso disponível ainda.</p>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/";
+  };
 
   // ============ VIDEO PLAYER VIEW ============
   if (selectedLesson && lessons.length > 0) {
@@ -391,300 +214,309 @@ export default function EadPage() {
     const isCompleted = progressData?.progress.some((p) => p.lessonId === lesson.id && p.completed);
 
     return (
-      <div className="space-y-4">
-        <button onClick={() => setSelectedLesson(null)} className="flex items-center gap-1 text-sm text-blue-600">
-          <ArrowLeft size={14} /> Voltar às aulas
-        </button>
-        <h3 className="font-semibold text-lg">{lesson.title}</h3>
-        {lesson.moduleName && (
-          <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{lesson.moduleName}</span>
-        )}
-
-        {/* Video Player */}
-        <div className="w-full rounded-xl overflow-hidden bg-black shadow-lg">
-          {videoUrl ? (
-            lesson.videoType === "upload" ? (
-              <video controls className="w-full" style={{ maxHeight: "400px" }}>
-                <source src={videoUrl} type="video/mp4" />
-                <source src={videoUrl} type="video/webm" />
-                Seu navegador não suporta vídeo.
-              </video>
-            ) : (
-              <div className="relative pb-[56.25%] h-0">
-                <iframe
-                  src={videoUrl}
-                  className="absolute top-0 left-0 w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )
-          ) : (
-            <div className="flex items-center justify-center h-64 text-gray-400">
-              <div className="text-center">
-                <Video size={48} className="mx-auto mb-2 opacity-30" />
-                <p>Vídeo não disponível</p>
-              </div>
-            </div>
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-4xl mx-auto space-y-4">
+          <button onClick={() => setSelectedLesson(null)} className="flex items-center gap-1 text-sm text-blue-600">
+            <ArrowLeft size={14} /> Voltar às aulas
+          </button>
+          <h3 className="font-semibold text-lg">{lesson.title}</h3>
+          {lesson.moduleName && (
+            <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">{lesson.moduleName}</span>
           )}
-        </div>
 
-        {/* Mark as complete */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-          <div className="flex items-center gap-2">
-            {isCompleted ? (
-              <CheckCircle2 size={20} className="text-green-500" />
+          {/* Video Player */}
+          <div className="w-full rounded-xl overflow-hidden bg-black shadow-lg">
+            {videoUrl ? (
+              lesson.videoType === "upload" ? (
+                <video controls className="w-full" style={{ maxHeight: "400px" }}>
+                  <source src={videoUrl} type="video/mp4" />
+                  <source src={videoUrl} type="video/webm" />
+                  Seu navegador não suporta vídeo.
+                </video>
+              ) : (
+                <div className="relative pb-[56.25%] h-0">
+                  <iframe
+                    src={videoUrl}
+                    className="absolute top-0 left-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )
             ) : (
-              <Circle size={20} className="text-gray-300" />
+              <div className="flex items-center justify-center h-64 text-gray-400">
+                <div className="text-center">
+                  <Video size={48} className="mx-auto mb-2 opacity-30" />
+                  <p>Vídeo não disponível</p>
+                </div>
+              </div>
             )}
-            <span className="text-sm">{isCompleted ? "Aula concluída" : "Ainda não concluída"}</span>
           </div>
-          {!isCompleted && (
-            <button
-              onClick={() => handleMarkComplete(lesson.id)}
-              className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors min-h-[40px]"
-            >
-              Marcar como Concluída
-            </button>
-          )}
-        </div>
 
-        {/* Description */}
-        {lesson.description && (
-          <div className="p-4 bg-white rounded-xl border text-sm text-gray-600">
-            {lesson.description}
-          </div>
-        )}
-
-        {/* Next lesson */}
-        {(() => {
-          const idx = lessons.findIndex((l) => l.id === selectedLesson);
-          const nextLesson = idx >= 0 && idx < lessons.length - 1 ? lessons[idx + 1] : null;
-          if (nextLesson) {
-            return (
-              <button
-                onClick={() => setSelectedLesson(nextLesson.id)}
-                className="w-full flex items-center justify-between p-3 bg-blue-50 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
-              >
-                <span className="text-sm font-medium">Próxima: {nextLesson.title}</span>
-                <ChevronRight size={16} />
-              </button>
-            );
-          }
-          return null;
-        })()}
-      </div>
-    );
-  }
-
-  // ============ CERTIFICADOS VIEW ============
-  if (activeTab === "certificados") {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">🏆 Meus Certificados</h2>
-          <button
-            onClick={() => setActiveTab("dashboard")}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-          >
-            <ArrowLeft size={14} /> Voltar
-          </button>
-        </div>
-        {certificates.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Award size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum certificado ainda.</p>
-            <p className="text-sm mt-1">Complete um curso para receber seu certificado!</p>
-          </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {certificates.map((cert: any) => (
-              <div key={cert.id} className="border border-green-200 rounded-xl p-4 bg-green-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <Award size={20} className="text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">Certificado #{cert.certificateCode}</p>
-                    <p className="text-xs text-gray-500">
-                      Emitido em {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString("pt-BR") : "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ============ GERENCIAR VIEW ============
-  if (activeTab === "gerenciar") {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">⚙️ Gerenciar EAD</h2>
-          <button
-            onClick={() => { setShowCourseForm(true); setEditingCourseId(null); }}
-            className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[40px]"
-          >
-            <Plus size={14} /> Novo Curso
-          </button>
-        </div>
-
-        {/* Course form modal */}
-        {showCourseForm && (
-          <CourseForm
-            editingId={editingCourseId}
-            onClose={() => { setShowCourseForm(false); setEditingCourseId(null); }}
-            onCreate={(data) => createCourseMut.mutate(data)}
-            onUpdate={(data) => updateCourseMut.mutate(data)}
-            editingCourse={allCourses.find(c => c.id === editingCourseId)}
-          />
-        )}
-
-        {/* Course list with actions */}
-        <div className="space-y-3">
-          {allCourses.map((course) => (
-            <div key={course.id} className="border rounded-xl p-4 bg-white">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm">{course.title}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${course.status === "publicado" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                      {course.status === "publicado" ? "Publicado" : "Rascunho"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">{course.totalLessons ?? 0} aulas · {course.category}</p>
-                </div>
-                <div className="flex gap-1">
-                  {course.status !== "publicado" && (
-                    <button onClick={() => publishCourseMut.mutate({ id: course.id })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Publicar">
-                      <CheckCircle2 size={16} />
-                    </button>
-                  )}
-                  <button onClick={() => { setEditingCourseId(course.id); setShowCourseForm(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
-                    <Settings size={16} />
-                  </button>
-                  <button onClick={() => setShowLessonForm(course.id)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded" title="Adicionar Aula">
-                    <Plus size={16} />
-                  </button>
-                  <button onClick={() => { if (confirm("Deletar curso?")) deleteCourseMut.mutate({ id: course.id }); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Deletar">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Lesson form for this course */}
-              {showLessonForm === course.id && (
-                <LessonForm
-                  courseId={course.id}
-                  onClose={() => setShowLessonForm(null)}
-                  onUploadVideo={(file, title, module) => {
-                    setSelectedFile(file);
-                    setNewLessonTitle(title);
-                    setNewLessonModule(module);
-                    setUploadingCourseId(course.id);
-                    setUploading(true);
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const base64 = (reader.result as string).split(",")[1];
-                      uploadVideoMut.mutate({
-                        courseId: course.id,
-                        fileName: file.name,
-                        fileData: base64,
-                        mimeType: file.type || "video/mp4",
-                      });
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                  onDeleteLesson={(lessonId) => deleteLessonMut.mutate({ id: lessonId })}
-                  onYoutube={(title, module, videoId) => {
-                    createLessonMut.mutate({ courseId: course.id, title, moduleName: module, videoType: "youtube", videoId });
-                  }}
-                />
+          {/* Mark as complete */}
+          <div className="flex items-center justify-between p-3 bg-white rounded-xl shadow-sm">
+            <div className="flex items-center gap-2">
+              {isCompleted ? (
+                <CheckCircle2 size={20} className="text-green-500" />
+              ) : (
+                <Circle size={20} className="text-gray-300" />
               )}
-
-              {/* Upload progress */}
-              {uploading && uploadingCourseId === course.id && (
-                <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-xs text-blue-600">
-                    <Upload size={12} className="animate-pulse" />
-                    <span>Enviando vídeo...</span>
-                  </div>
-                  <div className="w-full bg-blue-100 rounded-full h-1.5 mt-2">
-                    <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "60%" }} />
-                  </div>
-                </div>
-              )}
-
-              {/* Lessons list for this course */}
-              <LessonsList courseId={course.id} onDelete={(id) => deleteLessonMut.mutate({ id })} />
+              <span className="text-sm">{isCompleted ? "Aula concluída ✅" : "Ainda não concluída"}</span>
             </div>
-          ))}
-        </div>
-
-        {allCourses.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <Settings size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum curso cadastrado.</p>
-            <p className="text-sm mt-1">Clique em "Novo Curso" para começar!</p>
+            {!isCompleted && (
+              <button
+                onClick={() => handleMarkComplete(lesson.id)}
+                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors min-h-[40px]"
+              >
+                Marcar como Concluída
+              </button>
+            )}
           </div>
-        )}
+
+          {/* Description */}
+          {lesson.description && (
+            <div className="p-4 bg-white rounded-xl shadow-sm text-sm text-gray-600">
+              {lesson.description}
+            </div>
+          )}
+
+          {/* Next lesson */}
+          {(() => {
+            const idx = lessons.findIndex((l) => l.id === selectedLesson);
+            const nextLesson = idx >= 0 && idx < lessons.length - 1 ? lessons[idx + 1] : null;
+            if (nextLesson) {
+              return (
+                <button
+                  onClick={() => setSelectedLesson(nextLesson.id)}
+                  className="w-full flex items-center justify-between p-3 bg-blue-50 rounded-xl text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                  <span className="text-sm font-medium">Próxima: {nextLesson.title}</span>
+                  <ChevronRight size={16} />
+                </button>
+              );
+            }
+            return null;
+          })()}
+        </div>
       </div>
     );
   }
 
-  // ============ MAIN LAYOUT WITH TABS ============
+  // ============ SIDEBAR NAVIGATION ============
+  const navItems = [
+    { id: "dashboard" as TabType, icon: Home, label: "Início" },
+    { id: "cursos" as TabType, icon: BookOpen, label: "Cursos" },
+    { id: "feitas" as TabType, icon: CheckCircle2, label: "Concluídas" },
+    { id: "faltam" as TabType, icon: Target, label: "Faltam" },
+    { id: "certificados" as TabType, icon: Trophy, label: "Certificados" },
+    ...(user?.role === "admin" || user?.role === "rh"
+      ? [{ id: "gerenciar" as TabType, icon: Settings, label: "Gerenciar" }]
+      : []),
+  ];
+
   return (
-    <div className="space-y-4">
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "dashboard" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
-        >
-          🏠 Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab("cursos")}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "cursos" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
-        >
-          📚 Cursos
-        </button>
-        <button
-          onClick={() => setActiveTab("certificados")}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "certificados" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
-        >
-          🏆 Certificados
-        </button>
-        {(user?.role === "admin" || user?.role === "rh") && (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* ============ SIDEBAR (Desktop) ============ */}
+      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 shadow-sm fixed inset-y-0 left-0 z-40">
+        {/* Logo */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
+              <img src="/tr_logo.png" alt="TR Motors" className="h-10 w-auto object-contain" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">TR Motors EAD</p>
+              <p className="text-xs text-gray-400">Plataforma de Ensino</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === item.id
+                  ? "bg-blue-50 text-blue-700 shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <item.icon size={18} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* User + Logout */}
+        <div className="p-4 border-t border-gray-100">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+              {user?.name?.charAt(0) || "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "Usuário"}</p>
+              <p className="text-xs text-gray-400 capitalize">{user?.role || "aluno"}</p>
+            </div>
+          </div>
           <button
-            onClick={() => setActiveTab("gerenciar")}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "gerenciar" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors min-h-[40px]"
           >
-            ⚙️ Gerenciar
+            <LogOut size={16} /> Sair
           </button>
-        )}
+        </div>
+      </aside>
+
+      {/* ============ MOBILE HEADER ============ */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg">
+              <Menu size={20} />
+            </button>
+            <img src="/tr_logo.png" alt="TR Motors" className="h-8 w-auto object-contain" />
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 transition-colors"
+          >
+            <LogOut size={14} /> Sair
+          </button>
+        </div>
       </div>
 
-      {/* Content based on tab */}
-      {activeTab === "dashboard" && <EadDashboardView courses={courses} certificates={certificates} userName={user?.name || "Aluno"} onSelectCourse={(id) => { setSelectedCourse(id); }} />}
-      {activeTab === "cursos" && !selectedCourse && (
-        <div className="grid gap-3 md:grid-cols-2">
-          {courses.map((course) => (
-            <CourseCardWithProgress key={course.id} course={course} onClick={() => setSelectedCourse(course.id)} />
-          ))}
+      {/* ============ MOBILE SIDEBAR OVERLAY ============ */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/40" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <img src="/tr_logo.png" alt="TR Motors" className="h-10 w-auto" />
+              <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+            <nav className="space-y-1">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); setSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === item.id
+                      ? "bg-blue-50 text-blue-700 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors min-h-[40px]"
+              >
+                <LogOut size={16} /> Sair
+              </button>
+            </div>
+          </div>
         </div>
       )}
-      {activeTab === "cursos" && selectedCourse && <CourseDetailSection />}
 
-      {courses.length === 0 && activeTab !== "gerenciar" && (
-        <div className="text-center py-12 text-gray-400">
-          <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
-          <p>Nenhum curso disponível ainda.</p>
+      {/* ============ MAIN CONTENT ============ */}
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 p-4 lg:p-6">
+        {/* Tabs (mobile only - compact) */}
+        <div className="lg:hidden flex gap-1 bg-white rounded-xl p-1 mb-4 overflow-x-auto border border-gray-200">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); }}
+              className={`flex items-center gap-1 py-2 px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                activeTab === item.id ? "bg-blue-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <item.icon size={14} />
+              {item.label}
+            </button>
+          ))}
         </div>
+
+        {/* Content based on tab */}
+        {activeTab === "dashboard" && <EadDashboardView courses={courses} certificates={certificates} userName={user?.name || "Aluno"} onSelectCourse={(id) => { setSelectedCourse(id); setActiveTab("cursos"); }} />}
+        {activeTab === "cursos" && !selectedCourse && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">📚 Meus Cursos</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {courses.map((course) => (
+                <CourseCardWithProgress key={course.id} course={course} onClick={() => setSelectedCourse(course.id)} />
+              ))}
+            </div>
+            {courses.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+                <p>Nenhum curso disponível ainda.</p>
+              </div>
+            )}
+          </div>
+        )}
+        {activeTab === "cursos" && selectedCourse && <CourseDetailSection />}
+        {activeTab === "feitas" && <CompletedLessonsView courses={courses} />}
+        {activeTab === "faltam" && <PendingLessonsView courses={courses} />}
+        {activeTab === "certificados" && <CertificatesView certificates={certificates} />}
+        {activeTab === "gerenciar" && <ManageView />}
+
+        {courses.length === 0 && activeTab !== "gerenciar" && activeTab !== "certificados" && (
+          <div className="text-center py-12 text-gray-400">
+            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhum curso disponível ainda.</p>
+          </div>
+        )}
+      </main>
+
+      {/* Render sub-components with props */}
+      {(activeTab === "cursos" && selectedCourse) && (
+        <CourseDetailContent
+          selectedCourse={selectedCourse}
+          lessons={lessons}
+          progressData={progressData}
+          courses={courses}
+          onBack={handleBack}
+          onSelectLesson={setSelectedLesson}
+          onMarkComplete={handleMarkComplete}
+          onIssueCert={() => issueCert.mutate({ courseId: selectedCourse!, userId: user?.id ?? 0 })}
+        />
+      )}
+      {activeTab === "feitas" && <CompletedLessonsContent />}
+      {activeTab === "faltam" && <PendingLessonsContent />}
+      {activeTab === "certificados" && <CertificatesContent certificates={certificates} />}
+      {activeTab === "gerenciar" && (
+        <ManageContent
+          allCourses={allCourses}
+          showCourseForm={showCourseForm}
+          setShowCourseForm={setShowCourseForm}
+          editingCourseId={editingCourseId}
+          setEditingCourseId={setEditingCourseId}
+          showLessonForm={showLessonForm}
+          setShowLessonForm={setShowLessonForm}
+          uploading={uploading}
+          uploadingCourseId={uploadingCourseId}
+          setSelectedFile={setSelectedFile}
+          setNewLessonTitle={setNewLessonTitle}
+          setNewLessonModule={setNewLessonModule}
+          setUploadingCourseId={setUploadingCourseId}
+          setUploading={setUploading}
+          createCourseMut={createCourseMut}
+          updateCourseMut={updateCourseMut}
+          deleteCourseMut={deleteCourseMut}
+          publishCourseMut={publishCourseMut}
+          createLessonMut={createLessonMut}
+          deleteLessonMut={deleteLessonMut}
+          uploadVideoMut={uploadVideoMut}
+          selectedFile={selectedFile}
+          videoInputRef={videoInputRef}
+        />
       )}
     </div>
   );
@@ -701,19 +533,19 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
   return (
     <div className="space-y-4">
       {/* Welcome header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 text-white">
-        <h2 className="text-lg font-bold">Olá, {userName}! 👋</h2>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-5 text-white">
+        <h2 className="text-xl font-bold">Olá, {userName}! 👋</h2>
         <p className="text-sm text-blue-100 mt-1">Continue de onde parou</p>
         <div className="grid grid-cols-3 gap-3 mt-4">
-          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
             <p className="text-2xl font-bold">{courses.length}</p>
             <p className="text-xs text-blue-100">Cursos</p>
           </div>
-          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
             <p className="text-2xl font-bold">{certificates.length}</p>
             <p className="text-xs text-blue-100">Certificados</p>
           </div>
-          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
             <p className="text-2xl font-bold">
               {courses.length > 0 ? Math.round((certificates.length / courses.length) * 100) : 0}%
             </p>
@@ -722,7 +554,7 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
         </div>
       </div>
 
-      {/* Course cards with progress */}
+      {/* Course cards */}
       <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-1">
         <TrendingUp size={14} /> Continue estudando
       </h3>
@@ -761,12 +593,267 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
   );
 }
 
-function CourseDetailSection() {
-  // This is rendered when a course is selected - we use the parent's state
-  // For simplicity, we render a placeholder that the parent handles
-  return <div className="text-center py-8 text-gray-400">Selecione um curso para ver as aulas.</div>;
+// ============ Course Detail Content ============
+function CourseDetailContent({ selectedCourse, lessons, progressData, courses, onBack, onSelectLesson, onMarkComplete, onIssueCert }: {
+  selectedCourse: number;
+  lessons: any[];
+  progressData: any;
+  courses: CourseCard["course"][];
+  onBack: () => void;
+  onSelectLesson: (id: number) => void;
+  onMarkComplete: (lessonId: number) => void;
+  onIssueCert: () => void;
+}) {
+  const course = courses.find((c) => c.id === selectedCourse);
+  if (!course) return null;
+  const completedCount = progressData?.completedCount ?? 0;
+  const totalLessons = progressData?.totalLessons ?? 0;
+  const percentComplete = progressData?.percentComplete ?? 0;
+  const remainingLessons = totalLessons - completedCount;
+
+  const groupedLessons: Record<string, typeof lessons> = {};
+  lessons.forEach((l: any) => {
+    const moduleName = l.moduleName || "Sem módulo";
+    if (!groupedLessons[moduleName]) groupedLessons[moduleName] = [];
+    groupedLessons[moduleName].push(l);
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto p-4">
+      <div className="max-w-2xl mx-auto space-y-4 pb-8">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-blue-600">
+          <ArrowLeft size={14} /> Voltar
+        </button>
+
+        {/* Course header */}
+        <div className="relative rounded-2xl overflow-hidden bg-white shadow-sm">
+          {course.coverUrl ? (
+            <img src={course.coverUrl} alt={course.title} className="w-full h-32 object-cover" />
+          ) : (
+            <div className="w-full h-32 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+              <BookOpen size={40} className="text-white opacity-50" />
+            </div>
+          )}
+          <div className="p-4">
+            <h2 className="font-bold text-lg">{course.title}</h2>
+            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+              {course.instructor && <span>{course.instructor}</span>}
+              <span className="flex items-center gap-1">
+                <Clock size={12} /> {course.durationHours ? `${course.durationHours}h` : "-"}
+              </span>
+              <span className="flex items-center gap-1">
+                <Film size={12} /> {totalLessons} aulas
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress summary */}
+        <div className="p-4 bg-white rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Seu progresso</span>
+            <span className="text-sm text-gray-500">{percentComplete}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div
+              className="bg-green-500 h-3 rounded-full transition-all duration-300"
+              style={{ width: `${percentComplete}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2 text-xs text-gray-500">
+            <span className="flex items-center gap-1"><CheckCircle2 size={12} className="text-green-500" /> {completedCount} concluídas</span>
+            <span className="flex items-center gap-1"><Target size={12} className="text-orange-500" /> {remainingLessons} restantes</span>
+          </div>
+        </div>
+
+        {/* What's left */}
+        {remainingLessons > 0 && (
+          <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl">
+            <div className="flex items-center gap-2 text-sm font-medium text-orange-700">
+              <Target size={16} />
+              <span>Faltam {remainingLessons} aula{remainingLessons > 1 ? "s" : ""} para concluir</span>
+            </div>
+          </div>
+        )}
+
+        {/* Lessons grouped by module */}
+        {Object.entries(groupedLessons).map(([moduleName, moduleLessons]) => (
+          <div key={moduleName}>
+            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">{moduleName}</h4>
+            <div className="space-y-1">
+              {moduleLessons.map((lesson: any, idx: number) => {
+                const isLessonCompleted = progressData?.progress.some(
+                  (p: any) => p.lessonId === lesson.id && p.completed
+                );
+                return (
+                  <button
+                    key={lesson.id}
+                    onClick={() => onSelectLesson(lesson.id)}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left bg-white border border-gray-100"
+                  >
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ backgroundColor: isLessonCompleted ? "#dcfce7" : "#f3f4f6", color: isLessonCompleted ? "#16a34a" : "#6b7280" }}>
+                      {isLessonCompleted ? <CheckCircle2 size={16} /> : idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-sm ${isLessonCompleted ? "text-gray-400 line-through" : "text-gray-800 font-medium"}`}>
+                        {lesson.title}
+                      </p>
+                      <p className="text-xs text-gray-400">{lesson.durationMinutes > 0 ? `${lesson.durationMinutes} min` : ""}</p>
+                    </div>
+                    {isLessonCompleted ? (
+                      <CheckCircle2 size={16} className="text-green-500" />
+                    ) : (
+                      <Play size={16} className="text-blue-500" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Issue certificate if complete */}
+        {percentComplete === 100 && totalLessons > 0 && (
+          <button
+            onClick={onIssueCert}
+            className="w-full py-3 bg-yellow-500 text-white font-semibold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2 shadow-md"
+          >
+            <Award size={20} /> Emitir Certificado de Conclusão
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
+// ============ Completed Lessons View ============
+function CompletedLessonsView({ courses }: { courses: CourseCard["course"][] }) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <CheckCircle2 size={20} className="text-green-500" /> Aulas Concluídas ✅
+      </h2>
+      <p className="text-sm text-gray-500">Aulas que você já finalizou em todos os seus cursos.</p>
+      {courses.map((course) => (
+        <CompletedLessonsForCourse key={course.id} courseId={course.id} courseTitle={course.title} />
+      ))}
+      {courses.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <CheckCircle2 size={48} className="mx-auto mb-3 opacity-30" />
+          <p>Nenhuma aula concluída ainda.</p>
+          <p className="text-sm mt-1">Comece um curso para registrar seu progresso!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompletedLessonsForCourse({ courseId, courseTitle }: { courseId: number; courseTitle: string }) {
+  const { data: lessonsData } = trpc.ead.listLessons.useQuery({ courseId }, { enabled: !!courseId });
+  const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery({ courseId }, { enabled: !!courseId });
+  const lessons = lessonsData?.map((l) => l.lesson) ?? [];
+  const completed = lessons.filter((l) =>
+    progressData?.progress.some((p) => p.lessonId === l.id && p.completed)
+  );
+
+  if (completed.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">{courseTitle}</h4>
+      <div className="space-y-2">
+        {completed.map((lesson) => (
+          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
+            <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+            <span className="text-sm text-green-700">{lesson.title}</span>
+            <span className="ml-auto text-xs text-green-500">✓</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============ Pending Lessons View ============
+function PendingLessonsView({ courses }: { courses: CourseCard["course"][] }) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <Target size={20} className="text-orange-500" /> Aulas Pendentes ⏳
+      </h2>
+      <p className="text-sm text-gray-500">Aulas que você ainda precisa completar.</p>
+      {courses.map((course) => (
+        <PendingLessonsForCourse key={course.id} courseId={course.id} courseTitle={course.title} />
+      ))}
+      {courses.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <Target size={48} className="mx-auto mb-3 opacity-30" />
+          <p>Nenhuma aula pendente.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PendingLessonsForCourse({ courseId, courseTitle }: { courseId: number; courseTitle: string }) {
+  const { data: lessonsData } = trpc.ead.listLessons.useQuery({ courseId }, { enabled: !!courseId });
+  const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery({ courseId }, { enabled: !!courseId });
+  const lessons = lessonsData?.map((l) => l.lesson) ?? [];
+  const pending = lessons.filter((l) =>
+    !progressData?.progress.some((p) => p.lessonId === l.id && p.completed)
+  );
+
+  if (pending.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">{courseTitle}</h4>
+      <div className="space-y-2">
+        {pending.map((lesson) => (
+          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
+            <Circle size={16} className="text-orange-400 flex-shrink-0" />
+            <span className="text-sm text-orange-700">{lesson.title}</span>
+            <span className="ml-auto text-xs text-orange-500">{lesson.moduleName || "—"}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============ Certificates View ============
+function CertificatesView({ certificates }: { certificates: any[] }) {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <Trophy size={20} className="text-yellow-500" /> Meus Certificados
+      </h2>
+      {certificates.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+          <Award size={48} className="mx-auto mb-3 opacity-20 text-yellow-600" />
+          <p className="font-medium text-gray-700">Nenhum certificado ainda</p>
+          <p className="text-sm text-gray-400 mt-1">Complete um curso para receber seu certificado!</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {certificates.map((cert: any) => (
+            <div key={cert.id} className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-2xl p-5 text-center shadow-sm">
+              <Trophy size={32} className="mx-auto mb-2 text-yellow-600" />
+              <p className="font-bold text-sm text-gray-800">Certificado de Conclusão</p>
+              <p className="text-xs text-gray-500 mt-1">Código: #{cert.certificateCode}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString("pt-BR") : "-"}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ Course Card with Progress ============
 function CourseCardWithProgress({ course, onClick }: { course: CourseCard["course"]; onClick: () => void }) {
   const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery(
     { courseId: course.id },
@@ -780,7 +867,7 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
   return (
     <button
       onClick={onClick}
-      className="w-full text-left border rounded-xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98] bg-white"
+      className="w-full text-left border rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all hover:scale-[1.01] active:scale-[0.98] bg-white shadow-sm"
     >
       {course.coverUrl ? (
         <img src={course.coverUrl} alt={course.title} className="w-full h-28 object-cover" />
@@ -789,7 +876,7 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
           <BookOpen size={32} className="text-white opacity-50" />
         </div>
       )}
-      <div className="p-3">
+      <div className="p-4">
         <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full mb-1">
           {course.category}
         </span>
@@ -802,7 +889,6 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
             <Clock size={10} /> {course.durationHours ? `${course.durationHours}h` : ""}
           </span>
         </div>
-        {/* Progress */}
         <div className="mt-2">
           <div className="w-full bg-gray-100 rounded-full h-2">
             <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${percent}%` }} />
@@ -822,8 +908,132 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
   );
 }
 
-// ============ Manage Sub-components ============
+// ============ Manage View (Admin/RH only) ============
+function ManageContent(props: any) {
+  const {
+    allCourses, showCourseForm, setShowCourseForm, editingCourseId, setEditingCourseId,
+    showLessonForm, setShowLessonForm, uploading, uploadingCourseId,
+    setSelectedFile, setNewLessonTitle, setNewLessonModule, setUploadingCourseId, setUploading,
+    createCourseMut, updateCourseMut, deleteCourseMut, publishCourseMut,
+    createLessonMut, deleteLessonMut, uploadVideoMut, selectedFile, videoInputRef,
+  } = props;
 
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">⚙️ Gerenciar EAD</h2>
+        <button
+          onClick={() => { setShowCourseForm(true); setEditingCourseId(null); }}
+          className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[40px]"
+        >
+          <Plus size={14} /> Novo Curso
+        </button>
+      </div>
+
+      {/* Course form modal */}
+      {showCourseForm && (
+        <CourseForm
+          editingId={editingCourseId}
+          onClose={() => { setShowCourseForm(false); setEditingCourseId(null); }}
+          onCreate={(data: any) => createCourseMut.mutate(data)}
+          onUpdate={(data: any) => updateCourseMut.mutate(data)}
+          editingCourse={allCourses.find((c: any) => c.id === editingCourseId)}
+        />
+      )}
+
+      {/* Course list with actions */}
+      <div className="space-y-3">
+        {allCourses.map((course: any) => (
+          <div key={course.id} className="border rounded-xl p-4 bg-white">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-sm">{course.title}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${course.status === "publicado" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                    {course.status === "publicado" ? "Publicado" : "Rascunho"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{course.totalLessons ?? 0} aulas · {course.category}</p>
+              </div>
+              <div className="flex gap-1">
+                {course.status !== "publicado" && (
+                  <button onClick={() => publishCourseMut.mutate({ id: course.id })} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Publicar">
+                    <CheckCircle2 size={16} />
+                  </button>
+                )}
+                <button onClick={() => { setEditingCourseId(course.id); setShowCourseForm(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                  <Settings size={16} />
+                </button>
+                <button onClick={() => setShowLessonForm(course.id)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded" title="Adicionar Aula">
+                  <Plus size={16} />
+                </button>
+                <button onClick={() => { if (confirm("Deletar curso?")) deleteCourseMut.mutate({ id: course.id }); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Deletar">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Lesson form for this course */}
+            {showLessonForm === course.id && (
+              <LessonForm
+                courseId={course.id}
+                onClose={() => setShowLessonForm(null)}
+                onUploadVideo={(file: File, title: string, module: string) => {
+                  setSelectedFile(file);
+                  setNewLessonTitle(title);
+                  setNewLessonModule(module);
+                  setUploadingCourseId(course.id);
+                  setUploading(true);
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const base64 = (reader.result as string).split(",")[1];
+                    uploadVideoMut.mutate({
+                      courseId: course.id,
+                      fileName: file.name,
+                      fileData: base64,
+                      mimeType: file.type || "video/mp4",
+                    });
+                  };
+                  reader.readAsDataURL(file);
+                }}
+                onDeleteLesson={(lessonId: number) => deleteLessonMut.mutate({ id: lessonId })}
+                onYoutube={(title: string, module: string, videoId: string) => {
+                  createLessonMut.mutate({ courseId: course.id, title, moduleName: module, videoType: "youtube", videoId });
+                }}
+              />
+            )}
+
+            {/* Upload progress */}
+            {uploading && uploadingCourseId === course.id && (
+              <div className="mt-2 p-2 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-2 text-xs text-blue-600">
+                  <Upload size={12} className="animate-pulse" />
+                  <span>Enviando vídeo...</span>
+                </div>
+                <div className="w-full bg-blue-100 rounded-full h-1.5 mt-2">
+                  <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: "60%" }} />
+                </div>
+              </div>
+            )}
+
+            {/* Lessons list for this course */}
+            <LessonsList courseId={course.id} onDelete={(id: number) => deleteLessonMut.mutate({ id })} />
+          </div>
+        ))}
+      </div>
+
+      {allCourses.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <Settings size={48} className="mx-auto mb-3 opacity-30" />
+          <p>Nenhum curso cadastrado.</p>
+          <p className="text-sm mt-1">Clique em "Novo Curso" para começar!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ Course Form ============
 function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
   editingId: number | null;
   editingCourse?: any;
@@ -878,6 +1088,7 @@ function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
             <option value="Despachante">Despachante</option>
             <option value="RH">RH</option>
             <option value="Entrega">Entrega</option>
+            <option value="Liderança">Liderança</option>
             <option value="Técnico">Técnico</option>
             <option value="Geral">Geral</option>
           </select>
@@ -905,6 +1116,7 @@ function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
   );
 }
 
+// ============ Lesson Form ============
 function LessonForm({ courseId, onClose, onUploadVideo, onYoutube, onDeleteLesson }: {
   courseId: number;
   onClose: () => void;
@@ -996,6 +1208,7 @@ function LessonForm({ courseId, onClose, onUploadVideo, onYoutube, onDeleteLesso
   );
 }
 
+// ============ Lessons List ============
 function LessonsList({ courseId, onDelete }: { courseId: number; onDelete: (id: number) => void }) {
   const { data: lessonsData, refetch } = trpc.ead.listLessons.useQuery(
     { courseId },
@@ -1005,7 +1218,6 @@ function LessonsList({ courseId, onDelete }: { courseId: number; onDelete: (id: 
 
   if (lessons.length === 0) return null;
 
-  // Group by module
   const grouped: Record<string, typeof lessons> = {};
   lessons.forEach((l) => {
     const mod = l.moduleName || "Geral";
@@ -1040,3 +1252,10 @@ function LessonsList({ courseId, onDelete }: { courseId: number; onDelete: (id: 
     </div>
   );
 }
+
+// Placeholder sub-components that are not rendered (hooks are at top level)
+function CourseDetailSection() { return null; }
+function CompletedLessonsContent() { return null; }
+function PendingLessonsContent() { return null; }
+function CertificatesContent({ certificates }: { certificates: any[] }) { return null; }
+function ManageView() { return null; }

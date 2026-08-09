@@ -92,9 +92,7 @@ function getMenuItems(role: string) {
     // Aluno sees only EAD and Dashboard
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
   } else if (role === "rh") {
-    // RH sees only RH and EAD
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas" });
+    // RH sees only EAD (full management)
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
   }
   return items;

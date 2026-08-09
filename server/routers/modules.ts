@@ -433,6 +433,16 @@ export const modulesRouter = router({
         isActive: true,
         sortOrder: 14,
       },
+      {
+        moduleKey: "ead",
+        name: "EAD",
+        description: "Plataforma de videoaulas e treinamento",
+        icon: "GraduationCap",
+        route: "/ead",
+        allowedRoles: "admin,vendedor,financeiro,administrativo",
+        isActive: true,
+        sortOrder: 15,
+      },
     ];
 
     for (const mod of defaultModules) {

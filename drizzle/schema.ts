@@ -697,3 +697,66 @@ export const vehicle_deliveries = mysqlTable("vehicle_deliveries", {
 });
 export type VehicleDelivery = typeof vehicle_deliveries.$inferSelect;
 export type InsertVehicleDelivery = typeof vehicle_deliveries.$inferInsert;
+// ============================================================
+// Módulo EAD — Plataforma de Videoaulas e Cursos
+// ============================================================
+export const ead_courses = mysqlTable("ead_courses", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  coverUrl: text("cover_url"),
+  category: varchar("category", { length: 50 }).default("Geral").notNull(),
+  status: mysqlEnum("status", ["rascunho", "publicado", "arquivado"]).default("rascunho").notNull(),
+  instructor: varchar("instructor", { length: 255 }),
+  durationHours: decimal("duration_hours", { precision: 5, scale: 2 }),
+  totalLessons: int("total_lessons").default(0),
+  visibility: mysqlEnum("visibility", ["todos", "apenas_vendedores", "apenas_admin", "privado"]).default("todos").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type EadCourse = typeof ead_courses.$inferSelect;
+export type InsertEadCourse = typeof ead_courses.$inferInsert;
+
+export const ead_lessons = mysqlTable("ead_lessons", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("course_id").references(() => ead_courses.id).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  moduleName: varchar("module_name", { length: 100 }),
+  orderIndex: int("order_index").default(0),
+  videoType: mysqlEnum("video_type", ["youtube", "vimeo", "url", "upload"]).default("youtube").notNull(),
+  videoId: varchar("video_id", { length: 100 }),
+  videoUrl: text("video_url"),
+  durationMinutes: int("duration_minutes").default(0),
+  status: mysqlEnum("status", ["ativo", "inativo"]).default("ativo").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type EadLesson = typeof ead_lessons.$inferSelect;
+export type InsertEadLesson = typeof ead_lessons.$inferInsert;
+
+export const ead_progress = mysqlTable("ead_progress", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").references(() => users.id).notNull(),
+  courseId: int("course_id").references(() => ead_courses.id).notNull(),
+  lessonId: int("lesson_id").references(() => ead_lessons.id).notNull(),
+  completed: boolean("completed").default(false),
+  watchedPercent: int("watched_percent").default(0),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type EadProgress = typeof ead_progress.$inferSelect;
+export type InsertEadProgress = typeof ead_progress.$inferInsert;
+
+export const ead_certificates = mysqlTable("ead_certificates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").references(() => users.id).notNull(),
+  courseId: int("course_id").references(() => ead_courses.id).notNull(),
+  certificateCode: varchar("certificate_code", { length: 50 }).notNull(),
+  quizScore: decimal("quiz_score", { precision: 5, scale: 2 }),
+  issuedAt: timestamp("issued_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type EadCertificate = typeof ead_certificates.$inferSelect;
+export type InsertEadCertificate = typeof ead_certificates.$inferInsert;

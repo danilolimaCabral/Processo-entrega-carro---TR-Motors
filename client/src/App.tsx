@@ -16,6 +16,7 @@ import RhPage from "./pages/RhPage";
 import InventoryPage from "./pages/InventoryPage";
 import PipelinePage from "./pages/PipelinePage";
 import DeliveryPage from "./pages/DeliveryPage";
+import EadPage from "./pages/EadPage";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -50,6 +51,8 @@ function Router() {
       <Route path="/estoque" component={InventoryPage} />
       <Route path="/pipeline" component={PipelinePage} />
       <Route path="/entrega" component={DeliveryPage} />
+      {/* EAD - Videoaulas */}
+      <Route path="/ead" component={EadPage} />
       <Route path="/404" component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />

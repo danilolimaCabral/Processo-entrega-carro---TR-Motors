@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
@@ -9,9 +9,7 @@ import {
   Clock,
   Award,
   ArrowLeft,
-  Lock,
   Film,
-  BarChart3,
   GraduationCap,
   ChevronRight,
   Video,
@@ -20,6 +18,9 @@ import {
   Trash2,
   Settings,
   X,
+  Trophy,
+  TrendingUp,
+  Target,
 } from "lucide-react";
 
 type CourseCard = {
@@ -53,44 +54,39 @@ type LessonItem = {
   };
 };
 
-type ProgressItem = {
-  id: number;
-  userId: number;
-  courseId: number;
-  lessonId: number;
-  completed: boolean;
-  watchedPercent: number;
-  completedAt: Date | null;
-};
-
 export default function EadPage() {
   const { user } = useAuth();
   const [selectedCourse, setSelectedCourse] = useState<number | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"cursos" | "certificados" | "progresso" | "gerenciar">("cursos");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "cursos" | "certificados" | "gerenciar">("dashboard");
   // Manage state
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
   const [showLessonForm, setShowLessonForm] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [newLessonTitle, setNewLessonTitle] = useState("");
+  const [newLessonModule, setNewLessonModule] = useState("");
+  const [uploadingCourseId, setUploadingCourseId] = useState<number | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // All queries at top level (fix React #310 - conditional hooks)
   const { data: coursesData, refetch: refetchCourses } = trpc.ead.listCourses.useQuery(
     { status: "publicado" },
     { refetchInterval: 10000 }
   );
   const courses = coursesData?.map((c) => c.course) ?? [];
 
-  const { data: lessonsData, refetch: refetchLessons } = trpc.ead.listLessons.useQuery(
+  const { data: allCoursesData } = trpc.ead.listCourses.useQuery(undefined, { enabled: true });
+  const allCourses = allCoursesData?.map((c) => c.course) ?? [];
+
+  const { data: lessonsData } = trpc.ead.listLessons.useQuery(
     selectedCourse ? { courseId: selectedCourse } : undefined,
     { enabled: !!selectedCourse }
   );
   const lessons = lessonsData?.map((l) => l.lesson) ?? [];
 
-  const { data: progressData, refetch: refetchProgress } = trpc.ead.getCourseProgressSummary.useQuery(
+  const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery(
     selectedCourse ? { courseId: selectedCourse } : undefined,
     { enabled: !!selectedCourse }
   );
@@ -98,9 +94,15 @@ export default function EadPage() {
   const { data: certificatesData } = trpc.ead.listMyCertificates.useQuery();
   const certificates = certificatesData ?? [];
 
+  // Compute overall progress
+  const overallStats = useMemo(() => {
+    const totalCerts = certificates.length;
+    const enrolledCourses = courses.length;
+    return { totalCerts, enrolledCourses };
+  }, [certificates, courses]);
+
   const markComplete = trpc.ead.markLessonComplete.useMutation({
     onSuccess: () => {
-      refetchProgress();
       refetchCourses();
     },
   });
@@ -151,26 +153,16 @@ export default function EadPage() {
       }
       setSelectedFile(null);
       setUploading(false);
-      setUploadProgress(0);
     },
     onError: (e) => {
       setUploading(false);
       alert("Erro no upload: " + e.message);
     },
   });
-  const [newLessonTitle, setNewLessonTitle] = useState("");
-  const [newLessonModule, setNewLessonModule] = useState("");
-  const [uploadingCourseId, setUploadingCourseId] = useState<number | null>(null);
-  const { data: allCoursesData } = trpc.ead.listCourses.useQuery(undefined, { enabled: activeTab === "gerenciar" });
-  const allCourses = allCoursesData?.map((c) => c.course) ?? [];
 
   const handleMarkComplete = (lessonId: number) => {
     if (!selectedCourse) return;
     markComplete.mutate({ courseId: selectedCourse, lessonId, watchedPercent: 100 });
-  };
-
-  const handlePlayLesson = (lessonId: number) => {
-    setSelectedLesson(lessonId);
   };
 
   const handleBack = () => {
@@ -178,68 +170,204 @@ export default function EadPage() {
     setSelectedCourse(null);
   };
 
-  // ============ CERTIFICADOS VIEW ============
-  if (activeTab === "certificados") {
+  // ============ DASHBOARD VIEW (new - replaces cursos as default for students) ============
+  if (activeTab === "dashboard") {
+    // Compute progress for each published course
+    const courseProgressList = courses.map((course) => {
+      // We need to query per-course progress; use a simple approach
+      return course;
+    });
+
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Meus Certificados</h2>
-          <button
-            onClick={() => setActiveTab("cursos")}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-          >
-            <ArrowLeft size={14} /> Voltar aos Cursos
-          </button>
-        </div>
-        {certificates.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">
-            <Award size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum certificado ainda.</p>
-            <p className="text-sm mt-1">Complete um curso para receber seu certificado!</p>
+        {/* Welcome header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 text-white">
+          <h2 className="text-lg font-bold">Olá, {user?.name || "Aluno"}! 👋</h2>
+          <p className="text-sm text-blue-100 mt-1">Continue de onde parou</p>
+          <div className="grid grid-cols-3 gap-3 mt-4">
+            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold">{overallStats.enrolledCourses}</p>
+              <p className="text-xs text-blue-100">Cursos</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold">{overallStats.totalCerts}</p>
+              <p className="text-xs text-blue-100">Certificados</p>
+            </div>
+            <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold">
+                {overallStats.enrolledCourses > 0 ? Math.round((overallStats.totalCerts / Math.max(overallStats.enrolledCourses, 1)) * 100) : 0}%
+              </p>
+              <p className="text-xs text-blue-100">Concluídos</p>
+            </div>
           </div>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {certificates.map((cert: any) => (
-              <div key={cert.id} className="border border-green-200 rounded-xl p-4 bg-green-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <Award size={20} className="text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm">Certificado #{cert.certificateCode}</p>
-                    <p className="text-xs text-gray-500">
-                      Emitido em {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString("pt-BR") : "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+        </div>
+
+        {/* Course cards with progress */}
+        <div className="grid gap-3 md:grid-cols-2">
+          {courses.map((course) => (
+            <CourseCardWithProgress
+              key={course.id}
+              course={course}
+              onClick={() => { setSelectedCourse(course.id); setActiveTab("cursos"); }}
+            />
+          ))}
+        </div>
+
+        {courses.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhum curso disponível ainda.</p>
           </div>
         )}
       </div>
     );
   }
 
-  // ============ PROGRESSO VIEW ============
-  if (activeTab === "progresso") {
-    const { data: allCoursesData } = trpc.ead.listCourses.useQuery();
-    const allCourses = allCoursesData?.map((c) => c.course) ?? [];
+  // ============ PROGRESS/CURSOS VIEW ============
+  if (activeTab === "cursos") {
+    // Course detail view
+    if (selectedCourse) {
+      const course = courses.find((c) => c.id === selectedCourse);
+      if (!course) return null;
+      const completedCount = progressData?.completedCount ?? 0;
+      const totalLessons = progressData?.totalLessons ?? 0;
+      const percentComplete = progressData?.percentComplete ?? 0;
+      const remainingLessons = totalLessons - completedCount;
+
+      // Group lessons by module
+      const groupedLessons: Record<string, typeof lessons> = {};
+      lessons.forEach((l) => {
+        const moduleName = l.moduleName || "Sem módulo";
+        if (!groupedLessons[moduleName]) groupedLessons[moduleName] = [];
+        groupedLessons[moduleName].push(l);
+      });
+
+      return (
+        <div className="space-y-4">
+          <button onClick={handleBack} className="flex items-center gap-1 text-sm text-blue-600">
+            <ArrowLeft size={14} /> Voltar
+          </button>
+
+          {/* Course header */}
+          <div className="relative rounded-xl overflow-hidden">
+            {course.coverUrl ? (
+              <img src={course.coverUrl} alt={course.title} className="w-full h-32 object-cover" />
+            ) : (
+              <div className="w-full h-32 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+                <BookOpen size={40} className="text-white opacity-50" />
+              </div>
+            )}
+            <div className="p-4 bg-white">
+              <h2 className="font-bold text-lg">{course.title}</h2>
+              <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+                {course.instructor && <span>{course.instructor}</span>}
+                <span className="flex items-center gap-1">
+                  <Clock size={12} /> {course.durationHours ? `${course.durationHours}h` : "-"}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Film size={12} /> {totalLessons} aulas
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress summary */}
+          <div className="p-3 bg-gray-50 rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Seu progresso</span>
+              <span className="text-sm text-gray-500">{percentComplete}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className="bg-green-500 h-3 rounded-full transition-all duration-300"
+                style={{ width: `${percentComplete}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><CheckCircle2 size={12} className="text-green-500" /> {completedCount} concluídas</span>
+              <span className="flex items-center gap-1"><Target size={12} className="text-orange-500" /> {remainingLessons} restantes</span>
+            </div>
+          </div>
+
+          {/* What's left section */}
+          {remainingLessons > 0 && (
+            <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl">
+              <div className="flex items-center gap-2 text-sm font-medium text-orange-700">
+                <Target size={16} />
+                <span>Faltam {remainingLessons} aula{remainingLessons > 1 ? "s" : ""} para concluir</span>
+              </div>
+            </div>
+          )}
+
+          {/* Lessons grouped by module */}
+          {Object.entries(groupedLessons).map(([moduleName, moduleLessons]) => (
+            <div key={moduleName}>
+              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">{moduleName}</h4>
+              <div className="space-y-1">
+                {moduleLessons.map((lesson, idx) => {
+                  const isLessonCompleted = progressData?.progress.some(
+                    (p) => p.lessonId === lesson.id && p.completed
+                  );
+                  return (
+                    <button
+                      key={lesson.id}
+                      onClick={() => handlePlayLesson(lesson.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                        style={{ backgroundColor: isLessonCompleted ? "#dcfce7" : "#f3f4f6", color: isLessonCompleted ? "#16a34a" : "#6b7280" }}>
+                        {isLessonCompleted ? <CheckCircle2 size={16} /> : idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-sm ${isLessonCompleted ? "text-gray-400 line-through" : "text-gray-800"}`}>
+                          {lesson.title}
+                        </p>
+                        <p className="text-xs text-gray-400">{lesson.durationMinutes} min</p>
+                      </div>
+                      {isLessonCompleted ? (
+                        <CheckCircle2 size={16} className="text-green-500" />
+                      ) : (
+                        <Play size={16} className="text-blue-500" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Issue certificate if complete */}
+          {percentComplete === 100 && totalLessons > 0 && (
+            <button
+              onClick={() => issueCert.mutate({ courseId: selectedCourse, userId: user?.id ?? 0 })}
+              className="w-full py-3 bg-yellow-500 text-white font-semibold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <Award size={20} /> Emitir Certificado de Conclusão
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // Course list (when no course selected)
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Meu Progresso</h2>
-          <button
-            onClick={() => setActiveTab("cursos")}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-          >
-            <ArrowLeft size={14} /> Voltar aos Cursos
-          </button>
-        </div>
-        <div className="grid gap-3">
-          {allCourses.filter(c => c.status === "publicado").map((course) => (
-            <CourseProgressCard key={course.id} courseId={course.id} courseTitle={course.title} />
+        <h2 className="text-lg font-semibold">📚 Cursos Disponíveis</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          {courses.map((course) => (
+            <CourseCardWithProgress
+              key={course.id}
+              course={course}
+              onClick={() => setSelectedCourse(course.id)}
+            />
           ))}
         </div>
+        {courses.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhum curso disponível ainda.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -248,7 +376,6 @@ export default function EadPage() {
   if (selectedLesson && lessons.length > 0) {
     const lesson = lessons.find((l) => l.id === selectedLesson);
     if (!lesson) return null;
-    const course = courses.find((c) => c.id === selectedCourse);
 
     const getVideoUrl = () => {
       if (lesson.videoType === "youtube" && lesson.videoId) {
@@ -276,14 +403,22 @@ export default function EadPage() {
         {/* Video Player */}
         <div className="w-full rounded-xl overflow-hidden bg-black shadow-lg">
           {videoUrl ? (
-            <div className="relative pb-[56.25%] h-0">
-              <iframe
-                src={videoUrl}
-                className="absolute top-0 left-0 w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
+            lesson.videoType === "upload" ? (
+              <video controls className="w-full" style={{ maxHeight: "400px" }}>
+                <source src={videoUrl} type="video/mp4" />
+                <source src={videoUrl} type="video/webm" />
+                Seu navegador não suporta vídeo.
+              </video>
+            ) : (
+              <div className="relative pb-[56.25%] h-0">
+                <iframe
+                  src={videoUrl}
+                  className="absolute top-0 left-0 w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )
           ) : (
             <div className="flex items-center justify-center h-64 text-gray-400">
               <div className="text-center">
@@ -342,107 +477,43 @@ export default function EadPage() {
     );
   }
 
-  // ============ COURSE DETAIL (lessons list) ============
-  if (selectedCourse) {
-    const course = courses.find((c) => c.id === selectedCourse);
-    if (!course) return null;
-    const completedCount = progressData?.completedCount ?? 0;
-    const totalLessons = progressData?.totalLessons ?? 0;
-    const percentComplete = progressData?.percentComplete ?? 0;
-
-    // Group lessons by module
-    const groupedLessons: Record<string, typeof lessons> = {};
-    lessons.forEach((l) => {
-      const moduleName = l.moduleName || "Sem módulo";
-      if (!groupedLessons[moduleName]) groupedLessons[moduleName] = [];
-      groupedLessons[moduleName].push(l);
-    });
-
+  // ============ CERTIFICADOS VIEW ============
+  if (activeTab === "certificados") {
     return (
       <div className="space-y-4">
-        <button onClick={handleBack} className="flex items-center gap-1 text-sm text-blue-600">
-          <ArrowLeft size={14} /> Voltar aos cursos
-        </button>
-
-        {/* Course header */}
-        <div className="relative rounded-xl overflow-hidden">
-          {course.coverUrl ? (
-            <img src={course.coverUrl} alt={course.title} className="w-full h-32 object-cover" />
-          ) : (
-            <div className="w-full h-32 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-              <BookOpen size={40} className="text-white opacity-50" />
-            </div>
-          )}
-          <div className="p-4 bg-white">
-            <h2 className="font-bold text-lg">{course.title}</h2>
-            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
-              {course.instructor && <span>{course.instructor}</span>}
-              <span className="flex items-center gap-1">
-                <Clock size={12} /> {course.durationHours ? `${course.durationHours}h` : "-"}
-              </span>
-              <span className="flex items-center gap-1">
-                <Film size={12} /> {totalLessons} aulas
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="p-3 bg-gray-50 rounded-xl">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Seu progresso</span>
-            <span className="text-sm text-gray-500">{percentComplete}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${percentComplete}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{completedCount} de {totalLessons} aulas concluídas</p>
-        </div>
-
-        {/* Lessons grouped by module */}
-        {Object.entries(groupedLessons).map(([moduleName, moduleLessons]) => (
-          <div key={moduleName}>
-            <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">{moduleName}</h4>
-            <div className="space-y-1">
-              {moduleLessons.map((lesson, idx) => {
-                const isLessonCompleted = progressData?.progress.some(
-                  (p) => p.lessonId === lesson.id && p.completed
-                );
-                return (
-                  <button
-                    key={lesson.id}
-                    onClick={() => handlePlayLesson(lesson.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{ backgroundColor: isLessonCompleted ? "#dcfce7" : "#f3f4f6", color: isLessonCompleted ? "#16a34a" : "#6b7280" }}>
-                      {isLessonCompleted ? <CheckCircle2 size={16} /> : idx + 1}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`text-sm ${isLessonCompleted ? "text-gray-400 line-through" : "text-gray-800"}`}>
-                        {lesson.title}
-                      </p>
-                      <p className="text-xs text-gray-400">{lesson.durationMinutes} min</p>
-                    </div>
-                    <Play size={16} className="text-blue-500" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        {/* Issue certificate if complete */}
-        {percentComplete === 100 && totalLessons > 0 && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">🏆 Meus Certificados</h2>
           <button
-            onClick={() => issueCert.mutate({ courseId: selectedCourse, userId: user?.id ?? 0 })}
-            className="w-full py-3 bg-yellow-500 text-white font-semibold rounded-xl hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+            onClick={() => setActiveTab("dashboard")}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
           >
-            <Award size={20} /> Emitir Certificado de Conclusão
+            <ArrowLeft size={14} /> Voltar
           </button>
+        </div>
+        {certificates.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <Award size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhum certificado ainda.</p>
+            <p className="text-sm mt-1">Complete um curso para receber seu certificado!</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {certificates.map((cert: any) => (
+              <div key={cert.id} className="border border-green-200 rounded-xl p-4 bg-green-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <Award size={20} className="text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">Certificado #{cert.certificateCode}</p>
+                    <p className="text-xs text-gray-500">
+                      Emitido em {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString("pt-BR") : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     );
@@ -453,7 +524,7 @@ export default function EadPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Gerenciar EAD</h2>
+          <h2 className="text-lg font-semibold">⚙️ Gerenciar EAD</h2>
           <button
             onClick={() => { setShowCourseForm(true); setEditingCourseId(null); }}
             className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[40px]"
@@ -516,8 +587,6 @@ export default function EadPage() {
                     setNewLessonModule(module);
                     setUploadingCourseId(course.id);
                     setUploading(true);
-                    setUploadProgress(0);
-                    // Read file as base64 and upload
                     const reader = new FileReader();
                     reader.onload = () => {
                       const base64 = (reader.result as string).split(",")[1];
@@ -567,11 +636,17 @@ export default function EadPage() {
     );
   }
 
-  // ============ COURSE LIST (main view) ============
+  // ============ MAIN LAYOUT WITH TABS ============
   return (
     <div className="space-y-4">
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "dashboard" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
+        >
+          🏠 Dashboard
+        </button>
         <button
           onClick={() => setActiveTab("cursos")}
           className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "cursos" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
@@ -579,18 +654,12 @@ export default function EadPage() {
           📚 Cursos
         </button>
         <button
-          onClick={() => setActiveTab("progresso")}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "progresso" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
-        >
-          📊 Progresso
-        </button>
-        <button
           onClick={() => setActiveTab("certificados")}
           className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "certificados" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
         >
           🏆 Certificados
         </button>
-        {user?.role === "admin" && (
+        {(user?.role === "admin" || user?.role === "rh") && (
           <button
             onClick={() => setActiveTab("gerenciar")}
             className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors ${activeTab === "gerenciar" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
@@ -600,18 +669,18 @@ export default function EadPage() {
         )}
       </div>
 
-      {/* Course cards */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {courses.map((course) => (
-          <CourseCardComponent
-            key={course.id}
-            course={course}
-            onClick={() => setSelectedCourse(course.id)}
-          />
-        ))}
-      </div>
+      {/* Content based on tab */}
+      {activeTab === "dashboard" && <EadDashboardView courses={courses} certificates={certificates} userName={user?.name || "Aluno"} onSelectCourse={(id) => { setSelectedCourse(id); }} />}
+      {activeTab === "cursos" && !selectedCourse && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {courses.map((course) => (
+            <CourseCardWithProgress key={course.id} course={course} onClick={() => setSelectedCourse(course.id)} />
+          ))}
+        </div>
+      )}
+      {activeTab === "cursos" && selectedCourse && <CourseDetailSection />}
 
-      {courses.length === 0 && (
+      {courses.length === 0 && activeTab !== "gerenciar" && (
         <div className="text-center py-12 text-gray-400">
           <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
           <p>Nenhum curso disponível ainda.</p>
@@ -623,17 +692,95 @@ export default function EadPage() {
 
 // ============ Sub-components ============
 
-function CourseCardComponent({ course, onClick }: { course: CourseCard["course"]; onClick: () => void }) {
+function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
+  courses: CourseCard["course"][];
+  certificates: any[];
+  userName: string;
+  onSelectCourse: (id: number) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Welcome header */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-4 text-white">
+        <h2 className="text-lg font-bold">Olá, {userName}! 👋</h2>
+        <p className="text-sm text-blue-100 mt-1">Continue de onde parou</p>
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold">{courses.length}</p>
+            <p className="text-xs text-blue-100">Cursos</p>
+          </div>
+          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold">{certificates.length}</p>
+            <p className="text-xs text-blue-100">Certificados</p>
+          </div>
+          <div className="bg-white/15 backdrop-blur rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold">
+              {courses.length > 0 ? Math.round((certificates.length / courses.length) * 100) : 0}%
+            </p>
+            <p className="text-xs text-blue-100">Concluídos</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Course cards with progress */}
+      <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-1">
+        <TrendingUp size={14} /> Continue estudando
+      </h3>
+      <div className="grid gap-3 md:grid-cols-2">
+        {courses.map((course) => (
+          <CourseCardWithProgress
+            key={course.id}
+            course={course}
+            onClick={() => onSelectCourse(course.id)}
+          />
+        ))}
+      </div>
+
+      {/* Recent certificates */}
+      {certificates.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-600 flex items-center gap-1 mb-2">
+            <Trophy size={14} /> Certificados recentes
+          </h3>
+          <div className="space-y-2">
+            {certificates.slice(0, 3).map((cert: any) => (
+              <div key={cert.id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
+                <Award size={20} className="text-green-600" />
+                <div>
+                  <p className="text-sm font-medium">Certificado #{cert.certificateCode}</p>
+                  <p className="text-xs text-gray-400">
+                    {cert.issuedAt ? new Date(cert.issuedAt).toLocaleDateString("pt-BR") : ""}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CourseDetailSection() {
+  // This is rendered when a course is selected - we use the parent's state
+  // For simplicity, we render a placeholder that the parent handles
+  return <div className="text-center py-8 text-gray-400">Selecione um curso para ver as aulas.</div>;
+}
+
+function CourseCardWithProgress({ course, onClick }: { course: CourseCard["course"]; onClick: () => void }) {
   const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery(
     { courseId: course.id },
     { enabled: !!course.id }
   );
   const percent = progressData?.percentComplete ?? 0;
+  const completed = progressData?.completedCount ?? 0;
+  const total = progressData?.totalLessons ?? course.totalLessons ?? 0;
+  const remaining = total - completed;
 
   return (
     <button
       onClick={onClick}
-      className="w-full text-left border rounded-xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+      className="w-full text-left border rounded-xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all hover:scale-[1.02] active:scale-[0.98] bg-white"
     >
       {course.coverUrl ? (
         <img src={course.coverUrl} alt={course.title} className="w-full h-28 object-cover" />
@@ -649,45 +796,32 @@ function CourseCardComponent({ course, onClick }: { course: CourseCard["course"]
         <h3 className="font-semibold text-sm leading-tight">{course.title}</h3>
         <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
           <span className="flex items-center gap-1">
-            <Film size={10} /> {course.totalLessons ?? 0} aulas
+            <Film size={10} /> {total} aulas
           </span>
           <span className="flex items-center gap-1">
             <Clock size={10} /> {course.durationHours ? `${course.durationHours}h` : ""}
           </span>
         </div>
         {/* Progress */}
-        {percent > 0 && (
-          <div className="mt-2">
-            <div className="w-full bg-gray-100 rounded-full h-1.5">
-              <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${percent}%` }} />
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">{percent}% concluído</p>
+        <div className="mt-2">
+          <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${percent}%` }} />
           </div>
-        )}
+          <div className="flex justify-between mt-1 text-xs">
+            <span className="text-green-600">{percent}% concluído</span>
+            {remaining > 0 && (
+              <span className="text-orange-500">Faltam {remaining}</span>
+            )}
+            {remaining === 0 && total > 0 && (
+              <span className="text-green-600 flex items-center gap-0.5"><CheckCircle2 size={10} /> Completo!</span>
+            )}
+          </div>
+        </div>
       </div>
     </button>
   );
 }
 
-function CourseProgressCard({ courseId, courseTitle }: { courseId: number; courseTitle: string }) {
-  const { data: progressData } = trpc.ead.getCourseProgressSummary.useQuery({ courseId });
-  const percent = progressData?.percentComplete ?? 0;
-
-  return (
-    <div className="p-4 bg-white border rounded-xl">
-      <h4 className="font-medium text-sm">{courseTitle}</h4>
-      <div className="flex items-center gap-3 mt-2">
-        <div className="flex-1 bg-gray-100 rounded-full h-2">
-          <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${percent}%` }} />
-        </div>
-        <span className="text-sm font-medium text-gray-600">{percent}%</span>
-      </div>
-      <p className="text-xs text-gray-400 mt-1">
-        {progressData?.completedCount ?? 0} de {progressData?.totalLessons ?? 0} aulas
-      </p>
-    </div>
-  );
-}
 // ============ Manage Sub-components ============
 
 function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
@@ -782,6 +916,7 @@ function LessonForm({ courseId, onClose, onUploadVideo, onYoutube, onDeleteLesso
   const [lessonModule, setLessonModule] = useState("");
   const [youtubeId, setYoutubeId] = useState("");
   const [useUpload, setUseUpload] = useState(true);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

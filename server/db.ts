@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -163,10 +163,11 @@ export async function getUserByEmail(email: string) {
     return undefined;
   }
 
+  // Case-insensitive email lookup using LOWER()
   const result = await db
     .select()
     .from(users)
-    .where(eq(users.email, email))
+    .where(eq(sql`LOWER(${users.email})`, email.toLowerCase()))
     .limit(1);
 
   return result.length > 0 ? result[0] : undefined;

@@ -461,10 +461,23 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
 }) {
   return (
     <div className="space-y-3 sm:space-y-4">
+      {/* TR Motors Logo */}
+      <div className="flex justify-center py-2">
+        <div className="bg-white rounded-2xl px-6 py-3 shadow-md border border-gray-100">
+          <img src="/tr_logo.png" alt="TR Motors" className="h-12 sm:h-14 w-auto object-contain" />
+        </div>
+      </div>
+
       {/* Welcome header */}
       <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-red-900 rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-red-900/20">
         <h2 className="text-lg sm:text-xl font-bold">Olá, {userName}! 👋</h2>
         <p className="text-xs sm:text-sm text-gray-300 mt-0.5 sm:mt-1">Continue de onde parou</p>
+
+        {/* Motivation message */}
+        <div className="mt-3 sm:mt-4 bg-red-600/20 border border-red-500/30 rounded-xl p-3">
+          <p className="text-xs sm:text-sm text-red-100 font-medium">🚀 "O investimento em conhecimento rende sempre os melhores juros."</p>
+          <p className="text-[10px] sm:text-xs text-red-200 mt-1">Continue firme! Cada aula te aproxima do seu próximo nível.</p>
+        </div>
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
           <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center border border-white/10">
             <p className="text-2xl font-bold">{courses.length}</p>
@@ -480,6 +493,25 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
             </p>
             <p className="text-xs text-gray-300">Concluídos</p>
           </div>
+        </div>
+      </div>
+
+      {/* Training purpose */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-2">
+          <Target size={16} className="text-red-600" /> Por que estamos treinando?
+        </h3>
+        <p className="text-xs text-gray-600 leading-relaxed">
+          Na <strong>TR Motors</strong>, acreditamos que nosso time é nosso maior patrimônio. Este treinamento foi
+          criado para desenvolver habilidades de <strong>vendas, liderança e atendimento</strong> que vão te ajudar
+          a se destacar no mercado automotivo. Cada curso concluído te aproxima de melhores resultados,
+          maior confiança e novas oportunidades de crescimento na empresa.
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-red-600 rounded-full" style={{ width: "30%" }} />
+          </div>
+          <span className="text-[10px] text-gray-500 font-medium">Meta: 100% concluído</span>
         </div>
       </div>
 

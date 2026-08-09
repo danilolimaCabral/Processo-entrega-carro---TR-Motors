@@ -27,7 +27,7 @@ CREATE TABLE `users` (
   `name` text,
   `email` varchar(320),
   `loginMethod` varchar(64),
-  `role` enum('admin','vendedor','financeiro','administrativo') NOT NULL DEFAULT 'vendedor',
+  `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor',
   `isActive` boolean DEFAULT true NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
@@ -364,3 +364,6 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9),
 ('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10),
 ('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo"]', true, 11);
+
+-- Fix: Add aluno and rh to role enum (migration 0008)
+ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';

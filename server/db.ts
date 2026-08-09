@@ -36,6 +36,7 @@ export async function getDb() {
 
 /**
  * Upsert user — handles both OAuth and local users
+ * Uses a simpler approach: try insert, if duplicate key error then update
  */
 export async function upsertUser(user: InsertUser): Promise<void> {
   const db = await getDb();
@@ -45,73 +46,55 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = {};
+    // Build the insert values — only include fields that are set
+    const insertValues: InsertUser = {};
+
+    if (user.openId !== undefined) insertValues.openId = user.openId;
+    if (user.passwordHash !== undefined) insertValues.passwordHash = user.passwordHash;
+    if (user.name !== undefined) insertValues.name = user.name;
+    if (user.email !== undefined) insertValues.email = user.email;
+    if (user.loginMethod !== undefined) insertValues.loginMethod = user.loginMethod;
+    if (user.role !== undefined) insertValues.role = user.role;
+    if (user.isActive !== undefined) insertValues.isActive = user.isActive;
+    if (user.lastSignedIn !== undefined) insertValues.lastSignedIn = user.lastSignedIn;
+    else insertValues.lastSignedIn = new Date();
+
+    // Build the update set (what to update on duplicate key)
     const updateSet: Record<string, unknown> = {};
+    if (user.openId !== undefined) updateSet.openId = user.openId;
+    if (user.passwordHash !== undefined) updateSet.passwordHash = user.passwordHash;
+    if (user.name !== undefined) updateSet.name = user.name;
+    // Don't update email on duplicate (it's the key being matched)
+    if (user.loginMethod !== undefined) updateSet.loginMethod = user.loginMethod;
+    if (user.role !== undefined) updateSet.role = user.role;
+    if (user.isActive !== undefined) updateSet.isActive = user.isActive;
+    updateSet.lastSignedIn = user.lastSignedIn ?? new Date();
+    updateSet.updatedAt = new Date();
 
-    // Handle openId (OAuth users)
     if (user.openId) {
-      values.openId = user.openId;
-    }
-
-    // Handle passwordHash (local users)
-    if (user.passwordHash !== undefined) {
-      values.passwordHash = user.passwordHash;
-      updateSet.passwordHash = user.passwordHash;
-    }
-
-    // Handle text fields
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      // Don't include email in updateSet to avoid unique key conflict on duplicate
-      if (field === "email") return;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    // Handle role
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    }
-
-    // Handle isActive
-    if (user.isActive !== undefined) {
-      values.isActive = user.isActive;
-      updateSet.isActive = user.isActive;
-    }
-
-    // Handle lastSignedIn
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    // For local users, use email as unique key; for OAuth, use openId
-    if (user.email && !user.openId) {
-      // Local user — upsert by email
-      await db.insert(users).values(values).onDuplicateKeyUpdate({
-        set: updateSet,
-      });
-    } else if (user.openId) {
       // OAuth user — upsert by openId
-      await db.insert(users).values(values).onDuplicateKeyUpdate({
+      await db.insert(users).values(insertValues).onDuplicateKeyUpdate({
         set: updateSet,
       });
+    } else if (user.email) {
+      // Local user — upsert by email
+      // First check if user exists to avoid the duplicate key issue
+      const existing = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, user.email))
+        .limit(1);
+
+      if (existing.length > 0) {
+        // User exists — update instead of insert
+        await db
+          .update(users)
+          .set(updateSet)
+          .where(eq(users.email, user.email));
+      } else {
+        // User doesn't exist — insert
+        await db.insert(users).values(insertValues);
+      }
     }
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);

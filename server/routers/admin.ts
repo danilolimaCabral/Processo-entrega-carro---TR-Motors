@@ -10,7 +10,7 @@ import {
   toggleUserActive,
   deleteUser,
   updateUserRole,
-  upsertUser,
+  createUserDirect,
 } from "../db";
 
 /**
@@ -96,16 +96,8 @@ export const adminRouter = router({
       // Hash password
       const passwordHash = await bcryptjs.hash(password, 10);
 
-      // Create user
-      await upsertUser({
-        email,
-        name,
-        passwordHash,
-        role,
-        loginMethod: "local",
-        isActive: true,
-        lastSignedIn: new Date(),
-      });
+      // Create user directly - we already checked it doesn't exist
+      await createUserDirect(email, name, passwordHash, role);
 
       return {
         success: true,

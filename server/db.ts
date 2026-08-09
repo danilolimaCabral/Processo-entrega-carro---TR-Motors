@@ -35,6 +35,34 @@ export async function getDb() {
 }
 
 /**
+ * Create a user directly (plain INSERT, no upsert logic)
+ * This avoids the Drizzle onDuplicateKeyUpdate issue with autoincrement
+ */
+export async function createUserDirect(
+  email: string,
+  name: string,
+  passwordHash: string,
+  role: string,
+  loginMethod: string = "local",
+  isActive: boolean = true
+): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create user: database not available");
+    return;
+  }
+
+  await db.insert(users).values({
+    email,
+    name,
+    passwordHash,
+    role: role as any,
+    loginMethod,
+    isActive,
+  });
+}
+
+/**
  * Upsert user — handles both OAuth and local users
  * Uses check-then-insert/update to avoid Drizzle's default value issue with onDuplicateKeyUpdate
  */

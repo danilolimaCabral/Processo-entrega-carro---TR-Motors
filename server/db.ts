@@ -51,13 +51,14 @@ export async function createUserDirect(
     return;
   }
 
-  // Use Drizzle's db.execute with template literal for raw SQL
+  // Use Drizzle's db.execute with raw SQL string (not template literal)
   // This avoids Drizzle's insert() issue of including all columns with default values
   try {
-    await db.execute`
-      INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive, createdAt, updatedAt)
-      VALUES (${passwordHash}, ${name}, ${email}, ${loginMethod}, ${role}, ${isActive}, NOW(), NOW())
-    `;
+    await db.execute(
+      `INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [passwordHash, name, email, loginMethod, role, isActive]
+    );
   } catch (error) {
     console.error("[Database] Failed to create user:", error);
     throw error;

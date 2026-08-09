@@ -51,23 +51,17 @@ export async function createUserDirect(
     return;
   }
 
-  // Use raw SQL to bypass Drizzle's issue of including all columns with default values
-  const driver = db as any;
-  const conn = driver.session?.client || driver;
-  
-  // Execute raw query using the underlying mysql2 connection
-  await new Promise<void>((resolve, reject) => {
-    // Get the raw connection from drizzle
-    const rawConn = db.$client;
-    rawConn.execute(
-      `INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive) VALUES (?, ?, ?, ?, ?, ?)`,
-      [passwordHash, name, email, loginMethod, role, isActive],
-      (err: any) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
+  // Use Drizzle's db.execute with template literal for raw SQL
+  // This avoids Drizzle's insert() issue of including all columns with default values
+  try {
+    await db.execute`
+      INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive, createdAt, updatedAt)
+      VALUES (${passwordHash}, ${name}, ${email}, ${loginMethod}, ${role}, ${isActive}, NOW(), NOW())
+    `;
+  } catch (error) {
+    console.error("[Database] Failed to create user:", error);
+    throw error;
+  }
 }
 
 /**

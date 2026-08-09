@@ -8,6 +8,7 @@ import {
   varchar,
   boolean,
   decimal,
+  date,
 } from "drizzle-orm/mysql-core";
 
 /**

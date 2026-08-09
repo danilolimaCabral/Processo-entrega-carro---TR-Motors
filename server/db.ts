@@ -35,8 +35,7 @@ export async function getDb() {
 }
 
 /**
- * Create a user directly (plain INSERT, no upsert logic)
- * This avoids the Drizzle onDuplicateKeyUpdate issue with autoincrement
+ * Create a user directly using raw SQL to avoid Drizzle's autoincrement default issue
  */
 export async function createUserDirect(
   email: string,
@@ -52,13 +51,22 @@ export async function createUserDirect(
     return;
   }
 
-  await db.insert(users).values({
-    email,
-    name,
-    passwordHash,
-    role: role as any,
-    loginMethod,
-    isActive,
+  // Use raw SQL to bypass Drizzle's issue of including all columns with default values
+  const driver = db as any;
+  const conn = driver.session?.client || driver;
+  
+  // Execute raw query using the underlying mysql2 connection
+  await new Promise<void>((resolve, reject) => {
+    // Get the raw connection from drizzle
+    const rawConn = db.$client;
+    rawConn.execute(
+      `INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive) VALUES (?, ?, ?, ?, ?, ?)`,
+      [passwordHash, name, email, loginMethod, role, isActive],
+      (err: any) => {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
   });
 }
 

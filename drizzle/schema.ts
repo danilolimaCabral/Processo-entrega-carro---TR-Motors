@@ -797,3 +797,27 @@ export const rh_cost_invoices = mysqlTable("rh_cost_invoices", {
 });
 export type RhCostInvoice = typeof rh_cost_invoices.$inferSelect;
 export type InsertRhCostInvoice = typeof rh_cost_invoices.$inferInsert;
+/**
+ * Expense receipts — photos of expense receipts (fuel, toll, food, supplies, etc.)
+ * submitted by employees for RH/Financeiro control
+ */
+export const expense_receipts = mysqlTable("expense_receipts", {
+  id: int("id").primaryKey().autoincrement(),
+  employeeName: varchar("employee_name", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }).notNull().default("Geral"),
+  description: text("description"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull().default("0.00"),
+  receiptDate: date("receipt_date"),
+  status: varchar("status", { length: 50 }).notNull().default("pendente"),
+  notes: text("notes"),
+  photoUrl: longtext("photo_url"),
+  photoFilename: varchar("photo_filename", { length: 500 }),
+  photoMimeType: varchar("photo_mime_type", { length: 100 }).default("image/jpeg"),
+  submittedBy: int("submitted_by"),
+  reviewedBy: int("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export type InsertExpenseReceipt = typeof expense_receipts.$inferInsert;

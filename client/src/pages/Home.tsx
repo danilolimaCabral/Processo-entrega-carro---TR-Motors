@@ -60,7 +60,11 @@ export default function Home() {
   }
 
   if (user.role === "aluno") {
-    return <EadPage />;
+    return (
+      <DashboardLayout>
+        <EadPage />
+      </DashboardLayout>
+    );
   }
 
   if (user.role === "rh") {

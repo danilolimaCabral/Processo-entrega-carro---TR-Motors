@@ -16,6 +16,7 @@ import { pipelineRouter } from "./routers/pipeline";
 import { deliveryRouter } from "./routers/deliveries";
 
 import { eadRouter } from "./routers/ead";
+import { expensesRouter } from "./routers/expenses";
 
 export const appRouter = router({
   system: systemRouter,
@@ -45,6 +46,7 @@ export const appRouter = router({
   pipeline: pipelineRouter,
   delivery: deliveryRouter,
   ead: eadRouter,
+  expenses: expensesRouter,
 });
 
 export type AppRouter = typeof appRouter;

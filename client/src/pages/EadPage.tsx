@@ -317,16 +317,16 @@ export default function EadPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* ============ SIDEBAR (Desktop) ============ */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200 shadow-sm fixed inset-y-0 left-0 z-40">
+      <aside className="hidden lg:flex flex-col w-64 bg-gray-950 shadow-xl fixed inset-y-0 left-0 z-40">
         {/* Logo */}
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="bg-gray-50 rounded-xl px-3 py-2 border border-gray-100">
+            <div className="bg-white rounded-xl px-3 py-2 shadow-lg">
               <img src="/tr_logo.png" alt="TR Motors" className="h-10 w-auto object-contain" />
             </div>
             <div>
-              <p className="text-sm font-bold text-gray-900">TR Motors EAD</p>
-              <p className="text-xs text-gray-400">Plataforma de Ensino</p>
+              <p className="text-sm font-bold text-white">TR Motors EAD</p>
+              <p className="text-xs text-red-500 font-medium">Plataforma de Ensino</p>
             </div>
           </div>
         </div>
@@ -339,8 +339,8 @@ export default function EadPage() {
               onClick={() => { setActiveTab(item.id); setSelectedCourse(null); setSelectedLesson(null); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 activeTab === item.id
-                  ? "bg-blue-50 text-blue-700 shadow-sm"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
               }`}
             >
               <item.icon size={18} />
@@ -350,19 +350,19 @@ export default function EadPage() {
         </nav>
 
         {/* User + Logout */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-800">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+            <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm">
               {user?.name?.charAt(0) || "U"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "Usuário"}</p>
-              <p className="text-xs text-gray-400 capitalize">{user?.role || "aluno"}</p>
+              <p className="text-sm font-medium text-white truncate">{user?.name || "Usuário"}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role || "aluno"}</p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors min-h-[40px]"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors min-h-[40px]"
           >
             <LogOut size={16} /> Sair
           </button>
@@ -462,23 +462,23 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Welcome header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-4 sm:p-5 text-white">
+      <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-red-900 rounded-2xl p-4 sm:p-5 text-white shadow-xl shadow-red-900/20">
         <h2 className="text-lg sm:text-xl font-bold">Olá, {userName}! 👋</h2>
-        <p className="text-xs sm:text-sm text-blue-100 mt-0.5 sm:mt-1">Continue de onde parou</p>
+        <p className="text-xs sm:text-sm text-gray-300 mt-0.5 sm:mt-1">Continue de onde parou</p>
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
-          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
+          <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center border border-white/10">
             <p className="text-2xl font-bold">{courses.length}</p>
-            <p className="text-xs text-blue-100">Cursos</p>
+            <p className="text-xs text-gray-300">Cursos</p>
           </div>
-          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
+          <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center border border-white/10">
             <p className="text-2xl font-bold">{certificates.length}</p>
-            <p className="text-xs text-blue-100">Certificados</p>
+            <p className="text-xs text-gray-300">Certificados</p>
           </div>
-          <div className="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
+          <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center border border-white/10">
             <p className="text-2xl font-bold">
               {courses.length > 0 ? Math.round((certificates.length / courses.length) * 100) : 0}%
             </p>
-            <p className="text-xs text-blue-100">Concluídos</p>
+            <p className="text-xs text-gray-300">Concluídos</p>
           </div>
         </div>
       </div>
@@ -505,8 +505,8 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
           </h3>
           <div className="space-y-2">
             {certificates.slice(0, 3).map((cert: any) => (
-              <div key={cert.id} className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
-                <Award size={20} className="text-green-600" />
+              <div key={cert.id} className="flex items-center gap-3 p-3 bg-red-50 border border-red-100 rounded-xl">
+                <Award size={20} className="text-red-600" />
                 <div>
                   <p className="text-sm font-medium">Certificado #{cert.certificateCode}</p>
                   <p className="text-xs text-gray-400">
@@ -550,7 +550,7 @@ function CourseDetailContent({ selectedCourse, lessons, progressData, courses, o
   return (
     <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto p-4">
       <div className="max-w-2xl mx-auto space-y-4 pb-8">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm text-blue-600">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition-colors">
           <ArrowLeft size={14} /> Voltar
         </button>
 
@@ -559,7 +559,7 @@ function CourseDetailContent({ selectedCourse, lessons, progressData, courses, o
           {course.coverUrl ? (
             <img src={course.coverUrl} alt={course.title} className="w-full h-32 object-cover" />
           ) : (
-            <div className="w-full h-32 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+            <div className="w-full h-32 bg-gradient-to-r from-gray-900 to-red-900 flex items-center justify-center">
               <BookOpen size={40} className="text-white opacity-50" />
             </div>
           )}
@@ -585,20 +585,20 @@ function CourseDetailContent({ selectedCourse, lessons, progressData, courses, o
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
-              className="bg-green-500 h-3 rounded-full transition-all duration-300"
+              className="bg-red-600 h-3 rounded-full transition-all duration-300"
               style={{ width: `${percentComplete}%` }}
             />
           </div>
           <div className="flex justify-between mt-2 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><CheckCircle2 size={12} className="text-green-500" /> {completedCount} concluídas</span>
+            <span className="flex items-center gap-1"><CheckCircle2 size={12} className="text-red-500" /> {completedCount} concluídas</span>
             <span className="flex items-center gap-1"><Target size={12} className="text-orange-500" /> {remainingLessons} restantes</span>
           </div>
         </div>
 
         {/* What's left */}
         {remainingLessons > 0 && (
-          <div className="p-3 bg-orange-50 border border-orange-100 rounded-xl">
-            <div className="flex items-center gap-2 text-sm font-medium text-orange-700">
+          <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+            <div className="flex items-center gap-2 text-sm font-medium text-red-700">
               <Target size={16} />
               <span>Faltam {remainingLessons} aula{remainingLessons > 1 ? "s" : ""} para concluir</span>
             </div>
@@ -693,10 +693,10 @@ function CompletedLessonsForCourse({ courseId, courseTitle }: { courseId: number
       <h4 className="text-sm font-semibold text-gray-700 mb-2">{courseTitle}</h4>
       <div className="space-y-2">
         {completed.map((lesson) => (
-          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
-            <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
-            <span className="text-sm text-green-700">{lesson.title}</span>
-            <span className="ml-auto text-xs text-green-500">✓</span>
+          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-100">
+            <CheckCircle2 size={16} className="text-red-500 flex-shrink-0" />
+            <span className="text-sm text-red-700">{lesson.title}</span>
+            <span className="ml-auto text-xs text-red-500">✓</span>
           </div>
         ))}
       </div>
@@ -709,7 +709,7 @@ function PendingLessonsView({ courses }: { courses: CourseCard["course"][] }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-        <Target size={20} className="text-orange-500" /> Aulas Pendentes ⏳
+        <Target size={20} className="text-red-500" /> Aulas Pendentes ⏳
       </h2>
       <p className="text-sm text-gray-500">Aulas que você ainda precisa completar.</p>
       {courses.map((course) => (
@@ -740,10 +740,10 @@ function PendingLessonsForCourse({ courseId, courseTitle }: { courseId: number; 
       <h4 className="text-sm font-semibold text-gray-700 mb-2">{courseTitle}</h4>
       <div className="space-y-2">
         {pending.map((lesson) => (
-          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg border border-orange-100">
-            <Circle size={16} className="text-orange-400 flex-shrink-0" />
-            <span className="text-sm text-orange-700">{lesson.title}</span>
-            <span className="ml-auto text-xs text-orange-500">{lesson.moduleName || "—"}</span>
+          <div key={lesson.id} className="flex items-center gap-2 p-2 bg-red-50 rounded-lg border border-red-100">
+            <Circle size={16} className="text-red-400 flex-shrink-0" />
+            <span className="text-sm text-red-700">{lesson.title}</span>
+            <span className="ml-auto text-xs text-red-500">{lesson.moduleName || "—"}</span>
           </div>
         ))}
       </div>
@@ -796,17 +796,17 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
   return (
     <button
       onClick={onClick}
-      className="w-full text-left border rounded-2xl overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all hover:scale-[1.01] active:scale-[0.98] bg-white shadow-sm"
+      className="w-full text-left border-2 border-gray-100 rounded-2xl overflow-hidden hover:shadow-xl hover:border-red-500 transition-all hover:scale-[1.01] active:scale-[0.98] bg-white shadow-sm"
     >
       {course.coverUrl ? (
         <img src={course.coverUrl} alt={course.title} className="w-full h-28 object-cover" />
       ) : (
-        <div className="w-full h-28 bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+        <div className="w-full h-28 bg-gradient-to-r from-gray-900 to-red-900 flex items-center justify-center">
           <BookOpen size={32} className="text-white opacity-50" />
         </div>
       )}
       <div className="p-4">
-        <span className="inline-block text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full mb-1">
+        <span className="inline-block text-xs bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full mb-1">
           {course.category}
         </span>
         <h3 className="font-semibold text-sm leading-tight">{course.title}</h3>
@@ -820,12 +820,12 @@ function CourseCardWithProgress({ course, onClick }: { course: CourseCard["cours
         </div>
         <div className="mt-2">
           <div className="w-full bg-gray-100 rounded-full h-2">
-            <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${percent}%` }} />
+            <div className="bg-red-600 h-2 rounded-full transition-all" style={{ width: `${percent}%` }} />
           </div>
           <div className="flex justify-between mt-1 text-xs">
-            <span className="text-green-600">{percent}% concluído</span>
+            <span className="text-red-600">{percent}% concluído</span>
             {remaining > 0 && (
-              <span className="text-orange-500">Faltam {remaining}</span>
+              <span className="text-red-400">Faltam {remaining}</span>
             )}
             {remaining === 0 && total > 0 && (
               <span className="text-green-600 flex items-center gap-0.5"><CheckCircle2 size={10} /> Completo!</span>
@@ -853,7 +853,7 @@ function ManageContent(props: any) {
         <h2 className="text-lg font-semibold">⚙️ Gerenciar EAD</h2>
         <button
           onClick={() => { setShowCourseForm(true); setEditingCourseId(null); }}
-          className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors min-h-[40px]"
+          className="flex items-center gap-1 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors min-h-[40px]"
         >
           <Plus size={14} /> Novo Curso
         </button>
@@ -890,7 +890,7 @@ function ManageContent(props: any) {
                     <CheckCircle2 size={16} />
                   </button>
                 )}
-                <button onClick={() => { setEditingCourseId(course.id); setShowCourseForm(true); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                  <button onClick={() => { setEditingCourseId(course.id); setShowCourseForm(true); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Editar">
                   <Settings size={16} />
                 </button>
                 <button onClick={() => setShowLessonForm(course.id)} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded" title="Adicionar Aula">
@@ -1035,7 +1035,7 @@ function CourseForm({ editingId, editingCourse, onClose, onCreate, onUpdate }: {
           />
           <button
             onClick={handleSubmit}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[40px]"
+            className="w-full py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors min-h-[40px]"
           >
             {editingId ? "Salvar Alterações" : "Criar Curso"}
           </button>
@@ -1092,20 +1092,20 @@ function LessonForm({ courseId, onClose, onUploadVideo, onYoutube, onDeleteLesso
       <div className="flex gap-1 bg-white border rounded-lg p-1">
         <button
           onClick={() => setUseUpload(true)}
-          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${useUpload ? "bg-blue-100 text-blue-700" : "text-gray-500"}`}
+          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${useUpload ? "bg-red-100 text-red-700" : "text-gray-500"}`}
         >
           📤 Upload Vídeo
         </button>
         <button
           onClick={() => setUseUpload(false)}
-          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${!useUpload ? "bg-red-100 text-red-700" : "text-gray-500"}`}
+          className={`flex-1 py-1.5 px-2 rounded text-xs font-medium ${!useUpload ? "bg-gray-100 text-gray-700" : "text-gray-500"}`}
         >
           ▶️ YouTube
         </button>
       </div>
 
       {useUpload ? (
-        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 transition-colors">
+          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-red-400 transition-colors">
           <Upload size={24} className="text-gray-400 mb-1" />
           <span className="text-xs text-gray-500">Toque para selecionar vídeo</span>
           <span className="text-xs text-gray-300">MP4, WebM (máx 100MB)</span>
@@ -1161,8 +1161,8 @@ function LessonsList({ courseId, onDelete }: { courseId: number; onDelete: (id: 
           <p className="text-xs font-medium text-gray-500 uppercase mb-1">{modName}</p>
           {modLessons.map((lesson) => (
             <div key={lesson.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <Video size={12} className="text-gray-500" />
+              <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <Video size={12} className="text-red-600" />
               </div>
               <span className="flex-1 text-xs">{lesson.title}</span>
               <span className="text-xs text-gray-400">

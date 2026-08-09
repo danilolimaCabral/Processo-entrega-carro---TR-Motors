@@ -51,10 +51,10 @@ export async function createUserDirect(
     return;
   }
 
-  // Use Drizzle's db.execute with raw SQL string (not template literal)
-  // This avoids Drizzle's insert() issue of including all columns with default values
+  // Use mysql2 pool directly via db.$client to bypass Drizzle's insert() issue
   try {
-    await db.execute(
+    const pool = db.$client as any;
+    await pool.execute(
       `INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [passwordHash, name, email, loginMethod, role, isActive]

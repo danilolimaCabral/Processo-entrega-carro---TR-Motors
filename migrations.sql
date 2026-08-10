@@ -570,3 +570,51 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 
 -- Fix: Add aluno and rh to role enum (migration 0008)
 ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';
+
+
+-- ==================== Salário e Ajuda de Custo ====================
+DROP TABLE IF EXISTS `salary_records`;
+DROP TABLE IF EXISTS `cost_help_requests`;
+
+CREATE TABLE `salary_records` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `employee_id` int NOT NULL,
+  `employee_name` varchar(255) NOT NULL,
+  `base_salary` decimal(12, 2) NOT NULL,
+  `bonuses` decimal(12, 2) DEFAULT 0,
+  `deductions` decimal(12, 2) DEFAULT 0,
+  `commission` decimal(12, 2) DEFAULT 0,
+  `net_salary` decimal(12, 2) NOT NULL,
+  `month` int NOT NULL,
+  `year` int NOT NULL,
+  `status` enum('rascunho','aprovado','pago') NOT NULL DEFAULT 'rascunho',
+  `approved_by` int,
+  `paid_at` timestamp,
+  `notes` longtext,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE now()
+);
+
+CREATE TABLE `cost_help_requests` (
+  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `employee_id` int NOT NULL,
+  `employee_name` varchar(255) NOT NULL,
+  `category` enum('combustivel','manutencao','material','viagem','alimentacao','outros') NOT NULL,
+  `description` varchar(500),
+  `amount` decimal(12, 2) NOT NULL,
+  `receipt_url` varchar(500),
+  `status` enum('pendente','aprovado','reprovado','pago') NOT NULL DEFAULT 'pendente',
+  `approved_by` int,
+  `approved_at` timestamp,
+  `rejection_reason` varchar(500),
+  `paid_at` timestamp,
+  `month` int,
+  `year` int,
+  `notes` longtext,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE now()
+);
+
+-- Seed: Salário e Ajuda de Custo module
+INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, `allowedRoles`, `isActive`, `sortOrder`) VALUES
+('rh-salario', 'Salário e Ajuda de Custo', 'Gestão de folha de pagamento, comissões e solicitações de ajuda de custo', 'DollarSign', '/rh/salario', '["admin","rh","financeiro"]', true, 20);

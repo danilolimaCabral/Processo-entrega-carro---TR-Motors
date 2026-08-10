@@ -1011,3 +1011,47 @@ export const audit_logs = mysqlTable("audit_logs", {
 });
 export type AuditLog = typeof audit_logs.$inferSelect;
 export type InsertAuditLog = typeof audit_logs.$inferInsert;
+
+// --- 8. Salary & Cost Help (Salário e Ajuda de Custo) ---
+export const salary_records = mysqlTable("salary_records", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  employeeName: varchar("employee_name", { length: 255 }).notNull(),
+  baseSalary: decimal("base_salary", { precision: 12, scale: 2 }).notNull(),
+  bonuses: decimal("bonuses", { precision: 12, scale: 2 }).default("0"),
+  deductions: decimal("deductions", { precision: 12, scale: 2 }).default("0"),
+  commission: decimal("commission", { precision: 12, scale: 2 }).default("0"),
+  netSalary: decimal("net_salary", { precision: 12, scale: 2 }).notNull(),
+  month: int("month").notNull(), // 1-12
+  year: int("year").notNull(),
+  status: mysqlEnum("status", ["rascunho", "aprovado", "pago"]).default("rascunho").notNull(),
+  approvedBy: int("approved_by"),
+  paidAt: timestamp("paid_at"),
+  notes: longtext("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type SalaryRecord = typeof salary_records.$inferSelect;
+export type InsertSalaryRecord = typeof salary_records.$inferInsert;
+
+export const cost_help_requests = mysqlTable("cost_help_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  employeeName: varchar("employee_name", { length: 255 }).notNull(),
+  category: mysqlEnum("category", ["combustivel", "manutencao", "material", "viagem", "alimentacao", "outros"]).notNull(),
+  description: varchar("description", { length: 500 }),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  receiptUrl: varchar("receipt_url", { length: 500 }),
+  status: mysqlEnum("status", ["pendente", "aprovado", "reprovado", "pago"]).default("pendente").notNull(),
+  approvedBy: int("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: varchar("rejection_reason", { length: 500 }),
+  paidAt: timestamp("paid_at"),
+  month: int("month"),
+  year: int("year"),
+  notes: longtext("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type CostHelpRequest = typeof cost_help_requests.$inferSelect;
+export type InsertCostHelpRequest = typeof cost_help_requests.$inferInsert;

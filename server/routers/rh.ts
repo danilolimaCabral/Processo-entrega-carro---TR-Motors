@@ -1056,4 +1056,248 @@ export const rhRouter = router({
       }
       return db.select().from(audit_logs).limit(limit).orderBy(desc(audit_logs.createdAt));
     }),
+
+  // ==================== Salary Records (Folha de Pagamento) ====================
+  listSalaryRecords: protectedProcedure
+    .input(z.object({ month: z.number().optional(), year: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { salary_records } = await import("../../drizzle/schema");
+      let query = db.select().from(salary_records);
+      if (input?.month) query = query.where(eq(salary_records.month, input.month));
+      if (input?.year) query = query.where(eq(salary_records.year, input.year));
+      return query.orderBy(desc(salary_records.createdAt));
+    }),
+  createSalaryRecord: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      employeeName: z.string().min(1),
+      baseSalary: z.number(),
+      bonuses: z.number().default(0),
+      deductions: z.number().default(0),
+      commission: z.number().default(0),
+      month: z.number().min(1).max(12),
+      year: z.number().min(2020),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { salary_records, audit_logs } = await import("../../drizzle/schema");
+      const netSalary = input.baseSalary + input.bonuses + input.commission - input.deductions;
+      const result = await db.insert(salary_records).values({ ...input, netSalary });
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: result[0].insertId,
+          entityName: input.employeeName,
+          details: `Folha criada: ${input.month}/${input.year} - R$ ${netSalary.toFixed(2)}`,
+        });
+      }
+      return { success: true, id: result[0].insertId, netSalary };
+    }),
+  approveSalaryRecord: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { salary_records, audit_logs } = await import("../../drizzle/schema");
+      await db.update(salary_records).set({ status: "aprovado", approvedBy: ctx.user?.id }).where(eq(salary_records.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: "Folha de pagamento aprovada",
+        });
+      }
+      return { success: true };
+    }),
+  paySalaryRecord: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { salary_records, audit_logs } = await import("../../drizzle/schema");
+      await db.update(salary_records).set({ status: "pago", paidAt: new Date() }).where(eq(salary_records.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: "Folha de pagamento marcada como paga",
+        });
+      }
+      return { success: true };
+    }),
+  deleteSalaryRecord: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { salary_records, audit_logs } = await import("../../drizzle/schema");
+      await db.delete(salary_records).where(eq(salary_records.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "delete",
+          module: "rh",
+          entityId: input.id,
+          details: "Folha de pagamento excluída",
+        });
+      }
+      return { success: true };
+    }),
+  salarySummary: protectedProcedure
+    .input(z.object({ month: z.number().optional(), year: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { salary_records } = await import("../../drizzle/schema");
+      let records = await db.select().from(salary_records);
+      if (input?.month) records = records.filter(r => r.month === input.month);
+      if (input?.year) records = records.filter(r => r.year === input.year);
+      const total = records.reduce((acc, r) => acc + parseFloat(r.netSalary || "0"), 0);
+      const totalBase = records.reduce((acc, r) => acc + parseFloat(r.baseSalary || "0"), 0);
+      const totalCommission = records.reduce((acc, r) => acc + parseFloat(r.commission || "0"), 0);
+      const totalBonuses = records.reduce((acc, r) => acc + parseFloat(r.bonuses || "0"), 0);
+      const totalDeductions = records.reduce((acc, r) => acc + parseFloat(r.deductions || "0"), 0);
+      const paidCount = records.filter(r => r.status === "pago").length;
+      const pendingCount = records.filter(r => r.status === "rascunho").length;
+      const approvedCount = records.filter(r => r.status === "aprovado").length;
+      return { total, totalBase, totalCommission, totalBonuses, totalDeductions, count: records.length, paidCount, pendingCount, approvedCount };
+    }),
+
+  // ==================== Cost Help Requests (Ajuda de Custo) ====================
+  listCostHelpRequests: protectedProcedure
+    .input(z.object({ status: z.string().optional(), employeeId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { cost_help_requests } = await import("../../drizzle/schema");
+      let query = db.select().from(cost_help_requests);
+      if (input?.status) query = query.where(eq(cost_help_requests.status, input.status as any));
+      if (input?.employeeId) query = query.where(eq(cost_help_requests.employeeId, input.employeeId));
+      return query.orderBy(desc(cost_help_requests.createdAt));
+    }),
+  createCostHelpRequest: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      employeeName: z.string().min(1),
+      category: z.enum(["combustivel", "manutencao", "material", "viagem", "alimentacao", "outros"]),
+      description: z.string().optional(),
+      amount: z.number(),
+      receiptUrl: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { cost_help_requests, audit_logs } = await import("../../drizzle/schema");
+      const now = new Date();
+      const result = await db.insert(cost_help_requests).values({
+        ...input,
+        month: now.getMonth() + 1,
+        year: now.getFullYear(),
+      });
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: result[0].insertId,
+          entityName: input.employeeName,
+          details: `Ajuda de custo solicitada: ${input.category} - R$ ${input.amount.toFixed(2)}`,
+        });
+      }
+      return { success: true, id: result[0].insertId };
+    }),
+  approveCostHelpRequest: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { cost_help_requests, audit_logs } = await import("../../drizzle/schema");
+      await db.update(cost_help_requests).set({ status: "aprovado", approvedBy: ctx.user?.id, approvedAt: new Date() }).where(eq(cost_help_requests.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: "Ajuda de custo aprovada",
+        });
+      }
+      return { success: true };
+    }),
+  rejectCostHelpRequest: protectedProcedure
+    .input(z.object({ id: z.number(), rejectionReason: z.string().optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { cost_help_requests, audit_logs } = await import("../../drizzle/schema");
+      await db.update(cost_help_requests).set({ status: "reprovado", rejectionReason: input.rejectionReason }).where(eq(cost_help_requests.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: `Ajuda de custo reprovada: ${input.rejectionReason || "Sem motivo"}`,
+        });
+      }
+      return { success: true };
+    }),
+  payCostHelpRequest: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { cost_help_requests, audit_logs } = await import("../../drizzle/schema");
+      await db.update(cost_help_requests).set({ status: "pago", paidAt: new Date() }).where(eq(cost_help_requests.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: "Ajuda de custo paga",
+        });
+      }
+      return { success: true };
+    }),
+  deleteCostHelpRequest: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { cost_help_requests, audit_logs } = await import("../../drizzle/schema");
+      await db.delete(cost_help_requests).where(eq(cost_help_requests.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "delete",
+          module: "rh",
+          entityId: input.id,
+          details: "Ajuda de custo excluída",
+        });
+      }
+      return { success: true };
+    }),
+  costHelpSummary: protectedProcedure
+    .query(async () => {
+      const db = await getDb();
+      const { cost_help_requests } = await import("../../drizzle/schema");
+      const records = await db.select().from(cost_help_requests);
+      const total = records.reduce((acc, r) => acc + parseFloat(r.amount || "0"), 0);
+      const pendingCount = records.filter(r => r.status === "pendente").length;
+      const approvedCount = records.filter(r => r.status === "aprovado").length;
+      const paidCount = records.filter(r => r.status === "pago").length;
+      const rejectedCount = records.filter(r => r.status === "reprovado").length;
+      const totalPending = records.filter(r => r.status === "pendente").reduce((acc, r) => acc + parseFloat(r.amount || "0"), 0);
+      const totalPaid = records.filter(r => r.status === "pago").reduce((acc, r) => acc + parseFloat(r.amount || "0"), 0);
+      return { total, totalPending, totalPaid, count: records.length, pendingCount, approvedCount, paidCount, rejectedCount };
+    }),
 });

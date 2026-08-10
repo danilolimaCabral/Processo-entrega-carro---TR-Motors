@@ -29,7 +29,7 @@ import {
   Menu,
 } from "lucide-react";
 
-type TabType = "dashboard" | "cursos" | "feitas" | "faltam" | "certificados" | "gerenciar";
+type TabType = "dashboard" | "cursos" | "feitas" | "faltam" | "certificados" | "gerenciar" | "trilhas";
 
 type CourseCard = {
   course: {
@@ -312,6 +312,9 @@ export default function EadPage() {
     ...(user?.role === "admin" || user?.role === "rh"
       ? [{ id: "gerenciar" as TabType, icon: Settings, label: "Gerenciar" }]
       : []),
+    ...(user?.role === "admin" || user?.role === "rh"
+      ? [{ id: "trilhas" as TabType, icon: GraduationCap, label: "Trilhas" }]
+      : []),
   ];
 
   return (
@@ -395,6 +398,7 @@ export default function EadPage() {
         {activeTab === "faltam" && <PendingLessonsView courses={courses} />}
         {activeTab === "certificados" && <CertificatesView certificates={certificates} />}
         {activeTab === "gerenciar" && <ManageView />}
+        {activeTab === "trilhas" && <LearningPathsView />}
 
         {courses.length === 0 && activeTab !== "gerenciar" && activeTab !== "certificados" && (
           <div className="text-center py-12 text-gray-400">
@@ -420,6 +424,7 @@ export default function EadPage() {
       {activeTab === "feitas" && <CompletedLessonsContent />}
       {activeTab === "faltam" && <PendingLessonsContent />}
       {activeTab === "certificados" && <CertificatesContent certificates={certificates} />}
+      {activeTab === "trilhas" && <LearningPathsContent />}
       {activeTab === "gerenciar" && (
         <ManageContent
           allCourses={allCourses}
@@ -1220,3 +1225,109 @@ function CompletedLessonsContent() { return null; }
 function PendingLessonsContent() { return null; }
 function CertificatesContent({ certificates }: { certificates: any[] }) { return null; }
 function ManageView() { return null; }
+
+// ===================== TRILHAS DE ONBOARDING (EAD) =====================
+function LearningPathsView() {
+  return null; // View wrapper - content rendered in LearningPathsContent
+}
+
+function LearningPathsContent() {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", role: "" });
+  const utils = trpc.useUtils();
+
+  const { data: paths } = trpc.rh.listLearningPaths.useQuery();
+  const createPath = trpc.rh.createLearningPath.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowForm(false); setForm({ name: "", description: "", role: "" }); },
+    onError: (e) => alert("Erro: " + e.message),
+  });
+  const deletePath = trpc.rh.deleteLearningPath.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const roles = ["admin", "rh", "vendedor", "financeiro", "gerente", "aluno"];
+  const roleLabels: Record<string, string> = {
+    admin: "Administrador", rh: "RH", vendedor: "Vendedor", financeiro: "Financeiro", gerente: "Gerente", aluno: "Aluno",
+  };
+
+  const handleCreate = () => {
+    if (!form.name || !form.role) { alert("Preencha nome e cargo alvo"); return; }
+    createPath.mutate({ name: form.name, role: form.role, description: form.description || undefined });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-gray-900">🎓 Trilhas de Onboarding</h2>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors min-h-[40px]"
+        >
+          <Plus size={16} /> Nova Trilha
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+          <h3 className="font-medium text-gray-900">Criar Nova Trilha</h3>
+          <input
+            placeholder="Nome da trilha"
+            value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[40px]"
+          />
+          <textarea
+            placeholder="Descrição"
+            value={form.description}
+            onChange={e => setForm({ ...form, description: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+            rows={2}
+          />
+          <select
+            value={form.role}
+            onChange={e => setForm({ ...form, role: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 min-h-[40px]"
+          >
+            <option value="">Selecione o cargo alvo...</option>
+            {roles.map(r => <option key={r} value={r}>{roleLabels[r]}</option>)}
+          </select>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[40px]">Criar</button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[40px]">Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {paths?.map((p: any) => (
+          <div key={p.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">{p.name}</h3>
+                  {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
+                </div>
+                <span className="inline-block text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full ml-2 shrink-0">
+                  {roleLabels[p.role] || p.role}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-sm text-gray-500">Cursos vinculados: {p.courses?.length || 0}</span>
+                <button
+                  onClick={() => deletePath.mutate({ id: p.id })}
+                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {!paths?.length && (
+          <div className="col-span-full text-center py-12 text-gray-400">
+            <GraduationCap size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nenhuma trilha criada ainda.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

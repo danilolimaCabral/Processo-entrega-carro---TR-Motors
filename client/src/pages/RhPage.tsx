@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "trilhas" | "auditoria";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo";
 
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -44,8 +44,9 @@ export default function RhPage() {
     { id: "documentos" as Tab, label: "Documentos", icon: FolderArchive },
     { id: "vagas" as Tab, label: "Vagas", icon: BriefcaseBusiness },
     { id: "candidatos" as Tab, label: "Candidatos", icon: UserPlus },
-    { id: "trilhas" as Tab, label: "Trilhas", icon: GraduationCap },
     { id: "auditoria" as Tab, label: "Auditoria", icon: ScrollText },
+    { id: "salario" as Tab, label: "Salário", icon: DollarSign },
+    { id: "ajuda_custo" as Tab, label: "Ajuda de Custo", icon: DollarSign },
   ];
 
   return (
@@ -86,8 +87,9 @@ export default function RhPage() {
         {activeTab === "documentos" && <EmployeeDocumentsTab />}
         {activeTab === "vagas" && <VacanciesTab />}
         {activeTab === "candidatos" && <CandidatesTab />}
-        {activeTab === "trilhas" && <LearningPathsTab />}
         {activeTab === "auditoria" && <AuditLogsTab />}
+        {activeTab === "salario" && <SalaryTab />}
+        {activeTab === "ajuda_custo" && <CostHelpTab />}
       </div>
     </DashboardLayout>
   );
@@ -1507,68 +1509,6 @@ function CandidatesTab() {
   );
 }
 
-// ===================== TRILHAS DE ONBOARDING =====================
-function LearningPathsTab() {
-  const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", targetRole: "" });
-  const utils = trpc.useUtils();
-
-  const { data: paths } = trpc.rh.listLearningPaths.useQuery();
-  const createPath = trpc.rh.createLearningPath.useMutation({
-    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Trilha criada"); setForm({ name: "", description: "", targetRole: "" }); },
-    onError: (e) => toast.error("Erro: " + e.message),
-  });
-  const deletePath = trpc.rh.deleteLearningPath.useMutation({ onSuccess: () => utils.invalidate() });
-
-  const roles = ["admin", "rh", "vendedor", "financeiro", "gerente"];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Trilhas de Onboarding</h3>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova Trilha</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Criar Trilha</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input placeholder="Nome da trilha" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="min-h-[40px]" />
-              <Textarea placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-              <Select value={form.targetRole} onValueChange={(v) => setForm({ ...form, targetRole: v })}>
-                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Cargo alvo" /></SelectTrigger>
-                <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-              </Select>
-              <Button onClick={() => createPath.mutate({ name: form.name, role: form.targetRole, description: form.description })} className="w-full min-h-[40px]">Criar</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {paths?.map((p: any) => (
-          <Card key={p.id}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-base">{p.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{p.description}</p>
-                </div>
-                <Badge variant="outline">{p.role}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Cursos: {p.courses?.length || 0}</span>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deletePath.mutate({ id: p.id })}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {!paths?.length && <p className="text-center text-muted-foreground py-4">Nenhuma trilha criada</p>}
-      </div>
-    </div>
-  );
-}
-
 // ===================== LOG DE AUDITORIA =====================
 function AuditLogsTab() {
   const [filter, setFilter] = useState("");
@@ -1597,6 +1537,242 @@ function AuditLogsTab() {
           </div>
         ))}
         {!logs?.length && <p className="text-center text-muted-foreground py-4">Nenhum log de auditoria</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== SALÁRIO (FOLHA DE PAGAMENTO) =====================
+function SalaryTab() {
+  const { user } = useAuth();
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({
+    employeeName: "",
+    baseSalary: "",
+    bonuses: "",
+    deductions: "",
+    commission: "",
+    month: String(new Date().getMonth() + 1),
+    year: String(new Date().getFullYear()),
+    notes: "",
+  });
+  const utils = trpc.useUtils();
+
+  const { data: salaries } = trpc.rh.listSalaryRecords.useQuery();
+  const { data: summary } = trpc.rh.salarySummary.useQuery();
+  const createSalary = trpc.rh.createSalaryRecord.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Folha criada"); setForm({ employeeName: "", baseSalary: "", bonuses: "", deductions: "", commission: "", month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()), notes: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const approveSalary = trpc.rh.approveSalaryRecord.useMutation({ onSuccess: () => { utils.invalidate(); toast.success("Folha aprovada"); } });
+  const paySalary = trpc.rh.paySalaryRecord.useMutation({ onSuccess: () => { utils.invalidate(); toast.success("Folha paga"); } });
+  const deleteSalary = trpc.rh.deleteSalaryRecord.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const fmt = (val: string | number) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+  const handleCreate = () => {
+    if (!form.employeeName || !form.baseSalary) { toast.error("Preencha nome e salário base"); return; }
+    createSalary.mutate({
+      employeeId: user?.id || 1,
+      employeeName: form.employeeName,
+      baseSalary: Number(form.baseSalary),
+      bonuses: Number(form.bonuses) || 0,
+      deductions: Number(form.deductions) || 0,
+      commission: Number(form.commission) || 0,
+      month: Number(form.month),
+      year: Number(form.year),
+      notes: form.notes || undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Folha de Pagamento</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova Folha</Button></DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Cadastrar Folha de Pagamento</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Salário base" value={form.baseSalary} onChange={e => setForm({ ...form, baseSalary: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+                <Input placeholder="Comissão" value={form.commission} onChange={e => setForm({ ...form, commission: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Bônus" value={form.bonuses} onChange={e => setForm({ ...form, bonuses: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+                <Input placeholder="Descontos" value={form.deductions} onChange={e => setForm({ ...form, deductions: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={form.month} onValueChange={(v) => setForm({ ...form, month: v })}>
+                  <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Mês" /></SelectTrigger>
+                  <SelectContent>{months.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input placeholder="Ano" value={form.year} onChange={e => setForm({ ...form, year: e.target.value })} type="number" className="min-h-[40px]" />
+              </div>
+              <Textarea placeholder="Observações" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              <Button onClick={handleCreate} className="w-full min-h-[40px]">Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-blue-600">{fmt(String(summary?.total || 0))}</div><div className="text-xs text-muted-foreground">Total Geral</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-green-600">{fmt(String(summary?.totalCommission || 0))}</div><div className="text-xs text-muted-foreground">Comissões</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-orange-600">{summary?.pendingCount || 0}</div><div className="text-xs text-muted-foreground">Rascunhos</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-purple-600">{summary?.paidCount || 0}</div><div className="text-xs text-muted-foreground">Pagas</div></CardContent></Card>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {salaries?.map((s: any) => (
+          <Card key={s.id}>
+            <CardContent className="p-3 flex items-center justify-between">
+              <div>
+                <p className="font-medium">{s.employeeName} <Badge variant="outline" className="ml-2">{months[s.month - 1]}/{s.year}</Badge></p>
+                <p className="text-sm text-muted-foreground">
+                  Base: {fmt(s.baseSalary)} · Comissão: {fmt(s.commission)} · Bônus: {fmt(s.bonuses)} · Descontos: {fmt(s.deductions)}
+                </p>
+                <p className="text-lg font-bold text-green-600">Líquido: {fmt(s.netSalary)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={s.status === "pago" ? "default" : s.status === "aprovado" ? "secondary" : "outline"}>
+                  {s.status === "pago" ? "Pago" : s.status === "aprovado" ? "Aprovado" : "Rascunho"}
+                </Badge>
+                {s.status === "rascunho" && (
+                  <Button variant="outline" size="sm" className="min-h-[32px]" onClick={() => approveSalary.mutate({ id: s.id })}>Aprovar</Button>
+                )}
+                {s.status === "aprovado" && (
+                  <Button variant="outline" size="sm" className="min-h-[32px]" onClick={() => paySalary.mutate({ id: s.id })}>Marcar Pago</Button>
+                )}
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteSalary.mutate({ id: s.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!salaries?.length && <p className="text-center text-muted-foreground py-4">Nenhuma folha de pagamento cadastrada</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== AJUDA DE CUSTO =====================
+function CostHelpTab() {
+  const { user } = useAuth();
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({
+    employeeName: "",
+    category: "combustivel",
+    description: "",
+    amount: "",
+    receiptUrl: "",
+    notes: "",
+  });
+  const utils = trpc.useUtils();
+
+  const { data: requests } = trpc.rh.listCostHelpRequests.useQuery();
+  const { data: summary } = trpc.rh.costHelpSummary.useQuery();
+  const createRequest = trpc.rh.createCostHelpRequest.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Solicitação criada"); setForm({ employeeName: "", category: "combustivel", description: "", amount: "", receiptUrl: "", notes: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const approveRequest = trpc.rh.approveCostHelpRequest.useMutation({ onSuccess: () => { utils.invalidate(); toast.success("Solicitação aprovada"); } });
+  const rejectRequest = trpc.rh.rejectCostHelpRequest.useMutation({ onSuccess: () => { utils.invalidate(); toast.success("Solicitação reprovada"); } });
+  const payRequest = trpc.rh.payCostHelpRequest.useMutation({ onSuccess: () => { utils.invalidate(); toast.success("Solicitação paga"); } });
+  const deleteRequest = trpc.rh.deleteCostHelpRequest.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const fmt = (val: string | number) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const categories = [
+    { value: "combustivel", label: "Combustível" },
+    { value: "manutencao", label: "Manutenção" },
+    { value: "material", label: "Material" },
+    { value: "viagem", label: "Viagem" },
+    { value: "alimentacao", label: "Alimentação" },
+    { value: "outros", label: "Outros" },
+  ];
+
+  const categoryLabels: Record<string, string> = Object.fromEntries(categories.map(c => [c.value, c.label]));
+
+  const handleCreate = () => {
+    if (!form.employeeName || !form.amount) { toast.error("Preencha nome e valor"); return; }
+    createRequest.mutate({
+      employeeId: user?.id || 1,
+      employeeName: form.employeeName,
+      category: form.category as "combustivel" | "manutencao" | "material" | "viagem" | "alimentacao" | "outros",
+      description: form.description || undefined,
+      amount: Number(form.amount),
+      receiptUrl: form.receiptUrl || undefined,
+      notes: form.notes || undefined,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Ajuda de Custo</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova Solicitação</Button></DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Solicitar Ajuda de Custo</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>{categories.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Valor (R$)" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} type="number" step="0.01" className="min-h-[40px]" />
+              <Input placeholder="URL do recibo" value={form.receiptUrl} onChange={e => setForm({ ...form, receiptUrl: e.target.value })} className="min-h-[40px]" />
+              <Textarea placeholder="Observações" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+              <Button onClick={handleCreate} className="w-full min-h-[40px]">Solicitar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-blue-600">{fmt(String(summary?.total || 0))}</div><div className="text-xs text-muted-foreground">Total Geral</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-orange-600">{fmt(String(summary?.totalPending || 0))}</div><div className="text-xs text-muted-foreground">Pendentes</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-green-600">{fmt(String(summary?.totalPaid || 0))}</div><div className="text-xs text-muted-foreground">Pagas</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-xl font-bold text-purple-600">{summary?.count || 0}</div><div className="text-xs text-muted-foreground">Solicitações</div></CardContent></Card>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {requests?.map((r: any) => (
+          <Card key={r.id}>
+            <CardContent className="p-3 flex items-center justify-between">
+              <div>
+                <p className="font-medium">{r.employeeName} <Badge variant="outline" className="ml-2">{categoryLabels[r.category] || r.category}</Badge></p>
+                <p className="text-sm text-muted-foreground">{r.description} · {r.month && r.year ? `${r.month}/${r.year}` : ""}</p>
+                <p className="text-lg font-bold text-green-600">{fmt(r.amount)}</p>
+                {r.rejectionReason && <p className="text-xs text-red-500">Motivo reprovação: {r.rejectionReason}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={r.status === "pago" ? "default" : r.status === "aprovado" ? "secondary" : r.status === "reprovado" ? "destructive" : "outline"}>
+                  {r.status === "pago" ? "Pago" : r.status === "aprovado" ? "Aprovado" : r.status === "reprovado" ? "Reprovado" : "Pendente"}
+                </Badge>
+                {r.status === "pendente" && (
+                  <>
+                    <Button variant="outline" size="sm" className="min-h-[32px]" onClick={() => approveRequest.mutate({ id: r.id })}>Aprovar</Button>
+                    <Button variant="ghost" size="sm" className="min-h-[32px] text-red-500" onClick={() => rejectRequest.mutate({ id: r.id })}>Reprovar</Button>
+                  </>
+                )}
+                {r.status === "aprovado" && (
+                  <Button variant="outline" size="sm" className="min-h-[32px]" onClick={() => payRequest.mutate({ id: r.id })}>Marcar Pago</Button>
+                )}
+                {r.receiptUrl && <a href={r.receiptUrl} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="sm" className="min-h-[32px]">Ver Recibo</Button></a>}
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteRequest.mutate({ id: r.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!requests?.length && <p className="text-center text-muted-foreground py-4">Nenhuma solicitação de ajuda de custo</p>}
       </div>
     </div>
   );

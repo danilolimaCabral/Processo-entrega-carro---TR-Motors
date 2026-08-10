@@ -58,7 +58,9 @@ async function startServer() {
       createContext,
     })
   );
-  // Database health check endpoint (must be before serveStatic)
+
+  // Database health check endpoint - MUST be before serveStatic
+  // serveStatic uses app.use("*") which catches all unmatched routes
   app.get("/api/db-health", async (req, res) => {
     try {
       const { getDb } = await import("../db");

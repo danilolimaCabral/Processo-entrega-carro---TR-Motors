@@ -28,14 +28,16 @@ let _pool: mysql2.Pool | null = null;
 export async function getPool(): Promise<mysql2.Pool | null> {
   if (!_pool && process.env.DATABASE_URL) {
     const dbUrl = new URL(process.env.DATABASE_URL);
-    console.log("[Database] Creating pool to:", dbUrl.hostname, dbUrl.port || 3306, dbUrl.pathname.slice(1));
+    const isRailwayInternal = dbUrl.hostname.includes('railway.internal');
+    console.log("[Database] Creating pool to:", dbUrl.hostname, dbUrl.port || 3306, dbUrl.pathname.slice(1), "SSL:", !isRailwayInternal);
     _pool = mysql2.createPool({
       host: dbUrl.hostname,
       port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
       user: dbUrl.username,
       password: decodeURIComponent(dbUrl.password),
       database: dbUrl.pathname.slice(1),
-      ssl: { rejectUnauthorized: false },
+      // Only use SSL for external databases (TiDB Cloud). Railway internal MySQL doesn't support SSL.
+      ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: false } }),
       connectionLimit: 10,
       connectTimeout: 10000,
       waitForConnections: true,

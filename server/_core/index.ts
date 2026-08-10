@@ -49,6 +49,23 @@ async function startServer() {
   });
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+
+  // Database health check endpoint
+  app.get("/api/db-health", async (req, res) => {
+    try {
+      const { getDb } = await import("../db");
+      const db = await getDb();
+      if (!db) {
+        return res.json({ ok: false, error: "DATABASE_URL not set or db is null" });
+      }
+      const { users } = await import("../../drizzle/schema");
+      const result = await db.select().from(users).limit(1);
+      res.json({ ok: true, message: "Database connection works", rows: result.length });
+    } catch (error: any) {
+      res.json({ ok: false, error: error?.message || String(error), code: error?.code, errno: error?.errno, sqlState: error?.sqlState });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

@@ -26,9 +26,9 @@ let _db: ReturnType<typeof drizzle> | null = null;
 // Railway MySQL requires SSL — without it, queries hang ~12s then fail with 500.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    console.log("[Database] Connecting to:", dbUrl.hostname, dbUrl.port || 3306, dbUrl.pathname.slice(1));
     try {
-      // Try with explicit pool + SSL first (Railway MySQL requires SSL)
-      const dbUrl = new URL(process.env.DATABASE_URL);
       const pool = mysql2.createPool({
         host: dbUrl.hostname,
         port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
@@ -47,15 +47,8 @@ export async function getDb() {
       _db = drizzle(pool as any);
       console.log("[Database] Connected with SSL + pool");
     } catch (error: any) {
-      console.warn("[Database] Pool with SSL failed:", error?.message || error);
-      // Fallback: try original string-based approach
-      try {
-        _db = drizzle(process.env.DATABASE_URL!);
-        console.log("[Database] Connected with string URL (fallback)");
-      } catch (error2) {
-        console.warn("[Database] String URL fallback also failed:", error2);
-        _db = null;
-      }
+      console.error("[Database] Connection FAILED:", error?.message || error, "code:", error?.code, "errno:", error?.errno);
+      throw error;
     }
   }
   return _db;

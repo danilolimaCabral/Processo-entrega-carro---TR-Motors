@@ -18,78 +18,185 @@ import {
   Users, Briefcase, Building2, Calendar, Clock, Plus, Edit, Trash2,
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
-  GraduationCap, ScrollText, UserPlus,
+  GraduationCap, ScrollText, UserPlus, Menu, X,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo";
 
+const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[] }[] = [
+  {
+    label: "",
+    items: [
+      { id: "dashboard", label: "Dashboard", icon: Activity },
+      { id: "funcionarios", label: "Funcionários", icon: Users },
+      { id: "departamentos", label: "Departamentos", icon: Building2 },
+      { id: "cargos", label: "Cargos", icon: Briefcase },
+    ],
+  },
+  {
+    label: "FINANCEIRO",
+    items: [
+      { id: "folha", label: "Folha", icon: DollarSign },
+      { id: "comissoes", label: "Comissões", icon: DollarSign },
+      { id: "salario", label: "Salário", icon: DollarSign },
+      { id: "ajuda_custo", label: "Ajuda de Custo", icon: DollarSign },
+    ],
+  },
+  {
+    label: "OPERACIONAL",
+    items: [
+      { id: "ferias", label: "Férias", icon: Calendar },
+      { id: "ponto", label: "Ponto", icon: Clock },
+      { id: "feriados", label: "Feriados", icon: CalendarDays },
+      { id: "uniformes", label: "Uniformes", icon: Shirt },
+      { id: "nf_custos", label: "NF Custos", icon: FileText },
+    ],
+  },
+  {
+    label: "GESTÃO",
+    items: [
+      { id: "desligamento", label: "Desligamento", icon: ClipboardCheck },
+      { id: "documentos", label: "Documentos", icon: FolderArchive },
+      { id: "vagas", label: "Vagas", icon: BriefcaseBusiness },
+      { id: "candidatos", label: "Candidatos", icon: UserPlus },
+      { id: "auditoria", label: "Auditoria", icon: ScrollText },
+    ],
+  },
+];
+
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [search, setSearch] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const tabs = [
-    { id: "dashboard" as Tab, label: "Dashboard", icon: Activity },
-    { id: "funcionarios" as Tab, label: "Funcionários", icon: Users },
-    { id: "departamentos" as Tab, label: "Departamentos", icon: Building2 },
-    { id: "cargos" as Tab, label: "Cargos", icon: Briefcase },
-    { id: "folha" as Tab, label: "Folha", icon: DollarSign },
-    { id: "comissoes" as Tab, label: "Comissões", icon: DollarSign },
-    { id: "ferias" as Tab, label: "Férias", icon: Calendar },
-    { id: "ponto" as Tab, label: "Ponto", icon: Clock },
-    { id: "feriados" as Tab, label: "Feriados", icon: CalendarDays },
-    { id: "uniformes" as Tab, label: "Uniformes", icon: Shirt },
-    { id: "nf_custos" as Tab, label: "NF Custos", icon: FileText },
-    { id: "desligamento" as Tab, label: "Desligamento", icon: ClipboardCheck },
-    { id: "documentos" as Tab, label: "Documentos", icon: FolderArchive },
-    { id: "vagas" as Tab, label: "Vagas", icon: BriefcaseBusiness },
-    { id: "candidatos" as Tab, label: "Candidatos", icon: UserPlus },
-    { id: "auditoria" as Tab, label: "Auditoria", icon: ScrollText },
-    { id: "salario" as Tab, label: "Salário", icon: DollarSign },
-    { id: "ajuda_custo" as Tab, label: "Ajuda de Custo", icon: DollarSign },
-  ];
+  const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeTab)?.label || "RH";
 
   return (
     <DashboardLayout title="Recursos Humanos">
-      <div className="space-y-4">
-        {/* Tab Navigation */}
-        <div className="flex gap-1 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-hide -webkit-overflow-scrolling-touch">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-colors shrink-0 active:scale-95 ${
-                activeTab === tab.id
-                  ? "bg-blue-100 text-blue-700 shadow-sm"
-                  : "text-slate-600 hover:bg-slate-100 active:bg-slate-200"
-              }`}
-            >
-              <tab.icon size={18} />
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-xs">{tab.label.slice(0, 4)}</span>
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-4 min-h-[calc(100vh-120px)]">
+        {/* Sidebar RH - Desktop */}
+        <aside className="hidden lg:flex flex-col w-56 bg-gray-950 rounded-xl shadow-xl shrink-0">
+          <div className="p-3 border-b border-gray-800">
+            <div className="flex items-center gap-2">
+              <div className="bg-red-600 rounded-lg p-1.5">
+                <Users size={18} className="text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">Recursos</p>
+                <p className="text-xs text-gray-500">Humanos</p>
+              </div>
+            </div>
+          </div>
+          <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+            {navGroups.map((group, gi) => (
+              <div key={gi} className="space-y-1">
+                {group.label && (
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
+                )}
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
+                      activeTab === item.id
+                        ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    }`}
+                  >
+                    <item.icon size={16} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-        {/* Content */}
-        {activeTab === "dashboard" && <DashboardTab />}
-        {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
-        {activeTab === "departamentos" && <DepartmentsTab />}
-        {activeTab === "cargos" && <PositionsTab />}
-        {activeTab === "folha" && <PayrollTab />}
-        {activeTab === "comissoes" && <CommissionsTab />}
-        {activeTab === "ferias" && <LeavesTab />}
-        {activeTab === "ponto" && <AttendanceTab />}
-        {activeTab === "uniformes" && <UniformsTab />}
-        {activeTab === "nf_custos" && <CostInvoicesTab />}
-        {activeTab === "feriados" && <HolidaysTab />}
-        {activeTab === "desligamento" && <ExitChecklistTab />}
-        {activeTab === "documentos" && <EmployeeDocumentsTab />}
-        {activeTab === "vagas" && <VacanciesTab />}
-        {activeTab === "candidatos" && <CandidatesTab />}
-        {activeTab === "auditoria" && <AuditLogsTab />}
-        {activeTab === "salario" && <SalaryTab />}
-        {activeTab === "ajuda_custo" && <CostHelpTab />}
+        {/* Sidebar RH - Mobile (drawer) */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+            <aside className="relative flex flex-col w-64 bg-gray-950 shadow-2xl">
+              <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-red-600 rounded-lg p-1.5">
+                    <Users size={18} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Recursos</p>
+                    <p className="text-xs text-gray-500">Humanos</p>
+                  </div>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white p-1">
+                  <X size={20} />
+                </button>
+              </div>
+              <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+                {navGroups.map((group, gi) => (
+                  <div key={gi} className="space-y-1">
+                    {group.label && (
+                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
+                    )}
+                    {group.items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
+                          activeTab === item.id
+                            ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                        }`}
+                      >
+                        <item.icon size={16} />
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </nav>
+            </aside>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* Header with breadcrumb + mobile menu button */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white shrink-0"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2">
+              <Users size={20} className="text-red-600" />
+              <h2 className="text-lg font-bold text-gray-900">{activeLabel}</h2>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+            {activeTab === "dashboard" && <DashboardTab />}
+            {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
+            {activeTab === "departamentos" && <DepartmentsTab />}
+            {activeTab === "cargos" && <PositionsTab />}
+            {activeTab === "folha" && <PayrollTab />}
+            {activeTab === "comissoes" && <CommissionsTab />}
+            {activeTab === "ferias" && <LeavesTab />}
+            {activeTab === "ponto" && <AttendanceTab />}
+            {activeTab === "uniformes" && <UniformsTab />}
+            {activeTab === "nf_custos" && <CostInvoicesTab />}
+            {activeTab === "feriados" && <HolidaysTab />}
+            {activeTab === "desligamento" && <ExitChecklistTab />}
+            {activeTab === "documentos" && <EmployeeDocumentsTab />}
+            {activeTab === "vagas" && <VacanciesTab />}
+            {activeTab === "candidatos" && <CandidatesTab />}
+            {activeTab === "auditoria" && <AuditLogsTab />}
+            {activeTab === "salario" && <SalaryTab />}
+            {activeTab === "ajuda_custo" && <CostHelpTab />}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

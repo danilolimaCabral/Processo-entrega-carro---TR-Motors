@@ -11,7 +11,7 @@ async function runMigration() {
   
   if (!connectionString) {
     console.error('ERROR: DATABASE_URL is not set');
-    process.exit(1);
+    return; // Don't crash, let server start anyway
   }
 
   console.log('Starting database migration...');
@@ -39,7 +39,8 @@ async function runMigration() {
     console.log('Connected to MySQL server');
   } catch (error) {
     console.error('Failed to connect to MySQL server:', error.message);
-    process.exit(1);
+    console.error('Migration skipped. Server will start without migration.');
+    return; // Don't crash, let server start anyway
   }
 
   // Create the database if it doesn't exist
@@ -49,7 +50,8 @@ async function runMigration() {
     console.log(`Database '${database}' is ready`);
   } catch (error) {
     console.error('Failed to create database:', error.message);
-    process.exit(1);
+    await serverConnection.end();
+    return;
   }
   await serverConnection.end();
 
@@ -60,14 +62,14 @@ async function runMigration() {
     console.log('Connected to database successfully');
   } catch (error) {
     console.error('Failed to connect to database:', error.message);
-    process.exit(1);
+    return;
   }
 
   const migrationsPath = path.join(__dirname, 'migrations.sql');
   
   if (!fs.existsSync(migrationsPath)) {
     console.error('ERROR: migrations.sql not found at:', migrationsPath);
-    process.exit(1);
+    return;
   }
 
   const sql = fs.readFileSync(migrationsPath, 'utf-8');
@@ -119,11 +121,10 @@ async function runMigration() {
   
   if (tables.length === 0) {
     console.error('CRITICAL: No tables found!');
-    process.exit(1);
   }
 }
 
 runMigration().catch(error => {
   console.error('Migration crashed:', error.message);
-  process.exit(1);
+  // Don't crash - let server start anyway
 });

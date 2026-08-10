@@ -349,7 +349,9 @@ INSERT INTO `users` (`openId`, `passwordHash`, `name`, `email`, `loginMethod`, `
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrador', 'admin@test.com', 'local', 'admin', true),
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Vendedor', 'vendedor@test.com', 'local', 'vendedor', true),
 (NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Financeiro', 'financeiro@test.com', 'local', 'financeiro', true),
-(NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrativo', 'administrativo@test.com', 'local', 'administrativo', true);
+(NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Administrativo', 'administrativo@test.com', 'local', 'administrativo', true),
+(NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Felipe - RH', 'felipe@trmotors.com.br', 'local', 'rh', true),
+(NULL, '$2b$10$pSbg1ttcrfYNe0pj1i3snOzuw9.EVdtIW0uegZ32dudByS.JJOYSq', 'Aluno Demo', 'aluno@test.com', 'local', 'aluno', true);
 
 -- Seed ERP Modules
 INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, `allowedRoles`, `isActive`, `sortOrder`) VALUES
@@ -363,7 +365,9 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('configuracoes', 'Configurações', 'Configurações do sistema e usuários', 'Settings', '/configuracoes', '["admin"]', true, 8),
 ('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9),
 ('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10),
-('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo"]', true, 11);
+('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo","rh"]', true, 11),
+('ead', 'EAD - Cursos', 'Plataforma de ensino a distância com cursos, vídeos e certificados', 'GraduationCap', '/ead', '["admin","rh","aluno"]', true, 12),
+('despesas', 'Despesas', 'Controle de despesas com OCR de notas fiscais', 'Receipt', '/despesas', '["admin","rh","financeiro"]', true, 13);
 
 -- Fix: Add aluno and rh to role enum (migration 0008)
 ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';

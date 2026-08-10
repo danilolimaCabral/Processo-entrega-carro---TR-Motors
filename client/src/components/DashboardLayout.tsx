@@ -317,7 +317,8 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const menuItems = user ? getMenuItems(user.role) : [];
+  const allItems = user ? getMenuItems(user.role) : [];
+  const menuItems = allItems.filter((item) => item.group === "gestao" || item.group === "sistema");
   const activeMenuItem = menuItems.find((item) => item.path === location);
   const isMobile = useIsMobile();
 

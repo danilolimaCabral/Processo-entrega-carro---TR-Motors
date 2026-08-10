@@ -46,7 +46,7 @@ export default function Home() {
           <div className="text-center">
             <img
               src="/tr_logo.png"
-              alt="TR Motors"
+              alt="Trmotors"
               className="h-16 w-auto object-contain mx-auto mb-4"
             />
             <h1 className="text-2xl font-bold text-slate-900 mb-2">

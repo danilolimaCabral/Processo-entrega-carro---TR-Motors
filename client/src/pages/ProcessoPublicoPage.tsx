@@ -162,7 +162,7 @@ export default function ProcessoPublicoPage({ token }: ProcessoPublicoPageProps)
               Acompanhamento de Processo
             </h1>
           </div>
-          <p className="text-slate-600 text-sm">TR Motors - Controle de Entrega</p>
+          <p className="text-slate-600 text-sm">Trmotors - Controle de Entrega</p>
         </div>
 
         {/* Overall Status Card */}

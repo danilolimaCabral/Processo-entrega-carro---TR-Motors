@@ -61,7 +61,7 @@ export default function LoginPage() {
         {/* Top: logo */}
         <div className="relative flex items-center gap-3">
           <div className="bg-white rounded-2xl shadow-lg shadow-black/5 border border-gray-100 px-4 py-2.5">
-            <img src="/tr_logo.png" alt="TR Motors" className="h-12 w-auto object-contain" />
+            <img src="/tr_logo.png" alt="Trmotors" className="h-12 w-auto object-contain" />
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
         {/* Bottom */}
         <p className="relative text-gray-400 text-sm">
-          © {new Date().getFullYear()} TR Motors — Todos os direitos reservados
+          © {new Date().getFullYear()} Trmotors — Todos os direitos reservados
         </p>
       </div>
 
@@ -109,7 +109,7 @@ export default function LoginPage() {
           {/* Mobile logo */}
           <div className="lg:hidden flex justify-center mb-8">
             <div className="bg-white rounded-2xl shadow-xl shadow-black/10 border border-gray-100 px-5 py-3">
-              <img src="/tr_logo.png" alt="TR Motors" className="h-14 w-auto object-contain" />
+              <img src="/tr_logo.png" alt="Trmotors" className="h-14 w-auto object-contain" />
             </div>
           </div>
 
@@ -209,7 +209,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-8 lg:hidden">
-            © {new Date().getFullYear()} TR Motors — Todos os direitos reservados
+            © {new Date().getFullYear()} Trmotors — Todos os direitos reservados
           </p>
         </div>
       </div>

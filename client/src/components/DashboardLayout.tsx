@@ -144,13 +144,13 @@ export default function DashboardLayout({
           <div className="flex justify-center mb-8">
             <img
               src="/tr_logo.png"
-              alt="TR Motors"
+              alt="Trmotors"
               className="h-24 w-auto object-contain drop-shadow-2xl"
             />
           </div>
           <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-8 text-center shadow-2xl border border-white/20">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              TR Motors Hub
+              Trmotors Hub
             </h1>
             <p className="text-sm text-gray-500 mb-6">
               Sistema de Controle de Entrega de Veículos
@@ -224,7 +224,7 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
         <div className="flex items-center gap-3 px-2 w-full">
           <img
             src="/tr_logo.png"
-            alt="TR Motors"
+            alt="Trmotors"
             className="h-9 w-auto object-contain"
           />
         </div>
@@ -376,7 +376,7 @@ function DashboardLayoutContent({
               className="h-8 w-auto object-contain"
             />
             <h1 className="text-sm font-semibold text-slate-800 truncate ml-1">
-              {title || activeMenuItem?.label || "TR Motors"}
+              {title || activeMenuItem?.label || "Trmotors"}
             </h1>
           </div>
           <DropdownMenu>
@@ -461,7 +461,7 @@ function DashboardLayoutContent({
                 <div className="flex items-center gap-2 min-w-0">
                   <img
                     src="/tr_logo.png"
-                    alt="TR Motors"
+                    alt="Trmotors"
                     className="h-9 w-auto object-contain"
                   />
                 </div>

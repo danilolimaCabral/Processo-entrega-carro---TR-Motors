@@ -834,9 +834,9 @@ export default function DespachantePage() {
                     className="gap-2 min-h-[44px] w-full"
                     onClick={() => {
                       // Compose email with documents list
-                      const subject = `TR Motors - Documentos para Despachante - ${detailDoc.clientName}`;
+                      const subject = `Trmotors - Documentos para Despachante - ${detailDoc.clientName}`;
                       let body = `Olá ${detailDoc.clientName}!\n\n`;
-                      body += `TR Motors - Documentos para Despachante\n\n`;
+                      body += `Trmotors - Documentos para Despachante\n\n`;
                       body += `Solicitação: ${detailDoc.id}\n`;
                       body += `Placa: ${detailDoc.vehiclePlate || "N/I"}\n`;
                       body += `Veículo: ${detailDoc.vehicleBrand || ""} ${detailDoc.vehicleModel || ""} ${detailDoc.vehicleYear || ""}\n\n`;

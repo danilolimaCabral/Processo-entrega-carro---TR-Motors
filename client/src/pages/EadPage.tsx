@@ -325,10 +325,10 @@ export default function EadPage() {
         <div className="p-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
             <div className="bg-white rounded-xl px-3 py-2 shadow-lg">
-              <img src="/tr_logo.png" alt="TR Motors" className="h-10 w-auto object-contain" />
+              <img src="/tr_logo.png" alt="Trmotors" className="h-10 w-auto object-contain" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white">TR Motors EAD</p>
+              <p className="text-sm font-bold text-white">Trmotors EAD</p>
               <p className="text-xs text-red-500 font-medium">Plataforma de Ensino</p>
             </div>
           </div>
@@ -466,10 +466,10 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
 }) {
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* TR Motors Logo */}
+      {/* Trmotors Logo */}
       <div className="flex justify-center py-2">
         <div className="bg-white rounded-2xl px-6 py-3 shadow-md border border-gray-100">
-          <img src="/tr_logo.png" alt="TR Motors" className="h-12 sm:h-14 w-auto object-contain" />
+          <img src="/tr_logo.png" alt="Trmotors" className="h-12 sm:h-14 w-auto object-contain" />
         </div>
       </div>
 
@@ -507,7 +507,7 @@ function EadDashboardView({ courses, certificates, userName, onSelectCourse }: {
           <Target size={16} className="text-red-600" /> Por que estamos treinando?
         </h3>
         <p className="text-xs text-gray-600 leading-relaxed">
-          Na <strong>TR Motors</strong>, acreditamos que nosso time é nosso maior patrimônio. Este treinamento foi
+          Na <strong>Trmotors</strong>, acreditamos que nosso time é nosso maior patrimônio. Este treinamento foi
           criado para desenvolver habilidades de <strong>vendas, liderança e atendimento</strong> que vão te ajudar
           a se destacar no mercado automotivo. Cada curso concluído te aproxima de melhores resultados,
           maior confiança e novas oportunidades de crescimento na empresa.

@@ -216,7 +216,7 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
     return acc;
   }, {} as Record<string, MenuItem[]>);
 
-  const groupOrder = ["principal", "comercial", "operacional", "gestao", "sistema"];
+  const groupOrder = ["gestao", "sistema"];
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
@@ -483,7 +483,7 @@ function DashboardLayoutContent({
                 return acc;
               }, {} as Record<string, MenuItem[]>);
 
-              const groupOrder = ["principal", "comercial", "operacional", "gestao", "sistema"];
+              const groupOrder = ["gestao", "sistema"];
 
               return groupOrder.map((group) => {
                 const items = groupedItems[group];

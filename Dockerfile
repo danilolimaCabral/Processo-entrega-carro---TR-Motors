@@ -7,4 +7,4 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install -
 COPY . .
 RUN pnpm run build
 EXPOSE 8080
-CMD ["node", "dist/index.js"]
+CMD ["sh", "-c", "node migrate.js 2>&1; exec node dist/index.js"]

@@ -123,55 +123,79 @@ export const expensesRouter = router({
     .input(z.object({ imageDataUrl: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {
-        const { invokeLLM } = await import("../_core/llm");
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          return {
+            success: false,
+            message: "Extração automática indisponível. Configure GEMINI_API_KEY ou preencha manualmente.",
+            amount: 0,
+            supplier: "",
+            cnpj: "",
+            date: new Date().toISOString().split("T")[0],
+            category: "Outros",
+            description: "",
+            notes: "",
+          };
+        }
 
-        const res = await invokeLLM({
-          model: "gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content: "Você é um especialista em extrair dados de notas fiscais e cupons fiscais brasileiros. Analise a imagem e extraia TODOS os dados relevantes. Responda apenas em JSON.",
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Extraia todos os dados desta nota fiscal/cupom/imagem de despesa: valor total, fornecedor/razão social, CNPJ, data, categoria da despesa (combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros), itens principais, observações.",
-                },
-                {
-                  type: "image_url",
-                  image_url: { url: input.imageDataUrl, detail: "high" },
-                },
+        // Extrair base64 da data URL (remover prefixo data:image/...;base64,)
+        const base64Match = input.imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!base64Match) {
+          return { success: false, message: "Formato de imagem inválido", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
+        }
+        const mimeType = base64Match[1];
+        const base64Data = base64Match[2];
+
+        // Chamar Google Gemini API (gemini-2.0-flash - tier gratuito)
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const prompt = "Extraia todos os dados desta nota fiscal/cupom/imagem de despesa brasileira. Retorne APENAS um JSON válido (sem markdown, sem code blocks) com: amount (número, valor total em reais), supplier (string, nome do fornecedor), cnpj (string, CNPJ), date (string, formato YYYY-MM-DD), category (string, uma de: combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros), description (string, resumo dos itens), notes (string, observações).";
+
+        const geminiRes = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: `image/${mimeType}`, data: base64Data } },
               ],
+            }],
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: "application/json",
             },
-          ],
-          outputSchema: {
-            name: "expenseData",
-            schema: {
-              type: "object",
-              properties: {
-                amount: { type: "number", description: "Valor total da despesa em reais" },
-                supplier: { type: "string", description: "Nome do fornecedor ou estabelecimento" },
-                cnpj: { type: "string", description: "CNPJ do fornecedor" },
-                date: { type: "string", description: "Data da nota (YYYY-MM-DD)" },
-                category: { type: "string", description: "Categoria: combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros" },
-                description: { type: "string", description: "Resumo dos itens/descrição da despesa" },
-                items: { type: "array", items: { type: "string" }, description: "Lista de itens da nota" },
-                notes: { type: "string", description: "Observações adicionais" },
-              },
-              required: ["amount", "category"],
-              additionalProperties: false,
-            },
-          },
+          }),
         });
 
-        const content = res.choices?.[0]?.message?.content;
-        if (!content) throw new Error("Não foi possível extrair dados da imagem");
-        const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
+        if (!geminiRes.ok) {
+          const errText = await geminiRes.text();
+          console.error("Gemini API error:", errText);
+          return { success: false, message: "Erro na extração. Preencha manualmente.", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
+        }
+
+        const geminiData = await geminiRes.json();
+        const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          return { success: false, message: "Não foi possível extrair dados. Preencha manualmente.", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
+        }
+
+        // Parsear resposta JSON do Gemini
+        let parsed: any;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // Tentar extrair JSON de dentro de markdown code blocks
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error("Resposta não é JSON válido");
+          }
+        }
+
         return { ...parsed, success: true };
       } catch (err: any) {
-        // Fallback gracioso quando o LLM não está configurado
+        console.error("Extract error:", err.message);
         return {
           success: false,
           message: "Extração automática indisponível. Preencha os dados manualmente.",

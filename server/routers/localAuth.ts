@@ -27,10 +27,18 @@ export const localAuthRouter = router({
       try {
         user = await getUserByEmail(email);
       } catch (dbError: any) {
-        console.error("[Auth] Database error during login:", dbError?.message, dbError?.code, dbError?.sqlMessage);
+        console.error("[Auth] Database error during login:", JSON.stringify({
+          message: dbError?.message,
+          code: dbError?.code,
+          sqlMessage: dbError?.sqlMessage,
+          errno: dbError?.errno,
+          sqlState: dbError?.sqlState,
+          cause: dbError?.cause?.message || dbError?.cause?.code,
+          fullError: JSON.stringify(dbError, Object.getOwnPropertyNames(dbError)).slice(0, 500)
+        }));
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `Erro de banco de dados: ${dbError?.message || dbError?.sqlMessage || 'Erro desconhecido'}`,
+          message: `DB: ${dbError?.cause?.message || dbError?.sqlMessage || dbError?.message || 'Erro desconhecido'}`,
         });
       }
 

@@ -123,77 +123,43 @@ export const expensesRouter = router({
     .input(z.object({ imageDataUrl: z.string().min(1) }))
     .mutation(async ({ input }) => {
       try {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          return {
-            success: false,
-            message: "Extração automática indisponível. Configure GEMINI_API_KEY ou preencha manualmente.",
-            amount: 0,
-            supplier: "",
-            cnpj: "",
-            date: new Date().toISOString().split("T")[0],
-            category: "Outros",
-            description: "",
-            notes: "",
-          };
-        }
-
         // Extrair base64 da data URL (remover prefixo data:image/...;base64,)
         const base64Match = input.imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!base64Match) {
           return { success: false, message: "Formato de imagem inválido", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
         }
-        const mimeType = base64Match[1];
         const base64Data = base64Match[2];
 
-        // Chamar Google Gemini API (gemini-2.0-flash - tier gratuito)
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-        const prompt = "Extraia todos os dados desta nota fiscal/cupom/imagem de despesa brasileira. Retorne APENAS um JSON válido (sem markdown, sem code blocks) com: amount (número, valor total em reais), supplier (string, nome do fornecedor), cnpj (string, CNPJ), date (string, formato YYYY-MM-DD), category (string, uma de: combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros), description (string, resumo dos itens), notes (string, observações).";
-
-        const geminiRes = await fetch(geminiUrl, {
+        // Usar OCR.space (API gratuita, sem necessidade de registro/API key própria)
+        // A key "helloworld" é a key pública de demonstração gratuita (500 req/dia por IP)
+        const ocrApiKey = process.env.OCR_SPACE_API_KEY || "helloworld";
+        const ocrRes = await fetch("https://api.ocr.space/parse/image", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: `image/${mimeType}`, data: base64Data } },
-              ],
-            }],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: "application/json",
-            },
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            apikey: ocrApiKey,
+            base64Image: base64Data,
+            language: "por",
+            isTable: "true",
+            scale: "true",
+            OCREngine: "2",
           }),
         });
 
-        if (!geminiRes.ok) {
-          const errText = await geminiRes.text();
-          console.error("Gemini API error:", errText);
+        if (!ocrRes.ok) {
+          console.error("OCR.space error:", ocrRes.status);
           return { success: false, message: "Erro na extração. Preencha manualmente.", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
         }
 
-        const geminiData = await geminiRes.json();
-        const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) {
-          return { success: false, message: "Não foi possível extrair dados. Preencha manualmente.", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
+        const ocrData = await ocrRes.json();
+        const rawText = ocrData?.ParsedResults?.[0]?.ParsedText || "";
+        if (!rawText.trim()) {
+          return { success: false, message: "Não foi possível extrair texto da imagem. Preencha manualmente.", amount: 0, supplier: "", cnpj: "", date: new Date().toISOString().split("T")[0], category: "Outros", description: "", notes: "" };
         }
 
-        // Parsear resposta JSON do Gemini
-        let parsed: any;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          // Tentar extrair JSON de dentro de markdown code blocks
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            parsed = JSON.parse(jsonMatch[0]);
-          } else {
-            throw new Error("Resposta não é JSON válido");
-          }
-        }
-
-        return { ...parsed, success: true };
+        // Parsear o texto extraído com regex para encontrar dados da NF
+        const parsed = parseReceiptText(rawText);
+        return { ...parsed, success: true, rawText: rawText.substring(0, 500) };
       } catch (err: any) {
         console.error("Extract error:", err.message);
         return {
@@ -228,3 +194,93 @@ export const expensesRouter = router({
       return { success: true };
     }),
 });
+
+// Função para parsear texto extraído de NF/cupom fiscal e extrair dados estruturados
+function parseReceiptText(text: string): {
+  amount: number;
+  supplier: string;
+  cnpj: string;
+  date: string;
+  category: string;
+  description: string;
+  notes: string;
+} {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const fullText = text;
+
+  // Extrair CNPJ (formato XX.XXX.XXX/XXXX-XX)
+  const cnpjMatch = fullText.match(/(\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2})/);
+  const cnpj = cnpjMatch ? cnpjMatch[1] : "";
+
+  // Extrair valor total - procurar por "TOTAL", "VALOR TOTAL", ou o último valor com R$
+  let amount = 0;
+  let amountStr = "";
+  const totalMatch = fullText.match(/(?:TOTAL|VALOR\s+TOTAL|TROCO|TOTAL\s+DA\s+NOTA)[\s:]*R?\$?\s*([\d.,]+)/i);
+  if (totalMatch) {
+    amountStr = totalMatch[1];
+  } else {
+    // Pegar o último valor com R$ ou número no formato brasileiro
+    const allValues = Array.from(fullText.matchAll(/R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/g));
+    if (allValues.length > 0) {
+      amountStr = allValues[allValues.length - 1][1];
+    }
+  }
+  if (amountStr) {
+    amount = parseFloat(amountStr.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+
+  // Extrair data (formato DD/MM/YYYY ou DD/MM/YY)
+  const dateMatch = fullText.match(/(\d{2})\/(\d{2})\/(\d{4}|\d{2})/);
+  let date = new Date().toISOString().split("T")[0];
+  if (dateMatch) {
+    const day = dateMatch[1];
+    const month = dateMatch[2];
+    let year = dateMatch[3];
+    if (year.length === 2) year = "20" + year;
+    date = `${year}-${month}-${day}`;
+  }
+
+  // Extrair fornecedor (geralmente nas primeiras linhas, antes do CNPJ)
+  let supplier = "";
+  for (const line of lines.slice(0, 10)) {
+    if (/CNPJ|CPF|IE|IM|DATA|HORA|ENDEREÇO|RUA|AV\.|CEP/i.test(line)) continue;
+    if (/^\d{2}\/\d{2}/.test(line)) continue;
+    if (line.length > 3 && line.length < 60 && /[A-Z]/.test(line) && !/^\d/.test(line)) {
+      supplier = line;
+      break;
+    }
+  }
+
+  // Detectar categoria baseada em palavras-chave
+  const textLower = fullText.toLowerCase();
+  let category = "Outros";
+  const categories: Record<string, string[]> = {
+    "Combustível": ["combustivel", "combustível", "gasolina", "etanol", "diesel", "posto", "shell", "petrobras", "ipiranga", "raizen"],
+    "Alimentação": ["alimentacao", "alimentação", "restaurante", "lanche", "padaria", "mercado", "supermercado", "pao de acucar", "carrefour", "extra", "assai", "mateus", "atacadarejo"],
+    "Pedágio": ["pedagio", "pedágio", "concessionaria", "concessionária", "autoban", "ecovias", "cart"],
+    "Material": ["material", "ferragem", "construcao", "construção", "loja", "casa"],
+    "Veículo": ["veiculo", "veículo", "oficina", "mecanica", "mecânica", "peca", "peça", "auto", "pneu", "pneus", "borracharia"],
+    "Manutenção": ["manutencao", "manutenção", "servico", "serviço", "reparo", "conserto"],
+    "Escritório": ["escritorio", "escritório", "papelaria", "material expediente", "cartucho", "toner", "impressora"],
+  };
+  for (const [cat, keywords] of Object.entries(categories)) {
+    if (keywords.some(kw => textLower.includes(kw))) {
+      category = cat;
+      break;
+    }
+  }
+
+  // Descrição: primeiras linhas relevantes
+  const descLines = lines.slice(0, 5).filter(l => !/CNPJ|CPF|IE|DATA|HORA/i.test(l)).join(" ");
+  const description = descLines.substring(0, 200);
+
+  return {
+    amount,
+    supplier: supplier || (cnpj ? "Fornecedor sem nome" : ""),
+    cnpj,
+    date,
+    category,
+    description,
+    notes: "",
+  };
+}

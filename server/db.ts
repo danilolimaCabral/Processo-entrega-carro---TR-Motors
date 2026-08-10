@@ -1,5 +1,6 @@
 import { eq, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import mysql2 from "mysql2/promise";
 import {
   InsertUser,
   users,
@@ -31,8 +32,7 @@ export async function getDb() {
       // mysql2 uses 'ssl' query param, not 'sslmode' like psql
       // drizzle-orm/mysql2 accepts connection string directly
       // For Railway, we need to enable SSL explicitly
-      const { createPool } = require('mysql2/promise');
-      const pool = createPool({
+      const pool = mysql2.createPool({
         uri: dbUrl,
         ssl: { rejectUnauthorized: false },
         connectionLimit: 10,

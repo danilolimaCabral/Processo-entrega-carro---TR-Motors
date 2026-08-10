@@ -1,11 +1,11 @@
-# nixpacks.toml - Force fresh build
-# Rebuild: 2026-08-10-v2
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl"]
+
+[phases.install]
+cmds = ["corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --frozen-lockfile"]
 
 [phases.build]
 cmds = ["pnpm run build"]
 
-[phases.setup]
-nixPkgs = ["nodejs", "pnpm"]
-
 [start]
-cmd = "node migrate.js && node dist/index.js"
+cmd = "node server-start.js"

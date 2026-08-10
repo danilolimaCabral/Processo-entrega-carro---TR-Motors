@@ -122,53 +122,68 @@ export const expensesRouter = router({
   extractFromPhoto: protectedProcedure
     .input(z.object({ imageDataUrl: z.string().min(1) }))
     .mutation(async ({ input }) => {
-      const { invokeLLM } = await import("../_core/llm");
+      try {
+        const { invokeLLM } = await import("../_core/llm");
 
-      const res = await invokeLLM({
-        model: "gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: "Você é um especialista em extrair dados de notas fiscais e cupons fiscais brasileiros. Analise a imagem e extraia TODOS os dados relevantes. Responda apenas em JSON.",
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extraia todos os dados desta nota fiscal/cupom/imagem de despesa: valor total, fornecedor/razão social, CNPJ, data, categoria da despesa (combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros), itens principais, observações.",
-              },
-              {
-                type: "image_url",
-                image_url: { url: input.imageDataUrl, detail: "high" },
-              },
-            ],
-          },
-        ],
-        outputSchema: {
-          name: "expenseData",
-          schema: {
-            type: "object",
-            properties: {
-              amount: { type: "number", description: "Valor total da despesa em reais" },
-              supplier: { type: "string", description: "Nome do fornecedor ou estabelecimento" },
-              cnpj: { type: "string", description: "CNPJ do fornecedor" },
-              date: { type: "string", description: "Data da nota (YYYY-MM-DD)" },
-              category: { type: "string", description: "Categoria: combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros" },
-              description: { type: "string", description: "Resumo dos itens/descrição da despesa" },
-              items: { type: "array", items: { type: "string" }, description: "Lista de itens da nota" },
-              notes: { type: "string", description: "Observações adicionais" },
+        const res = await invokeLLM({
+          model: "gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: "Você é um especialista em extrair dados de notas fiscais e cupons fiscais brasileiros. Analise a imagem e extraia TODOS os dados relevantes. Responda apenas em JSON.",
             },
-            required: ["amount", "category"],
-            additionalProperties: false,
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Extraia todos os dados desta nota fiscal/cupom/imagem de despesa: valor total, fornecedor/razão social, CNPJ, data, categoria da despesa (combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros), itens principais, observações.",
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: input.imageDataUrl, detail: "high" },
+                },
+              ],
+            },
+          ],
+          outputSchema: {
+            name: "expenseData",
+            schema: {
+              type: "object",
+              properties: {
+                amount: { type: "number", description: "Valor total da despesa em reais" },
+                supplier: { type: "string", description: "Nome do fornecedor ou estabelecimento" },
+                cnpj: { type: "string", description: "CNPJ do fornecedor" },
+                date: { type: "string", description: "Data da nota (YYYY-MM-DD)" },
+                category: { type: "string", description: "Categoria: combustível, alimentação, pedágio, material, veículo, manutenção, escritório, outros" },
+                description: { type: "string", description: "Resumo dos itens/descrição da despesa" },
+                items: { type: "array", items: { type: "string" }, description: "Lista de itens da nota" },
+                notes: { type: "string", description: "Observações adicionais" },
+              },
+              required: ["amount", "category"],
+              additionalProperties: false,
+            },
           },
-        },
-      });
+        });
 
-      const content = res.choices?.[0]?.message?.content;
-      if (!content) throw new Error("Não foi possível extrair dados da imagem");
-      const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
-      return { ...parsed, success: true };
+        const content = res.choices?.[0]?.message?.content;
+        if (!content) throw new Error("Não foi possível extrair dados da imagem");
+        const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
+        return { ...parsed, success: true };
+      } catch (err: any) {
+        // Fallback gracioso quando o LLM não está configurado
+        return {
+          success: false,
+          message: "Extração automática indisponível. Preencha os dados manualmente.",
+          amount: 0,
+          supplier: "",
+          cnpj: "",
+          date: new Date().toISOString().split("T")[0],
+          category: "Outros",
+          description: "",
+          notes: "",
+        };
+      }
     }),
 
   // Update amount/description (edit by RH)

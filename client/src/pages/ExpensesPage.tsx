@@ -117,20 +117,24 @@ export default function ExpensesPage() {
   });
 
   const extractMutation = trpc.expenses.extractFromPhoto.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setExtracting(false);
-      if (data.amount) setFormData(f => ({ ...f, amount: String(data.amount) }));
+      if (data.amount && data.amount > 0) setFormData(f => ({ ...f, amount: String(data.amount) }));
       if (data.category) setFormData(f => ({ ...f, category: data.category }));
       if (data.description) setFormData(f => ({ ...f, description: data.description }));
       if (data.supplier) setFormData(f => ({ ...f, supplier: data.supplier }));
       if (data.cnpj) setFormData(f => ({ ...f, cnpj: data.cnpj }));
       if (data.date) setFormData(f => ({ ...f, receiptDate: data.date }));
       if (data.notes) setFormData(f => ({ ...f, notes: data.notes }));
-      toast.success("Dados extraídos da nota! Confira e ajuste se necessário.");
+      if (data.success === false) {
+        toast.info(data.message || "Extração automática indisponível. Preencha os dados manualmente.");
+      } else {
+        toast.success("Dados extraídos da nota! Confira e ajuste se necessário.");
+      }
     },
     onError: (err) => {
       setExtracting(false);
-      toast.error("Erro ao extrair dados: " + err.message);
+      toast.info("Extração automática indisponível. Preencha os dados manualmente.");
     },
   });
 

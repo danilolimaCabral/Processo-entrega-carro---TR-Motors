@@ -7,4 +7,4 @@ RUN corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install -
 COPY . .
 RUN pnpm run build
 EXPOSE 8080
-CMD ["sh", "-c", "node migrate.js; node dist/index.js"]
+CMD ["sh", "-c", "node migrate.js; echo 'Starting server...'; node dist/index.js || echo 'Server failed with exit code '$?"]

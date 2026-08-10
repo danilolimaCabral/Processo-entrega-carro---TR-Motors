@@ -190,14 +190,19 @@ export async function getUserByEmail(email: string) {
     return undefined;
   }
 
-  // Case-insensitive email lookup using LOWER()
-  const result = await db
-    .select()
-    .from(users)
-    .where(eq(sql`LOWER(${users.email})`, email.toLowerCase()))
-    .limit(1);
+  try {
+    // Case-insensitive email lookup using LOWER()
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(sql`LOWER(${users.email})`, email.toLowerCase()))
+      .limit(1);
 
-  return result.length > 0 ? result[0] : undefined;
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error: any) {
+    console.error("[Database] getUserByEmail failed:", error?.message || error, error?.code || "", error?.errno || "");
+    throw error;
+  }
 }
 
 /**

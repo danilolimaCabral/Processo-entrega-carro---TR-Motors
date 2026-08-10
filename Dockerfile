@@ -6,6 +6,5 @@ COPY patches/ ./patches/
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
-RUN chmod +x start.sh
 EXPOSE 8080
-CMD ["./start.sh"]
+CMD ["sh", "-c", "node migrate.js || true; exec node dist/index.js"]

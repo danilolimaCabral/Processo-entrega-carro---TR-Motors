@@ -21,26 +21,36 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: mysql2.Pool | null = null;
+
+// Lazily create the mysql2 pool with SSL and connection pool for Railway.
+// Railway MySQL (TiDB Cloud) requires SSL — without it, queries hang ~12s then fail with 500.
+export async function getPool(): Promise<mysql2.Pool | null> {
+  if (!_pool && process.env.DATABASE_URL) {
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    console.log("[Database] Creating pool to:", dbUrl.hostname, dbUrl.port || 3306, dbUrl.pathname.slice(1));
+    _pool = mysql2.createPool({
+      host: dbUrl.hostname,
+      port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
+      user: dbUrl.username,
+      password: decodeURIComponent(dbUrl.password),
+      database: dbUrl.pathname.slice(1),
+      ssl: { rejectUnauthorized: false },
+      connectionLimit: 10,
+      connectTimeout: 10000,
+      waitForConnections: true,
+      queueLimit: 50,
+    });
+  }
+  return _pool;
+}
 
 // Lazily create the drizzle instance with SSL and connection pool for Railway.
-// Railway MySQL requires SSL — without it, queries hang ~12s then fail with 500.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
-    const dbUrl = new URL(process.env.DATABASE_URL);
-    console.log("[Database] Connecting to:", dbUrl.hostname, dbUrl.port || 3306, dbUrl.pathname.slice(1));
+    const pool = await getPool();
+    if (!pool) return null;
     try {
-      const pool = mysql2.createPool({
-        host: dbUrl.hostname,
-        port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
-        user: dbUrl.username,
-        password: decodeURIComponent(dbUrl.password),
-        database: dbUrl.pathname.slice(1),
-        ssl: { rejectUnauthorized: false },
-        connectionLimit: 10,
-        connectTimeout: 10000,
-        waitForConnections: true,
-        queueLimit: 50,
-      });
       // Test the connection before passing to drizzle
       const [rows] = await pool.execute('SELECT 1 as ok');
       console.log("[Database] Pool connection test OK");
@@ -177,23 +187,22 @@ export async function getUserByOpenId(openId: string) {
  * Get user by email (local users)
  */
 export async function getUserByEmail(email: string) {
-  const db = await getDb();
-  if (!db) {
+  const pool = await getPool();
+  if (!pool) {
     console.warn("[Database] Cannot get user: database not available");
     return undefined;
   }
 
   try {
-    // Case-insensitive email lookup using LOWER()
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(sql`LOWER(${users.email})`, email.toLowerCase()))
-      .limit(1);
-
+    // Use mysql2 directly to bypass Drizzle's DrizzleQueryError which hides the real MySQL error
+    const [rows] = await pool.execute(
+      'SELECT * FROM users WHERE LOWER(email) = ? LIMIT 1',
+      [email.toLowerCase()]
+    );
+    const result = rows as any[];
     return result.length > 0 ? result[0] : undefined;
   } catch (error: any) {
-    console.error("[Database] getUserByEmail FULL ERROR:", JSON.stringify({
+    console.error("[Database] getUserByEmail RAW MySQL ERROR:", JSON.stringify({
       message: error?.message,
       code: error?.code,
       errno: error?.errno,

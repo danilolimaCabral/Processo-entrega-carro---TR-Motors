@@ -63,16 +63,23 @@ async function startServer() {
   // serveStatic uses app.use("*") which catches all unmatched routes
   app.get("/api/db-health", async (req, res) => {
     try {
-      const { getDb } = await import("../db");
-      const db = await getDb();
-      if (!db) {
-        return res.json({ ok: false, error: "DATABASE_URL not set or db is null" });
+      const { getPool } = await import("../db");
+      const pool = await getPool();
+      if (!pool) {
+        return res.json({ ok: false, error: "DATABASE_URL not set or pool is null" });
       }
-      const { users } = await import("../../drizzle/schema");
-      const result = await db.select().from(users).limit(1);
-      res.json({ ok: true, message: "Database connection works", rows: result.length });
+      // Test with raw SQL to bypass drizzle
+      const [rows] = await pool.execute('SELECT * FROM users LIMIT 1');
+      res.json({ ok: true, message: "Database connection works", rows: (rows as any[]).length });
     } catch (error: any) {
-      res.json({ ok: false, error: error?.message || String(error), code: error?.code, errno: error?.errno, sqlState: error?.sqlState });
+      res.json({ 
+        ok: false, 
+        error: error?.message || String(error), 
+        code: error?.code, 
+        errno: error?.errno, 
+        sqlState: error?.sqlState,
+        sqlMessage: error?.sqlMessage
+      });
     }
   });
 

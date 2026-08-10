@@ -33,12 +33,11 @@ export const localAuthRouter = router({
           sqlMessage: dbError?.sqlMessage,
           errno: dbError?.errno,
           sqlState: dbError?.sqlState,
-          cause: dbError?.cause?.message || dbError?.cause?.code,
           fullError: JSON.stringify(dbError, Object.getOwnPropertyNames(dbError)).slice(0, 500)
         }));
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `DB: ${dbError?.cause?.message || dbError?.sqlMessage || dbError?.message || 'Erro desconhecido'}`,
+          message: `DB ERROR: ${dbError?.code || ''} ${dbError?.sqlMessage || dbError?.message || 'Erro desconhecido'} (errno=${dbError?.errno}, state=${dbError?.sqlState})`,
         });
       }
 

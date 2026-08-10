@@ -28,12 +28,13 @@ export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       // Parse DATABASE_URL and append sslmode if not present
-      let dbUrl = process.env.DATABASE_URL;
-      // mysql2 uses 'ssl' query param, not 'sslmode' like psql
-      // drizzle-orm/mysql2 accepts connection string directly
-      // For Railway, we need to enable SSL explicitly
+      const dbUrl = new URL(process.env.DATABASE_URL);
       const pool = mysql2.createPool({
-        uri: dbUrl,
+        host: dbUrl.hostname,
+        port: dbUrl.port ? parseInt(dbUrl.port) : 3306,
+        user: dbUrl.username,
+        password: decodeURIComponent(dbUrl.password),
+        database: dbUrl.pathname.slice(1),
         ssl: { rejectUnauthorized: false },
         connectionLimit: 10,
         connectTimeout: 10000,

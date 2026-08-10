@@ -193,7 +193,14 @@ export async function getUserByEmail(email: string) {
 
     return result.length > 0 ? result[0] : undefined;
   } catch (error: any) {
-    console.error("[Database] getUserByEmail failed:", error?.message || error, error?.code || "", error?.errno || "");
+    console.error("[Database] getUserByEmail FULL ERROR:", JSON.stringify({
+      message: error?.message,
+      code: error?.code,
+      errno: error?.errno,
+      sqlState: error?.sqlState,
+      sqlMessage: error?.sqlMessage,
+      stack: error?.stack?.split('\n').slice(0, 5).join('\n')
+    }));
     throw error;
   }
 }

@@ -6,6 +6,6 @@ COPY patches/ ./patches/
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate && pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
-RUN ls -la dist/index.js
+RUN chmod +x start.sh
 EXPOSE 8080
-CMD ["sh", "-c", "node migrate.js 2>&1; echo '=== Starting server ==='; node dist/index.js 2>&1; echo '=== Server exited with code: '$?' ==="]
+CMD ["./start.sh"]

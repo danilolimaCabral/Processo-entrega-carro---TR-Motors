@@ -22,7 +22,9 @@ export default function Home() {
     } else if (user.role === "aluno") {
       navigate("/ead");
     } else if (user.role === "rh") {
-      navigate("/ead");
+      navigate("/rh");
+    } else if (user.role === "admin") {
+      navigate("/rh");
     }
   }, [user, loading, navigate]);
 
@@ -68,12 +70,7 @@ export default function Home() {
   }
 
   if (user.role === "rh") {
-    // RH role now sees ONLY EAD (full management access)
-    return (
-      <DashboardLayout>
-        <EadPage />
-      </DashboardLayout>
-    );
+    return <RhPage />;
   }
 
   // Fallback

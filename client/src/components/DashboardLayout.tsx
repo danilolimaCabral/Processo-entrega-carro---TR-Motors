@@ -48,55 +48,68 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-function getMenuItems(role: string) {
-  const items: { icon: typeof LayoutDashboard; label: string; shortLabel: string; path: string }[] = [];
+interface MenuItem {
+  icon: typeof LayoutDashboard;
+  label: string;
+  shortLabel: string;
+  path: string;
+  group?: string;
+}
+
+function getMenuItems(role: string): MenuItem[] {
+  const items: MenuItem[] = [];
   // Dashboard visible for all roles
-  items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard" });
+  items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
   if (role === "admin") {
-    // Admin sees everything
-    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
-    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque" });
-    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline" });
-    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
-    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
-    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
-    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas" });
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
-    items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/" });
-    items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos" });
+    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });
+    items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria", group: "comercial" });
+    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque", group: "comercial" });
+    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline", group: "comercial" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
+    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval", group: "operacional" });
+    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval", group: "operacional" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
+    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
+    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
+    items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/", group: "sistema" });
+    items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos", group: "sistema" });
   } else if (role === "vendedor") {
-    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard" });
-    items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria" });
-    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline" });
-    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas" });
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
+    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });
+    items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria", group: "comercial" });
+    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline", group: "comercial" });
+    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque", group: "comercial" });
+    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "financeiro") {
-    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval" });
-    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
-    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas" });
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
+    items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval", group: "operacional" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
+    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
+    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "administrativo") {
-    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval" });
-    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante" });
-    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega" });
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas" });
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
+    items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval", group: "operacional" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
+    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
+    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "aluno") {
-    // Aluno sees only EAD and Dashboard
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "rh") {
-    // RH sees only EAD (full management)
-    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   }
   return items;
 }
+
+const groupLabels: Record<string, string> = {
+  principal: "Principal",
+  comercial: "Comercial",
+  operacional: "Operacional",
+  gestao: "Gestão",
+  sistema: "Sistema",
+};
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 260;
@@ -126,18 +139,18 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-red-950/30 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="flex justify-center mb-8">
             <img
               src="/tr_logo.png"
               alt="TR Motors"
-              className="h-24 w-auto object-contain"
+              className="h-24 w-auto object-contain drop-shadow-2xl"
             />
           </div>
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl p-6 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              TR Motors
+          <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-8 text-center shadow-2xl border border-white/20">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              TR Motors Hub
             </h1>
             <p className="text-sm text-gray-500 mb-6">
               Sistema de Controle de Entrega de Veículos
@@ -145,7 +158,7 @@ export default function DashboardLayout({
             <Button
               onClick={() => (window.location.href = "/")}
               size="lg"
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/30 transition-all"
             >
               Fazer Login
             </Button>
@@ -176,16 +189,38 @@ type DashboardLayoutContentProps = {
   title?: string;
 };
 
+function getRoleLabel(role: string): string {
+  const labels: Record<string, string> = {
+    admin: "Administrador",
+    vendedor: "Vendedor",
+    financeiro: "Financeiro",
+    administrativo: "Administrativo",
+    rh: "Recursos Humanos",
+    aluno: "Aluno",
+  };
+  return labels[role] || role;
+}
+
 function MenuContent({ location, setLocation, logout, user, menuItems }: {
   location: string;
   setLocation: (path: string) => void;
   logout: () => void;
   user: any;
-  menuItems: { icon: typeof LayoutDashboard; label: string; path: string }[];
+  menuItems: MenuItem[];
 }) {
+  // Group items by group
+  const groupedItems = menuItems.reduce((acc, item) => {
+    const group = item.group || "principal";
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
+
+  const groupOrder = ["principal", "comercial", "operacional", "gestao", "sistema"];
+
   return (
-    <div className="flex flex-col h-full bg-slate-900">
-      <SidebarHeader className="h-16 justify-center bg-white border-b border-slate-200">
+    <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+      <SidebarHeader className="h-16 justify-center bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700/50">
         <div className="flex items-center gap-3 px-2 w-full">
           <img
             src="/tr_logo.png"
@@ -195,39 +230,52 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-0 bg-slate-900 flex-1">
-        <SidebarMenu className="px-2 py-2">
-          {menuItems.map((item) => {
-            const isActive = location === item.path;
-            return (
-              <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton
-                  isActive={isActive}
-                  onClick={() => {
-                    setLocation(item.path);
-                  }}
-                  className={`h-10 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
-                    isActive
-                      ? "bg-red-600/20 text-red-400 hover:bg-red-600/20 hover:text-red-400 border-l-2 border-red-500"
-                      : ""
-                  }`}
-                >
-                  <item.icon
-                    className={`h-4 w-4 ${isActive ? "text-red-400" : "text-slate-500"}`}
-                  />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+      <SidebarContent className="gap-0 bg-transparent flex-1 overflow-y-auto">
+        {groupOrder.map((group) => {
+          const items = groupedItems[group];
+          if (!items || items.length === 0) return null;
+          return (
+            <div key={group} className="px-2 pt-3 pb-1">
+              <div className="px-3 mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                  {groupLabels[group] || group}
+                </span>
+              </div>
+              <SidebarMenu className="gap-0.5">
+                {items.map((item) => {
+                  const isActive = location === item.path;
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => {
+                          setLocation(item.path);
+                        }}
+                        className={`h-10 transition-all duration-200 font-normal text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg ${
+                          isActive
+                            ? "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-600 hover:to-red-700 hover:text-white shadow-md shadow-red-900/40"
+                            : ""
+                        }`}
+                      >
+                        <item.icon
+                          className={`h-[18px] w-[18px] ${isActive ? "text-white" : "text-slate-500"}`}
+                        />
+                        <span className="text-[13px]">{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </div>
+          );
+        })}
       </SidebarContent>
 
       <SidebarFooter className="p-3 bg-slate-950 border-t border-slate-800">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-slate-800 transition-colors w-full text-left focus:outline-none">
-              <Avatar className="h-9 w-9 border border-slate-700 shrink-0 bg-red-600">
+              <Avatar className="h-9 w-9 border border-slate-700 shrink-0 bg-gradient-to-br from-red-600 to-red-700">
                 <AvatarFallback className="text-xs font-medium text-white">
                   {user?.name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -237,15 +285,7 @@ function MenuContent({ location, setLocation, logout, user, menuItems }: {
                   {user?.name || "-"}
                 </p>
                 <p className="text-xs text-slate-500 truncate mt-1.5">
-                  {user?.role === "admin"
-                    ? "Administrador"
-                    : user?.role === "vendedor"
-                    ? "Vendedor"
-                    : user?.role === "financeiro"
-                    ? "Financeiro"
-                    : user?.role === "administrativo"
-                    ? "Administrativo"
-                    : "-"}
+                  {getRoleLabel(user?.role)}
                 </p>
               </div>
             </button>
@@ -341,7 +381,7 @@ function DashboardLayoutContent({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-gray-100">
-                <Avatar className="h-6 w-6 border border-slate-300 bg-red-600">
+                <Avatar className="h-6 w-6 border border-slate-300 bg-gradient-to-br from-red-600 to-red-700">
                   <AvatarFallback className="text-[9px] font-medium text-white">
                     {user?.name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -407,14 +447,14 @@ function DashboardLayoutContent({
           className="border-r-0 bg-slate-900 border-slate-800"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center bg-white border-b border-slate-200">
+          <SidebarHeader className="h-16 justify-center bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700/50">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-slate-700/60 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 shrink-0"
                 aria-label="Toggle navigation"
               >
-                <PanelLeft className="h-4 w-4 text-slate-600" />
+                <PanelLeft className="h-4 w-4 text-slate-400" />
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
@@ -434,38 +474,64 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0 bg-slate-900">
-            <SidebarMenu className="px-2 py-2">
-              {menuItems.map((item) => {
-                const isActive = location === item.path;
+          <SidebarContent className="gap-0 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950">
+            {(() => {
+              const groupedItems = menuItems.reduce((acc, item) => {
+                const group = item.group || "principal";
+                if (!acc[group]) acc[group] = [];
+                acc[group].push(item);
+                return acc;
+              }, {} as Record<string, MenuItem[]>);
+
+              const groupOrder = ["principal", "comercial", "operacional", "gestao", "sistema"];
+
+              return groupOrder.map((group) => {
+                const items = groupedItems[group];
+                if (!items || items.length === 0) return null;
                 return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal text-slate-300 hover:text-white hover:bg-slate-800 ${
-                        isActive
-                          ? "bg-red-600/20 text-red-400 hover:bg-red-600/20 hover:text-red-400 border-l-2 border-red-500"
-                          : ""
-                      }`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-red-400" : "text-slate-500"}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <div key={group} className="px-2 pt-3 pb-1">
+                    {!isCollapsed && (
+                      <div className="px-3 mb-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                          {groupLabels[group] || group}
+                        </span>
+                      </div>
+                    )}
+                    <SidebarMenu className="gap-0.5">
+                      {items.map((item) => {
+                        const isActive = location === item.path;
+                        return (
+                          <SidebarMenuItem key={item.path}>
+                            <SidebarMenuButton
+                              isActive={isActive}
+                              onClick={() => setLocation(item.path)}
+                              tooltip={item.label}
+                              className={`h-10 transition-all duration-200 font-normal text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg ${
+                                isActive
+                                  ? "bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-600 hover:to-red-700 hover:text-white shadow-md shadow-red-900/40"
+                                  : ""
+                              }`}
+                            >
+                              <item.icon
+                                className={`h-[18px] w-[18px] ${isActive ? "text-white" : "text-slate-500"}`}
+                              />
+                              <span className="text-[13px]">{item.label}</span>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </div>
                 );
-              })}
-            </SidebarMenu>
+              });
+            })()}
           </SidebarContent>
 
           <SidebarFooter className="p-3 bg-slate-950 border-t border-slate-800">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-slate-800 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500">
-                  <Avatar className="h-9 w-9 border border-slate-700 shrink-0 bg-red-600">
+                  <Avatar className="h-9 w-9 border border-slate-700 shrink-0 bg-gradient-to-br from-red-600 to-red-700">
                     <AvatarFallback className="text-xs font-medium text-white">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
@@ -475,15 +541,7 @@ function DashboardLayoutContent({
                       {user?.name || "-"}
                     </p>
                     <p className="text-xs text-slate-500 truncate mt-1.5">
-                      {user?.role === "admin"
-                        ? "Administrador"
-                        : user?.role === "vendedor"
-                        ? "Vendedor"
-                        : user?.role === "financeiro"
-                        ? "Financeiro"
-                        : user?.role === "administrativo"
-                        ? "Administrativo"
-                        : "-"}
+                      {getRoleLabel(user?.role)}
                     </p>
                   </div>
                 </button>
@@ -513,13 +571,18 @@ function DashboardLayoutContent({
       <SidebarInset className="bg-gray-50">
         <div className="flex border-b h-12 items-center justify-between bg-white px-4 sticky top-0 z-40">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="h-8 w-8 rounded-lg bg-slate-100" />
+            <SidebarTrigger className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors" />
             <div className="flex items-center gap-2">
               <img
                 src="/tr_logo.png"
                 alt="TR"
                 className="h-7 w-auto object-contain"
               />
+              {activeMenuItem && (
+                <span className="text-sm font-medium text-slate-600 ml-2 hidden sm:inline">
+                  {activeMenuItem.label}
+                </span>
+              )}
             </div>
           </div>
           <button

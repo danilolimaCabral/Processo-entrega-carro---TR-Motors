@@ -27,7 +27,7 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      // Parse DATABASE_URL and append sslmode if not present
+      // Try with explicit pool + SSL first (Railway MySQL requires SSL)
       const dbUrl = new URL(process.env.DATABASE_URL);
       const pool = mysql2.createPool({
         host: dbUrl.hostname,
@@ -41,11 +41,21 @@ export async function getDb() {
         waitForConnections: true,
         queueLimit: 50,
       });
+      // Test the connection before passing to drizzle
+      const [rows] = await pool.execute('SELECT 1 as ok');
+      console.log("[Database] Pool connection test OK");
       _db = drizzle(pool as any);
-      console.log("[Database] Connected with SSL + pool (connectionLimit=10)");
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
+      console.log("[Database] Connected with SSL + pool");
+    } catch (error: any) {
+      console.warn("[Database] Pool with SSL failed:", error?.message || error);
+      // Fallback: try original string-based approach
+      try {
+        _db = drizzle(process.env.DATABASE_URL!);
+        console.log("[Database] Connected with string URL (fallback)");
+      } catch (error2) {
+        console.warn("[Database] String URL fallback also failed:", error2);
+        _db = null;
+      }
     }
   }
   return _db;

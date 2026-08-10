@@ -86,13 +86,13 @@ export default function RhPage() {
   const goBack = () => setLocation("/dashboard");
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-100 flex rh-no-scrollbar">
       {/* ============ SIDEBAR RH - DESKTOP ============ */}
-      <aside className="hidden lg:flex flex-col w-56 bg-gray-950 shadow-xl fixed inset-y-0 left-0 z-40">
+      <aside className="hidden lg:flex flex-col w-56 bg-gray-950 fixed inset-y-0 left-0 z-40">
         {/* Logo + Back */}
-        <div className="p-3 border-b border-gray-800">
+        <div className="px-4 py-3 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <button onClick={goBack} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
+            <button onClick={goBack} className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition-colors">
               <ArrowLeft size={18} />
             </button>
             <div className="bg-red-600 rounded-lg p-1.5">
@@ -105,7 +105,7 @@ export default function RhPage() {
           </div>
         </div>
         {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-3 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {navGroups.map((group, gi) => (
             <div key={gi} className="space-y-1">
               {group.label && (
@@ -206,9 +206,9 @@ export default function RhPage() {
       )}
 
       {/* ============ MAIN CONTENT ============ */}
-      <main className="flex-1 lg:ml-56 p-3 lg:p-6 overflow-x-hidden">
+      <main className="flex-1 lg:ml-56 min-h-screen">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white shrink-0"
@@ -222,7 +222,7 @@ export default function RhPage() {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+        <div className="p-4 lg:p-6">
           {activeTab === "dashboard" && <DashboardTab />}
           {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
           {activeTab === "departamentos" && <DepartmentsTab />}

@@ -141,6 +141,13 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  .rh-no-scrollbar nav::-webkit-scrollbar {
+    display: none;
+  }
+  .rh-no-scrollbar nav {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 
   /**
    * Custom container utility that centers content and adds responsive padding.

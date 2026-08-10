@@ -50,7 +50,15 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
 
-  // Database health check endpoint
+  // tRPC API
+  app.use(
+    "/api/trpc",
+    createExpressMiddleware({
+      router: appRouter,
+      createContext,
+    })
+  );
+  // Database health check endpoint (must be before serveStatic)
   app.get("/api/db-health", async (req, res) => {
     try {
       const { getDb } = await import("../db");
@@ -66,14 +74,6 @@ async function startServer() {
     }
   });
 
-  // tRPC API
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

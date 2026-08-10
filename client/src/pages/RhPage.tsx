@@ -18,18 +18,27 @@ import {
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
   GraduationCap, ScrollText, UserPlus, Menu, X, LogOut, ArrowLeft,
+  Receipt, BookOpen, UserCog,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo" | "despesas" | "ead" | "usuarios";
 
 const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[] }[] = [
   {
     label: "",
     items: [
       { id: "dashboard", label: "Dashboard", icon: Activity },
+      { id: "despesas", label: "Despesas", icon: Receipt },
+      { id: "ead", label: "EAD Videoaulas", icon: BookOpen },
+    ],
+  },
+  {
+    label: "GESTÃO DE PESSOAS",
+    items: [
       { id: "funcionarios", label: "Funcionários", icon: Users },
+      { id: "usuarios", label: "Criar Usuários", icon: UserCog },
       { id: "departamentos", label: "Departamentos", icon: Building2 },
       { id: "cargos", label: "Cargos", icon: Briefcase },
     ],
@@ -197,7 +206,7 @@ export default function RhPage() {
       )}
 
       {/* ============ MAIN CONTENT ============ */}
-      <main className="flex-1 lg:ml-56 p-3 lg:p-6">
+      <main className="flex-1 lg:ml-56 p-3 lg:p-6 overflow-x-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <button
@@ -232,6 +241,9 @@ export default function RhPage() {
           {activeTab === "auditoria" && <AuditLogsTab />}
           {activeTab === "salario" && <SalaryTab />}
           {activeTab === "ajuda_custo" && <CostHelpTab />}
+          {activeTab === "despesas" && <DespesasLinkTab />}
+          {activeTab === "ead" && <EadLinkTab />}
+          {activeTab === "usuarios" && <CreateUsersTab />}
         </div>
       </main>
     </div>
@@ -1917,6 +1929,205 @@ function CostHelpTab() {
         ))}
         {!requests?.length && <p className="text-center text-muted-foreground py-4">Nenhuma solicitação de ajuda de custo</p>}
       </div>
+    </div>
+  );
+}
+
+// ==================== Despesas Link Tab ====================
+function DespesasLinkTab() {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+        <Receipt size={24} className="text-red-600" />
+        <div className="flex-1">
+          <p className="font-semibold text-gray-900">Controle de Despesas</p>
+          <p className="text-sm text-gray-500">Gerencie notas fiscais, reembolsos e aprovações</p>
+        </div>
+        <Button onClick={() => setLocation("/despesas")} className="bg-red-600 hover:bg-red-700">
+          Abrir Despesas
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Receipt size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Tirar foto da NF</p>
+            <p className="text-xs text-gray-400 mt-1">Extração automática de dados</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <ClipboardCheck size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Aprovar/Rejeitar</p>
+            <p className="text-xs text-gray-400 mt-1">RH aprova as despesas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <DollarSign size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Controle Financeiro</p>
+            <p className="text-xs text-gray-400 mt-1">Relatórios e totais</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ==================== EAD Link Tab ====================
+function EadLinkTab() {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+        <BookOpen size={24} className="text-red-600" />
+        <div className="flex-1">
+          <p className="font-semibold text-gray-900">EAD - Videoaulas</p>
+          <p className="text-sm text-gray-500">Plataforma de ensino a distância com cursos e trilhas</p>
+        </div>
+        <Button onClick={() => setLocation("/ead")} className="bg-red-600 hover:bg-red-700">
+          Abrir EAD
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <GraduationCap size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Cursos e Trilhas</p>
+            <p className="text-xs text-gray-400 mt-1">Onboarding com videoaulas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <Users size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Alunos</p>
+            <p className="text-xs text-gray-400 mt-1">Criar e gerenciar alunos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <ScrollText size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-600">Certificados</p>
+            <p className="text-xs text-gray-400 mt-1">Conclusão de cursos</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ==================== Create Users Tab ====================
+function CreateUsersTab() {
+  const { user } = useAuth();
+  const [form, setForm] = useState<{ name: string; email: string; password: string; role: string }>({
+    name: "",
+    email: "",
+    password: "123456",
+    role: "vendedor",
+  });
+  const createMutation = trpc.admin.createUser.useMutation({
+    onSuccess: () => {
+      toast.success("Usuário criado com sucesso!");
+      setForm({ name: "", email: "", password: "123456", role: "vendedor" });
+    },
+    onError: (err) => toast.error("Erro ao criar usuário: " + err.message),
+  });
+
+  const { data: users } = trpc.admin.listUsers.useQuery();
+
+  return (
+    <div className="space-y-6">
+      {/* Create Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus size={20} className="text-red-600" />
+            Criar Novo Usuário
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Nome Completo</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Ex: João Silva"
+              />
+            </div>
+            <div>
+              <Label>E-mail</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="joao@trmotors.com.br"
+              />
+            </div>
+            <div>
+              <Label>Senha</Label>
+              <Input
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Senha inicial"
+              />
+            </div>
+            <div>
+              <Label>Perfil de Acesso</Label>
+              <Select
+                value={form.role}
+                onValueChange={(v) => setForm({ ...form, role: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="rh">RH</SelectItem>
+                  <SelectItem value="financeiro">Financeiro</SelectItem>
+                  <SelectItem value="vendedor">Vendedor</SelectItem>
+                  <SelectItem value="administrativo">Administrativo</SelectItem>
+                  <SelectItem value="aluno">Aluno (EAD)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button
+            onClick={() => createMutation.mutate(form as any)}
+            disabled={createMutation.isPending || !form.name || !form.email}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {createMutation.isPending ? "Criando..." : "Criar Usuário"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Users List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuários Cadastrados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {users?.map((u: any) => (
+              <div key={u.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
+                <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm">
+                  {u.name?.charAt(0) || "U"}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-sm">{u.name}</p>
+                  <p className="text-xs text-gray-500">{u.email}</p>
+                </div>
+                <Badge variant={u.role === "admin" ? "default" : "outline"}>
+                  {u.role}
+                </Badge>
+              </div>
+            ))}
+            {!users?.length && (
+              <p className="text-center text-gray-400 py-4">Nenhum usuário cadastrado</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,0 +1,11 @@
+# nixpacks.toml - Force fresh build
+# Rebuild: 2026-08-10-v2
+
+[phases.build]
+cmds = ["pnpm run build"]
+
+[phases.setup]
+nixPkgs = ["nodejs", "pnpm"]
+
+[start]
+cmd = "node migrate.js && node dist/index.js"

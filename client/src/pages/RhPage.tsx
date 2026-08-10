@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +17,10 @@ import {
   Users, Briefcase, Building2, Calendar, Clock, Plus, Edit, Trash2,
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
-  GraduationCap, ScrollText, UserPlus, Menu, X,
+  GraduationCap, ScrollText, UserPlus, Menu, X, LogOut, ArrowLeft,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useLocation } from "wouter";
 
 type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo";
 
@@ -66,139 +66,175 @@ const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[]
 ];
 
 export default function RhPage() {
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeTab)?.label || "RH";
+  const handleLogout = () => { logout(); setLocation("/"); };
+  const goBack = () => setLocation("/dashboard");
 
   return (
-    <DashboardLayout title="Recursos Humanos">
-      <div className="flex gap-4 min-h-[calc(100vh-120px)]">
-        {/* Sidebar RH - Desktop */}
-        <aside className="hidden lg:flex flex-col w-56 bg-gray-950 rounded-xl shadow-xl shrink-0">
-          <div className="p-3 border-b border-gray-800">
-            <div className="flex items-center gap-2">
-              <div className="bg-red-600 rounded-lg p-1.5">
-                <Users size={18} className="text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">Recursos</p>
-                <p className="text-xs text-gray-500">Humanos</p>
-              </div>
-            </div>
-          </div>
-          <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
-            {navGroups.map((group, gi) => (
-              <div key={gi} className="space-y-1">
-                {group.label && (
-                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
-                )}
-                {group.items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
-                      activeTab === item.id
-                        ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
-                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                    }`}
-                  >
-                    <item.icon size={16} />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Sidebar RH - Mobile (drawer) */}
-        {sidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-            <aside className="relative flex flex-col w-64 bg-gray-950 shadow-2xl">
-              <div className="p-3 border-b border-gray-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="bg-red-600 rounded-lg p-1.5">
-                    <Users size={18} className="text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Recursos</p>
-                    <p className="text-xs text-gray-500">Humanos</p>
-                  </div>
-                </div>
-                <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white p-1">
-                  <X size={20} />
-                </button>
-              </div>
-              <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
-                {navGroups.map((group, gi) => (
-                  <div key={gi} className="space-y-1">
-                    {group.label && (
-                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
-                    )}
-                    {group.items.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
-                          activeTab === item.id
-                            ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
-                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                        }`}
-                      >
-                        <item.icon size={16} />
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </nav>
-            </aside>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="flex-1 min-w-0 space-y-4">
-          {/* Header with breadcrumb + mobile menu button */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white shrink-0"
-            >
-              <Menu size={20} />
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* ============ SIDEBAR RH - DESKTOP ============ */}
+      <aside className="hidden lg:flex flex-col w-56 bg-gray-950 shadow-xl fixed inset-y-0 left-0 z-40">
+        {/* Logo + Back */}
+        <div className="p-3 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <button onClick={goBack} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
+              <ArrowLeft size={18} />
             </button>
-            <div className="flex items-center gap-2">
-              <Users size={20} className="text-red-600" />
-              <h2 className="text-lg font-bold text-gray-900">{activeLabel}</h2>
+            <div className="bg-red-600 rounded-lg p-1.5">
+              <Users size={18} className="text-white" />
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
-            {activeTab === "dashboard" && <DashboardTab />}
-            {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
-            {activeTab === "departamentos" && <DepartmentsTab />}
-            {activeTab === "cargos" && <PositionsTab />}
-            {activeTab === "folha" && <PayrollTab />}
-            {activeTab === "comissoes" && <CommissionsTab />}
-            {activeTab === "ferias" && <LeavesTab />}
-            {activeTab === "ponto" && <AttendanceTab />}
-            {activeTab === "uniformes" && <UniformsTab />}
-            {activeTab === "nf_custos" && <CostInvoicesTab />}
-            {activeTab === "feriados" && <HolidaysTab />}
-            {activeTab === "desligamento" && <ExitChecklistTab />}
-            {activeTab === "documentos" && <EmployeeDocumentsTab />}
-            {activeTab === "vagas" && <VacanciesTab />}
-            {activeTab === "candidatos" && <CandidatesTab />}
-            {activeTab === "auditoria" && <AuditLogsTab />}
-            {activeTab === "salario" && <SalaryTab />}
-            {activeTab === "ajuda_custo" && <CostHelpTab />}
+            <div>
+              <p className="text-sm font-bold text-white">Recursos</p>
+              <p className="text-xs text-gray-500">Humanos</p>
+            </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+        {/* Navigation */}
+        <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+          {navGroups.map((group, gi) => (
+            <div key={gi} className="space-y-1">
+              {group.label && (
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
+              )}
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
+                    activeTab === item.id
+                      ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                      : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  }`}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        {/* User + Logout */}
+        <div className="p-3 border-t border-gray-800">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm">
+              {user?.name?.charAt(0) || "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.name || "Usuário"}</p>
+              <p className="text-xs text-gray-500 capitalize">{user?.role || "rh"}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors min-h-[40px]"
+          >
+            <LogOut size={16} /> Sair
+          </button>
+        </div>
+      </aside>
+
+      {/* ============ SIDEBAR RH - MOBILE (drawer) ============ */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+          <aside className="relative flex flex-col w-64 bg-gray-950 shadow-2xl">
+            <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button onClick={goBack} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
+                  <ArrowLeft size={18} />
+                </button>
+                <div className="bg-red-600 rounded-lg p-1.5">
+                  <Users size={18} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">Recursos</p>
+                  <p className="text-xs text-gray-500">Humanos</p>
+                </div>
+              </div>
+              <button onClick={() => setSidebarOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <nav className="flex-1 p-2 space-y-3 overflow-y-auto">
+              {navGroups.map((group, gi) => (
+                <div key={gi} className="space-y-1">
+                  {group.label && (
+                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-3 py-1">{group.label}</p>
+                  )}
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[40px] ${
+                        activeTab === item.id
+                          ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                          : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                      }`}
+                    >
+                      <item.icon size={16} />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </nav>
+            <div className="p-3 border-t border-gray-800">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors min-h-[40px]"
+              >
+                <LogOut size={16} /> Sair
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ============ MAIN CONTENT ============ */}
+      <main className="flex-1 lg:ml-56 p-3 lg:p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white shrink-0"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <Users size={20} className="text-red-600" />
+            <h2 className="text-lg font-bold text-gray-900">{activeLabel}</h2>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="bg-white rounded-xl shadow-sm p-4 lg:p-6">
+          {activeTab === "dashboard" && <DashboardTab />}
+          {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
+          {activeTab === "departamentos" && <DepartmentsTab />}
+          {activeTab === "cargos" && <PositionsTab />}
+          {activeTab === "folha" && <PayrollTab />}
+          {activeTab === "comissoes" && <CommissionsTab />}
+          {activeTab === "ferias" && <LeavesTab />}
+          {activeTab === "ponto" && <AttendanceTab />}
+          {activeTab === "uniformes" && <UniformsTab />}
+          {activeTab === "nf_custos" && <CostInvoicesTab />}
+          {activeTab === "feriados" && <HolidaysTab />}
+          {activeTab === "desligamento" && <ExitChecklistTab />}
+          {activeTab === "documentos" && <EmployeeDocumentsTab />}
+          {activeTab === "vagas" && <VacanciesTab />}
+          {activeTab === "candidatos" && <CandidatesTab />}
+          {activeTab === "auditoria" && <AuditLogsTab />}
+          {activeTab === "salario" && <SalaryTab />}
+          {activeTab === "ajuda_custo" && <CostHelpTab />}
+        </div>
+      </main>
+    </div>
   );
 }
 

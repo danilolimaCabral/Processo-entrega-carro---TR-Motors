@@ -37,7 +37,7 @@ export async function getPool(): Promise<mysql2.Pool | null> {
       password: decodeURIComponent(dbUrl.password),
       database: dbUrl.pathname.slice(1),
       // Only use SSL for external databases (TiDB Cloud). Railway internal MySQL doesn't support SSL.
-      ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: false } }),
+      ...(isRailwayInternal ? {} : { ssl: { rejectUnauthorized: true } }),
       connectionLimit: 10,
       connectTimeout: 10000,
       waitForConnections: true,

@@ -27,6 +27,11 @@ async function runMigration() {
 
   console.log(`Connecting to MySQL at ${hostname}:${port}...`);
 
+  // Detect if SSL is needed (TiDB Cloud requires SSL)
+  const needsSsl = hostname.includes('tidbcloud.com') || hostname.includes('prod.aws');
+  const sslConfig = needsSsl ? { rejectUnauthorized: true } : undefined;
+  console.log(`SSL: ${needsSsl ? 'enabled' : 'disabled'}`);
+
   // First, connect without database to create it if needed
   let serverConnection;
   try {
@@ -35,6 +40,7 @@ async function runMigration() {
       port: port,
       user: username,
       password: password,
+      ssl: sslConfig,
     });
     console.log('Connected to MySQL server');
   } catch (error) {
@@ -58,7 +64,14 @@ async function runMigration() {
   // Now connect to the specific database
   let connection;
   try {
-    connection = await mysql.createConnection(connectionString);
+    connection = await mysql.createConnection({
+      host: hostname,
+      port: port,
+      user: username,
+      password: password,
+      database: database,
+      ssl: sslConfig,
+    });
     console.log('Connected to database successfully');
   } catch (error) {
     console.error('Failed to connect to database:', error.message);

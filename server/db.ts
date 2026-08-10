@@ -57,7 +57,9 @@ export async function getDb() {
       const [rows] = await pool.execute('SELECT 1 as ok');
       console.log("[Database] Pool connection test OK");
       _db = drizzle(pool as any);
-      console.log("[Database] Connected with SSL + pool");
+      const dbUrl = new URL(process.env.DATABASE_URL);
+      const isRailwayInternal = dbUrl.hostname.includes('railway.internal');
+      console.log("[Database] Connected with pool, SSL:", !isRailwayInternal);
     } catch (error: any) {
       console.error("[Database] Connection FAILED:", error?.message || error, "code:", error?.code, "errno:", error?.errno);
       throw error;
@@ -102,8 +104,8 @@ export async function createUserDirect(
  * Uses check-then-insert/update to avoid Drizzle's default value issue with onDuplicateKeyUpdate
  */
 export async function upsertUser(user: InsertUser): Promise<void> {
-  const db = await getDb();
-  if (!db) {
+  const pool = await getPool();
+  if (!pool) {
     console.warn("[Database] Cannot upsert user: database not available");
     return;
   }
@@ -111,11 +113,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   try {
     if (user.openId) {
       // OAuth user — check by openId
-      const existing = await db
-        .select()
-        .from(users)
-        .where(eq(users.openId, user.openId))
-        .limit(1);
+      const [existing] = await pool.execute(
+        'SELECT id FROM users WHERE openId = ? LIMIT 1',
+        [user.openId]
+      );
+      const existingRows = existing as any[];
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() };
       if (user.passwordHash !== undefined) updateData.passwordHash = user.passwordHash;
@@ -126,20 +128,31 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       if (user.isActive !== undefined) updateData.isActive = user.isActive;
       updateData.lastSignedIn = user.lastSignedIn ?? new Date();
 
-      if (existing.length > 0) {
-        await db.update(users).set(updateData).where(eq(users.openId, user.openId));
+      if (existingRows.length > 0) {
+        const setClauses = Object.keys(updateData).map(k => `\`${k}\` = ?`).join(', ');
+        const setValues = Object.values(updateData);
+        await pool.execute(
+          `UPDATE users SET ${setClauses} WHERE openId = ?`,
+          [...setValues, user.openId]
+        );
       } else {
         const insertData: Record<string, unknown> = { updatedAt: new Date() };
         Object.assign(insertData, updateData);
-        await db.insert(users).values(insertData as InsertUser);
+        const columns = Object.keys(insertData).map(k => `\`${k}\``).join(', ');
+        const placeholders = Object.keys(insertData).map(() => '?').join(', ');
+        const values = Object.values(insertData);
+        await pool.execute(
+          `INSERT INTO users (${columns}) VALUES (${placeholders})`,
+          values
+        );
       }
     } else if (user.email) {
       // Local user — check by email
-      const existing = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, user.email))
-        .limit(1);
+      const [existing] = await pool.execute(
+        'SELECT id FROM users WHERE email = ? LIMIT 1',
+        [user.email]
+      );
+      const existingRows = existing as any[];
 
       const updateData: Record<string, unknown> = { updatedAt: new Date() };
       if (user.passwordHash !== undefined) updateData.passwordHash = user.passwordHash;
@@ -149,15 +162,26 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       if (user.isActive !== undefined) updateData.isActive = user.isActive;
       updateData.lastSignedIn = user.lastSignedIn ?? new Date();
 
-      if (existing.length > 0) {
+      if (existingRows.length > 0) {
         // User exists — update all fields including role and password
-        await db.update(users).set(updateData).where(eq(users.email, user.email));
+        const setClauses = Object.keys(updateData).map(k => `\`${k}\` = ?`).join(', ');
+        const setValues = Object.values(updateData);
+        await pool.execute(
+          `UPDATE users SET ${setClauses} WHERE email = ?`,
+          [...setValues, user.email]
+        );
       } else {
         // User doesn't exist — insert
         const insertData: Record<string, unknown> = { updatedAt: new Date() };
         Object.assign(insertData, updateData);
         insertData.email = user.email;
-        await db.insert(users).values(insertData as InsertUser);
+        const columns = Object.keys(insertData).map(k => `\`${k}\``).join(', ');
+        const placeholders = Object.keys(insertData).map(() => '?').join(', ');
+        const values = Object.values(insertData);
+        await pool.execute(
+          `INSERT INTO users (${columns}) VALUES (${placeholders})`,
+          values
+        );
       }
     }
   } catch (error) {

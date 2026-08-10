@@ -170,6 +170,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // Code splitting: split vendor chunks for better caching
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          "ui-vendor": ["framer-motion", "lucide-react", "date-fns"],
+          "data-vendor": ["@tanstack/react-query", "axios"],
+        },
+      },
+    },
+    // Increase chunk size warning limit (app is large)
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     host: true,

@@ -21,11 +21,27 @@ import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+// Lazily create the drizzle instance with SSL and connection pool for Railway.
+// Railway MySQL requires SSL — without it, queries hang ~12s then fail with 500.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Parse DATABASE_URL and append sslmode if not present
+      let dbUrl = process.env.DATABASE_URL;
+      // mysql2 uses 'ssl' query param, not 'sslmode' like psql
+      // drizzle-orm/mysql2 accepts connection string directly
+      // For Railway, we need to enable SSL explicitly
+      const { createPool } = require('mysql2/promise');
+      const pool = createPool({
+        uri: dbUrl,
+        ssl: { rejectUnauthorized: false },
+        connectionLimit: 10,
+        connectTimeout: 10000,
+        waitForConnections: true,
+        queueLimit: 50,
+      });
+      _db = drizzle(pool as any);
+      console.log("[Database] Connected with SSL + pool (connectionLimit=10)");
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

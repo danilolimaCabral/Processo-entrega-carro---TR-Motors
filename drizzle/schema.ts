@@ -821,3 +821,193 @@ export const expense_receipts = mysqlTable("expense_receipts", {
 });
 
 export type InsertExpenseReceipt = typeof expense_receipts.$inferInsert;
+
+// ============================================================
+// RH MODULES — From Briefing
+// ============================================================
+
+// --- 1. Uniform Control ---
+export const uniforms = mysqlTable("uniforms", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  itemType: varchar("item_type", { length: 100 }).notNull(), // camisa, calca, sapato, etc
+  size: varchar("size", { length: 20 }),
+  quantity: int("quantity").default(1).notNull(),
+  dateIssued: date("date_issued").notNull(),
+  dateReturned: date("date_returned"),
+  status: mysqlEnum("status", ["entregue", "devolvido", "pendente"]).default("entregue").notNull(),
+  notes: text("notes"),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type Uniform = typeof uniforms.$inferSelect;
+export type InsertUniform = typeof uniforms.$inferInsert;
+
+// --- 2. Exit Checklist (Desligamento) ---
+export const exit_checklists = mysqlTable("exit_checklists", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  employeeName: varchar("employee_name", { length: 255 }).notNull(),
+  initiatedBy: int("initiated_by").notNull(),
+  initiatedAt: timestamp("initiated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  status: mysqlEnum("status", ["em_andamento", "concluido", "cancelado"]).default("em_andamento").notNull(),
+  reason: varchar("reason", { length: 255 }), // demissao, rescisao, etc
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type ExitChecklist = typeof exit_checklists.$inferSelect;
+export type InsertExitChecklist = typeof exit_checklists.$inferInsert;
+
+export const exit_checklist_items = mysqlTable("exit_checklist_items", {
+  id: int("id").autoincrement().primaryKey(),
+  checklistId: int("checklist_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  sector: varchar("sector", { length: 50 }).notNull(), // RH, TI, Financeiro, Gestor
+  responsibleRole: varchar("responsible_role", { length: 50 }).notNull(),
+  status: mysqlEnum("status", ["pendente", "concluido", "nao_aplicavel"]).default("pendente").notNull(),
+  completedBy: int("completed_by"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type ExitChecklistItem = typeof exit_checklist_items.$inferSelect;
+export type InsertExitChecklistItem = typeof exit_checklist_items.$inferInsert;
+
+// --- 3. Employee Documents (Pasta Digital) ---
+export const employee_documents = mysqlTable("employee_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // contrato, cnh, exame, recibo, etc
+  documentName: varchar("document_name", { length: 255 }).notNull(),
+  fileUrl: longtext("file_url"),
+  fileMimeType: varchar("file_mime_type", { length: 100 }).default("application/pdf"),
+  expiryDate: date("expiry_date"),
+  uploadedBy: int("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type EmployeeDocument = typeof employee_documents.$inferSelect;
+export type InsertEmployeeDocument = typeof employee_documents.$inferInsert;
+
+// --- 4. CRM de Candidatos ---
+export const job_vacancies = mysqlTable("job_vacancies", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  department: varchar("department", { length: 100 }),
+  description: longtext("description"),
+  requirements: longtext("requirements"),
+  salaryRange: varchar("salary_range", { length: 100 }),
+  status: mysqlEnum("status", ["aberta", "pausada", "fechada"]).default("aberta").notNull(),
+  openedAt: timestamp("opened_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
+  createdBy: int("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type JobVacancy = typeof job_vacancies.$inferSelect;
+export type InsertJobVacancy = typeof job_vacancies.$inferInsert;
+
+export const candidates = mysqlTable("candidates", {
+  id: int("id").autoincrement().primaryKey(),
+  vacancyId: int("vacancy_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 20 }),
+  resume: longtext("resume"), // base64 or URL
+  coverLetter: longtext("cover_letter"),
+  stage: mysqlEnum("stage", ["inscrito", "triagem", "entrevista", "aprovado", "reprovado"]).default("inscrito").notNull(),
+  rating: int("rating"), // 1-5
+  notes: longtext("notes"),
+  salaryExpectation: varchar("salary_expectation", { length: 100 }),
+  interviewDate: timestamp("interview_date"),
+  hiredAt: timestamp("hired_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type Candidate = typeof candidates.$inferSelect;
+export type InsertCandidate = typeof candidates.$inferInsert;
+
+// --- 5. Learning Paths (Onboarding) ---
+export const learning_paths = mysqlTable("learning_paths", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  role: varchar("role", { length: 50 }).notNull(), // vendas, administrativo, recepcao
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type LearningPath = typeof learning_paths.$inferSelect;
+export type InsertLearningPath = typeof learning_paths.$inferInsert;
+
+export const learning_path_courses = mysqlTable("learning_path_courses", {
+  id: int("id").autoincrement().primaryKey(),
+  pathId: int("path_id").notNull(),
+  courseId: int("course_id").notNull(),
+  order: int("order").default(0).notNull(),
+  isRequired: boolean("is_required").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type LearningPathCourse = typeof learning_path_courses.$inferSelect;
+export type InsertLearningPathCourse = typeof learning_path_courses.$inferInsert;
+
+// --- 6. Quizzes ---
+export const quizzes = mysqlTable("quizzes", {
+  id: int("id").autoincrement().primaryKey(),
+  courseId: int("course_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  passingScore: int("passing_score").default(70).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type Quiz = typeof quizzes.$inferSelect;
+export type InsertQuiz = typeof quizzes.$inferInsert;
+
+export const quiz_questions = mysqlTable("quiz_questions", {
+  id: int("id").autoincrement().primaryKey(),
+  quizId: int("quiz_id").notNull(),
+  question: text("question").notNull(),
+  optionA: varchar("option_a", { length: 500 }).notNull(),
+  optionB: varchar("option_b", { length: 500 }).notNull(),
+  optionC: varchar("option_c", { length: 500 }),
+  optionD: varchar("option_d", { length: 500 }),
+  correctAnswer: mysqlEnum("correct_answer", ["A", "B", "C", "D"]).notNull(),
+  order: int("order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type QuizQuestion = typeof quiz_questions.$inferSelect;
+export type InsertQuizQuestion = typeof quiz_questions.$inferInsert;
+
+export const quiz_answers = mysqlTable("quiz_answers", {
+  id: int("id").autoincrement().primaryKey(),
+  quizId: int("quiz_id").notNull(),
+  questionId: int("question_id").notNull(),
+  userId: int("user_id").notNull(),
+  selectedAnswer: mysqlEnum("selected_answer", ["A", "B", "C", "D"]).notNull(),
+  isCorrect: boolean("is_correct").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type QuizAnswer = typeof quiz_answers.$inferSelect;
+export type InsertQuizAnswer = typeof quiz_answers.$inferInsert;
+
+// --- 7. Audit Log ---
+export const audit_logs = mysqlTable("audit_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id"),
+  userName: varchar("user_name", { length: 255 }),
+  action: varchar("action", { length: 100 }).notNull(), // create, update, delete, login, logout
+  module: varchar("module", { length: 50 }).notNull(), // rh, ead, sales, etc
+  entityId: int("entity_id"),
+  entityName: varchar("entity_name", { length: 255 }),
+  details: longtext("details"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type AuditLog = typeof audit_logs.$inferSelect;
+export type InsertAuditLog = typeof audit_logs.$inferInsert;

@@ -673,4 +673,387 @@ export const rhRouter = router({
     const totalPaid = paid.reduce((acc, inv) => acc + parseFloat(inv.amount || "0"), 0);
     return { total, totalPending, totalPaid, count: invoices.length, pendingCount: pending.length, paidCount: paid.length };
   }),
+
+  // ==================== Exit Checklists (Desligamento) ====================
+  listExitChecklists: protectedProcedure.query(async () => {
+    const db = await getDb();
+    const { exit_checklists } = await import("../../drizzle/schema");
+    return db.select().from(exit_checklists).orderBy(desc(exit_checklists.createdAt));
+  }),
+  createExitChecklist: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      employeeName: z.string().min(1),
+      initiatedBy: z.number(),
+      reason: z.string().optional(),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { exit_checklists, exit_checklist_items, audit_logs } = await import("../../drizzle/schema");
+      const result = await db.insert(exit_checklists).values(input);
+      const checklistId = result[0].insertId;
+      const defaultItems = [
+        { title: "Devolução de uniformes", sector: "RH", responsibleRole: "rh" },
+        { title: "Entrega de crachá/equipamentos", sector: "TI", responsibleRole: "admin" },
+        { title: "Liberação de pagamentos pendentes", sector: "Financeiro", responsibleRole: "financeiro" },
+        { title: "Entrevista de desligamento", sector: "RH", responsibleRole: "rh" },
+        { title: "Desativação de acessos", sector: "TI", responsibleRole: "admin" },
+      ];
+      for (const item of defaultItems) {
+        await db.insert(exit_checklist_items).values({
+          checklistId,
+          title: item.title,
+          sector: item.sector,
+          responsibleRole: item.responsibleRole,
+          status: "pendente",
+        });
+      }
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: checklistId,
+          entityName: input.employeeName,
+          details: "Checklist de saída criado",
+        });
+      }
+      return { success: true, id: checklistId };
+    }),
+  updateExitChecklistItem: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["pendente", "concluido", "nao_aplicavel"]),
+      notes: z.string().optional(),
+      completedBy: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { exit_checklist_items, audit_logs } = await import("../../drizzle/schema");
+      const data: any = { status: input.status, notes: input.notes };
+      if (input.status === "concluido") {
+        data.completedAt = new Date();
+        if (input.completedBy) data.completedBy = input.completedBy;
+        else if (ctx.user) data.completedBy = ctx.user.id;
+      }
+      await db.update(exit_checklist_items).set(data).where(eq(exit_checklist_items.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: input.id,
+          details: `Item do checklist atualizado: ${input.status}`,
+        });
+      }
+      return { success: true };
+    }),
+
+  // ==================== Employee Documents (Pasta Digital) ====================
+  listEmployeeDocuments: protectedProcedure
+    .input(z.object({ employeeId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { employee_documents } = await import("../../drizzle/schema");
+      if (input?.employeeId) {
+        return db.select().from(employee_documents).where(eq(employee_documents.employeeId, input.employeeId)).orderBy(desc(employee_documents.createdAt));
+      }
+      return db.select().from(employee_documents).orderBy(desc(employee_documents.createdAt));
+    }),
+  createEmployeeDocument: protectedProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      category: z.string().min(1),
+      documentName: z.string().min(1),
+      fileUrl: z.string().optional(),
+      fileMimeType: z.string().default("application/pdf"),
+      expiryDate: z.string().optional(),
+      uploadedBy: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { employee_documents, audit_logs } = await import("../../drizzle/schema");
+      const data = { ...input, uploadedBy: input.uploadedBy || ctx.user?.id };
+      const result = await db.insert(employee_documents).values(data);
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: result[0].insertId,
+          entityName: input.documentName,
+          details: `Documento adicionado: ${input.category}`,
+        });
+      }
+      return { success: true, id: result[0].insertId };
+    }),
+  deleteEmployeeDocument: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { employee_documents, audit_logs } = await import("../../drizzle/schema");
+      await db.delete(employee_documents).where(eq(employee_documents.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "delete",
+          module: "rh",
+          entityId: input.id,
+          details: "Documento excluído",
+        });
+      }
+      return { success: true };
+    }),
+
+  // ==================== Job Vacancies (CRM de Candidatos) ====================
+  listVacancies: protectedProcedure.query(async () => {
+    const db = await getDb();
+    const { job_vacancies } = await import("../../drizzle/schema");
+    return db.select().from(job_vacancies).orderBy(desc(job_vacancies.createdAt));
+  }),
+  createVacancy: protectedProcedure
+    .input(z.object({
+      title: z.string().min(1),
+      department: z.string().optional(),
+      description: z.string().optional(),
+      requirements: z.string().optional(),
+      salaryRange: z.string().optional(),
+      createdBy: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { job_vacancies, audit_logs } = await import("../../drizzle/schema");
+      const data = { ...input, createdBy: input.createdBy || ctx.user?.id };
+      const result = await db.insert(job_vacancies).values(data);
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: result[0].insertId,
+          entityName: input.title,
+          details: "Vaga criada",
+        });
+      }
+      return { success: true, id: result[0].insertId };
+    }),
+  updateVacancy: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["aberta", "pausada", "fechada"]).optional(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      requirements: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const { job_vacancies } = await import("../../drizzle/schema");
+      const { id, ...data } = input;
+      if (Object.keys(data).length > 0) {
+        await db.update(job_vacancies).set(data).where(eq(job_vacancies.id, id));
+      }
+      return { success: true };
+    }),
+
+  // ==================== Candidates ====================
+  listCandidates: protectedProcedure
+    .input(z.object({ vacancyId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { candidates } = await import("../../drizzle/schema");
+      if (input?.vacancyId) {
+        return db.select().from(candidates).where(eq(candidates.vacancyId, input.vacancyId)).orderBy(desc(candidates.createdAt));
+      }
+      return db.select().from(candidates).orderBy(desc(candidates.createdAt));
+    }),
+  createCandidate: protectedProcedure
+    .input(z.object({
+      vacancyId: z.number(),
+      name: z.string().min(1),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      resume: z.string().optional(),
+      coverLetter: z.string().optional(),
+      salaryExpectation: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { candidates, audit_logs } = await import("../../drizzle/schema");
+      const result = await db.insert(candidates).values(input);
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "create",
+          module: "rh",
+          entityId: result[0].insertId,
+          entityName: input.name,
+          details: "Candidato cadastrado",
+        });
+      }
+      return { success: true, id: result[0].insertId };
+    }),
+  updateCandidateStage: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      stage: z.enum(["inscrito", "triagem", "entrevista", "aprovado", "reprovado"]),
+      notes: z.string().optional(),
+      rating: z.number().optional(),
+      interviewDate: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { candidates, audit_logs } = await import("../../drizzle/schema");
+      const { id, ...data } = input;
+      if (data.stage === "aprovado") data.hiredAt = new Date() as any;
+      await db.update(candidates).set(data).where(eq(candidates.id, id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "update",
+          module: "rh",
+          entityId: id,
+          details: `Candidato movido para: ${input.stage}`,
+        });
+      }
+      return { success: true };
+    }),
+
+  // ==================== Learning Paths (Onboarding) ====================
+  listLearningPaths: protectedProcedure.query(async () => {
+    const db = await getDb();
+      const { learning_paths } = await import("../../drizzle/schema");
+    return db.select().from(learning_paths).orderBy(desc(learning_paths.createdAt));
+  }),
+  createLearningPath: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      role: z.string().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const { learning_paths } = await import("../../drizzle/schema");
+      const result = await db.insert(learning_paths).values({ ...input, isActive: true });
+      return { success: true, id: result[0].insertId };
+    }),
+
+  deleteVacancy: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { job_vacancies, audit_logs } = await import("../../drizzle/schema");
+      await db.delete(job_vacancies).where(eq(job_vacancies.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "delete",
+          module: "rh",
+          entityId: input.id,
+          details: "Vaga excluída",
+        });
+      }
+      return { success: true };
+    }),
+  deleteLearningPath: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { learning_paths, audit_logs } = await import("../../drizzle/schema");
+      await db.delete(learning_paths).where(eq(learning_paths.id, input.id));
+      if (ctx.user) {
+        await db.insert(audit_logs).values({
+          userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          action: "delete",
+          module: "rh",
+          entityId: input.id,
+          details: "Trilha de onboarding excluída",
+        });
+      }
+      return { success: true };
+    }),
+
+  // ==================== Quizzes ====================
+  listQuizzes: protectedProcedure
+    .input(z.object({ courseId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { quizzes } = await import("../../drizzle/schema");
+      if (input?.courseId) {
+        return db.select().from(quizzes).where(eq(quizzes.courseId, input.courseId));
+      }
+      return db.select().from(quizzes);
+    }),
+  createQuiz: protectedProcedure
+    .input(z.object({
+      courseId: z.number(),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      passingScore: z.number().default(70),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const { quizzes } = await import("../../drizzle/schema");
+      const result = await db.insert(quizzes).values(input);
+      return { success: true, id: result[0].insertId };
+    }),
+  createQuizQuestion: protectedProcedure
+    .input(z.object({
+      quizId: z.number(),
+      question: z.string().min(1),
+      optionA: z.string().min(1),
+      optionB: z.string().min(1),
+      optionC: z.string().optional(),
+      optionD: z.string().optional(),
+      correctAnswer: z.enum(["A", "B", "C", "D"]),
+      order: z.number().default(0),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      const { quiz_questions } = await import("../../drizzle/schema");
+      const result = await db.insert(quiz_questions).values(input);
+      return { success: true, id: result[0].insertId };
+    }),
+  submitQuizAnswer: protectedProcedure
+    .input(z.object({
+      quizId: z.number(),
+      questionId: z.number(),
+      selectedAnswer: z.enum(["A", "B", "C", "D"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { quiz_questions, quiz_answers } = await import("../../drizzle/schema");
+      const [question] = await db.select().from(quiz_questions).where(eq(quiz_questions.id, input.questionId));
+      const isCorrect = question?.correctAnswer === input.selectedAnswer;
+      await db.insert(quiz_answers).values({
+        quizId: input.quizId,
+        questionId: input.questionId,
+        userId: ctx.user?.id || 0,
+        selectedAnswer: input.selectedAnswer,
+        isCorrect,
+      });
+      return { success: true, isCorrect, correctAnswer: question?.correctAnswer };
+    }),
+
+  // ==================== Audit Logs ====================
+  listAuditLogs: protectedProcedure
+    .input(z.object({ module: z.string().optional(), limit: z.number().default(50) }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      const { audit_logs } = await import("../../drizzle/schema");
+      const limit = input?.limit || 50;
+      if (input?.module) {
+        return db.select().from(audit_logs).where(eq(audit_logs.module, input.module)).limit(limit).orderBy(desc(audit_logs.createdAt));
+      }
+      return db.select().from(audit_logs).limit(limit).orderBy(desc(audit_logs.createdAt));
+    }),
 });

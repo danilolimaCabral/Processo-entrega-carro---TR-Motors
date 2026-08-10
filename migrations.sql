@@ -17,6 +17,18 @@ DROP TABLE IF EXISTS `approval_history`;
 DROP TABLE IF EXISTS `inspection_checklists`;
 DROP TABLE IF EXISTS `sale_documents`;
 DROP TABLE IF EXISTS `sale_records`;
+DROP TABLE IF EXISTS `quiz_answers`;
+DROP TABLE IF EXISTS `quiz_questions`;
+DROP TABLE IF EXISTS `quizzes`;
+DROP TABLE IF EXISTS `learning_path_courses`;
+DROP TABLE IF EXISTS `learning_paths`;
+DROP TABLE IF EXISTS `candidates`;
+DROP TABLE IF EXISTS `job_vacancies`;
+DROP TABLE IF EXISTS `employee_documents`;
+DROP TABLE IF EXISTS `exit_checklist_items`;
+DROP TABLE IF EXISTS `exit_checklists`;
+DROP TABLE IF EXISTS `uniforms`;
+DROP TABLE IF EXISTS `audit_logs`;
 DROP TABLE IF EXISTS `users`;
 
 -- Users table
@@ -368,6 +380,193 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo","rh"]', true, 11),
 ('ead', 'EAD - Cursos', 'Plataforma de ensino a distância com cursos, vídeos e certificados', 'GraduationCap', '/ead', '["admin","rh","aluno"]', true, 12),
 ('despesas', 'Despesas', 'Controle de despesas com OCR de notas fiscais', 'Receipt', '/despesas', '["admin","rh","financeiro"]', true, 13);
+
+-- ============================================================
+-- RH MODULES — From Briefing
+-- ============================================================
+
+-- 1. Uniform Control
+CREATE TABLE `uniforms` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `item_type` varchar(100) NOT NULL,
+  `size` varchar(20),
+  `quantity` int NOT NULL DEFAULT 1,
+  `date_issued` date NOT NULL,
+  `date_returned` date,
+  `status` enum('entregue','devolvido','pendente') NOT NULL DEFAULT 'entregue',
+  `notes` text,
+  `created_by` int,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `uniforms_id` PRIMARY KEY(`id`)
+);
+
+-- 2. Exit Checklist (Desligamento)
+CREATE TABLE `exit_checklists` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `employee_name` varchar(255) NOT NULL,
+  `initiated_by` int NOT NULL,
+  `initiated_at` timestamp NOT NULL DEFAULT (now()),
+  `completed_at` timestamp,
+  `status` enum('em_andamento','concluido','cancelado') NOT NULL DEFAULT 'em_andamento',
+  `reason` varchar(255),
+  `notes` text,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `exit_checklists_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE `exit_checklist_items` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `checklist_id` int NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `sector` varchar(50) NOT NULL,
+  `responsible_role` varchar(50) NOT NULL,
+  `status` enum('pendente','concluido','nao_aplicavel') NOT NULL DEFAULT 'pendente',
+  `completed_by` int,
+  `completed_at` timestamp,
+  `notes` text,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `exit_checklist_items_id` PRIMARY KEY(`id`)
+);
+
+-- 3. Employee Documents (Pasta Digital)
+CREATE TABLE `employee_documents` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `employee_id` int NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `document_name` varchar(255) NOT NULL,
+  `file_url` longtext,
+  `file_mime_type` varchar(100) DEFAULT 'application/pdf',
+  `expiry_date` date,
+  `uploaded_by` int,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `employee_documents_id` PRIMARY KEY(`id`)
+);
+
+-- 4. CRM de Candidatos
+CREATE TABLE `job_vacancies` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `department` varchar(100),
+  `description` longtext,
+  `requirements` longtext,
+  `salary_range` varchar(100),
+  `status` enum('aberta','pausada','fechada') NOT NULL DEFAULT 'aberta',
+  `opened_at` timestamp NOT NULL DEFAULT (now()),
+  `closed_at` timestamp,
+  `created_by` int,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `job_vacancies_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE `candidates` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `vacancy_id` int NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(320),
+  `phone` varchar(20),
+  `resume` longtext,
+  `cover_letter` longtext,
+  `stage` enum('inscrito','triagem','entrevista','aprovado','reprovado') NOT NULL DEFAULT 'inscrito',
+  `rating` int,
+  `notes` longtext,
+  `salary_expectation` varchar(100),
+  `interview_date` timestamp,
+  `hired_at` timestamp,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `candidates_id` PRIMARY KEY(`id`)
+);
+
+-- 5. Learning Paths (Onboarding)
+CREATE TABLE `learning_paths` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `role` varchar(50) NOT NULL,
+  `description` text,
+  `is_active` boolean NOT NULL DEFAULT true,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `learning_paths_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE `learning_path_courses` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `path_id` int NOT NULL,
+  `course_id` int NOT NULL,
+  `order` int NOT NULL DEFAULT 0,
+  `is_required` boolean NOT NULL DEFAULT true,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `learning_path_courses_id` PRIMARY KEY(`id`)
+);
+
+-- 6. Quizzes
+CREATE TABLE `quizzes` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `course_id` int NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `passing_score` int NOT NULL DEFAULT 70,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  `updated_at` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `quizzes_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE `quiz_questions` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `quiz_id` int NOT NULL,
+  `question` text NOT NULL,
+  `option_a` varchar(500) NOT NULL,
+  `option_b` varchar(500) NOT NULL,
+  `option_c` varchar(500),
+  `option_d` varchar(500),
+  `correct_answer` enum('A','B','C','D') NOT NULL,
+  `order` int NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `quiz_questions_id` PRIMARY KEY(`id`)
+);
+
+CREATE TABLE `quiz_answers` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `quiz_id` int NOT NULL,
+  `question_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `selected_answer` enum('A','B','C','D') NOT NULL,
+  `is_correct` boolean NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `quiz_answers_id` PRIMARY KEY(`id`)
+);
+
+-- 7. Audit Log
+CREATE TABLE `audit_logs` (
+  `id` int AUTO_INCREMENT NOT NULL,
+  `user_id` int,
+  `user_name` varchar(255),
+  `action` varchar(100) NOT NULL,
+  `module` varchar(50) NOT NULL,
+  `entity_id` int,
+  `entity_name` varchar(255),
+  `details` longtext,
+  `ip_address` varchar(45),
+  `created_at` timestamp NOT NULL DEFAULT (now()),
+  CONSTRAINT `audit_logs_id` PRIMARY KEY(`id`)
+);
+
+-- Seed: New ERP Modules
+INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, `allowedRoles`, `isActive`, `sortOrder`) VALUES
+('rh-uniformes', 'Uniformes', 'Controle de uniformes entregues e devolvidos por funcionário', 'Shirt', '/rh/uniformes', '["admin","rh","financeiro"]', true, 14),
+('rh-desligamento', 'Desligamento', 'Checklist de saída multi-setorial para desligamento de funcionários', 'LogOut', '/rh/desligamento', '["admin","rh"]', true, 15),
+('rh-documentos', 'Pasta Digital', 'Documentos do colaborador com alertas de validade e acesso restrito', 'FolderArchive', '/rh/documentos', '["admin","rh"]', true, 16),
+('rh-recrutamento', 'Recrutamento', 'CRM de candidatos por vaga com funil de recrutamento', 'UserPlus', '/rh/recrutamento', '["admin","rh"]', true, 17),
+('rh-trilhas', 'Trilhas de Onboarding', 'Trilhas de aprendizado por cargo com quizzes e notificações', 'Route', '/rh/trilhas', '["admin","rh"]', true, 18),
+('rh-auditoria', 'Auditoria', 'Log de auditoria de todas as ações do sistema', 'ShieldCheck', '/rh/auditoria', '["admin"]', true, 19);
 
 -- Fix: Add aluno and rh to role enum (migration 0008)
 ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';

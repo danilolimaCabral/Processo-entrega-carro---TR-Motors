@@ -17,10 +17,12 @@ import { toast } from "sonner";
 import {
   Users, Briefcase, Building2, Calendar, Clock, Plus, Edit, Trash2,
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
-  Shirt, FileText,
+  Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
+  GraduationCap, ScrollText, UserPlus,
 } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "trilhas" | "auditoria";
 
 export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -38,6 +40,12 @@ export default function RhPage() {
     { id: "feriados" as Tab, label: "Feriados", icon: CalendarDays },
     { id: "uniformes" as Tab, label: "Uniformes", icon: Shirt },
     { id: "nf_custos" as Tab, label: "NF Custos", icon: FileText },
+    { id: "desligamento" as Tab, label: "Desligamento", icon: ClipboardCheck },
+    { id: "documentos" as Tab, label: "Documentos", icon: FolderArchive },
+    { id: "vagas" as Tab, label: "Vagas", icon: BriefcaseBusiness },
+    { id: "candidatos" as Tab, label: "Candidatos", icon: UserPlus },
+    { id: "trilhas" as Tab, label: "Trilhas", icon: GraduationCap },
+    { id: "auditoria" as Tab, label: "Auditoria", icon: ScrollText },
   ];
 
   return (
@@ -74,6 +82,12 @@ export default function RhPage() {
         {activeTab === "uniformes" && <UniformsTab />}
         {activeTab === "nf_custos" && <CostInvoicesTab />}
         {activeTab === "feriados" && <HolidaysTab />}
+        {activeTab === "desligamento" && <ExitChecklistTab />}
+        {activeTab === "documentos" && <EmployeeDocumentsTab />}
+        {activeTab === "vagas" && <VacanciesTab />}
+        {activeTab === "candidatos" && <CandidatesTab />}
+        {activeTab === "trilhas" && <LearningPathsTab />}
+        {activeTab === "auditoria" && <AuditLogsTab />}
       </div>
     </DashboardLayout>
   );
@@ -254,7 +268,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <Input placeholder="Buscar por nome, CPF ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "" }); } setDialogOpen(o); }}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", positionId: undefined, departmentId: undefined, hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "" }); } setDialogOpen(o); }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus size={16} /> Novo Funcionário</Button>
           </DialogTrigger>
@@ -1170,7 +1184,7 @@ function CostInvoicesTab() {
             <CardContent className="p-3 flex items-center justify-between">
               <div>
                 <p className="font-medium">{inv.supplier || "Sem fornecedor"} <Badge variant="outline" className="ml-2">{inv.category}</Badge></p>
-                <p className="text-sm text-muted-foreground">{inv.description} · NF: {inv.invoiceNumber} · {inv.invoiceDate || "Sem data"}</p>
+                <p className="text-sm text-muted-foreground">{inv.description} · NF: {inv.invoiceNumber} · {String(inv.invoiceDate || "Sem data")}</p>
                 <p className="text-lg font-bold text-green-600">{fmt(inv.amount)}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1178,7 +1192,7 @@ function CostInvoicesTab() {
                   variant="outline"
                   size="sm"
                   className="min-h-[32px]"
-                  onClick={() => toggleStatus(inv.id, inv.status)}
+                  onClick={() => toggleStatus(inv.id, inv.status || "pendente")}
                 >
                   {inv.status === "pendente" ? "Marcar Pago" : "Marcar Pendente"}
                 </Button>
@@ -1188,6 +1202,401 @@ function CostInvoicesTab() {
           </Card>
         ))}
         {!invoices?.length && <p className="text-center text-muted-foreground py-4">Nenhuma NF registrada</p>}
+      </div>
+    </div>
+  );
+}
+
+
+// ===================== CHECKLIST DE SAÍDA (DESLIGAMENTO) =====================
+function ExitChecklistTab() {
+  const { user } = useAuth();
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ employeeName: "", reason: "" });
+  const utils = trpc.useUtils();
+
+  const { data: checklists } = trpc.rh.listExitChecklists.useQuery();
+  const createChecklist = trpc.rh.createExitChecklist.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Checklist criado"); setForm({ employeeName: "", reason: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const updateItem = trpc.rh.updateExitChecklistItem.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const sectors = ["RH", "TI", "Financeiro", "Operacional", "Direção"];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Checklist de Saída (Desligamento)</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Desligamento</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Novo Checklist de Saída</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Motivo" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} className="min-h-[40px]" />
+              <Button onClick={() => createChecklist.mutate({ employeeId: user?.id || 1, employeeName: form.employeeName, initiatedBy: user?.id || 1, reason: form.reason })} className="w-full min-h-[40px]">Criar Checklist</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-3">
+        {checklists?.map((cl: any) => {
+          const items = cl.items || [];
+          const completed = items.filter((i: any) => i.status === "concluido").length;
+          const total = items.length || sectors.length;
+          const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+          return (
+            <Card key={cl.id}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-base">{cl.employeeName}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{cl.reason} · Saída: {cl.exitDate || "N/D"}</p>
+                  </div>
+                  <Badge variant={pct === 100 ? "default" : "secondary"}>{pct}% concluído</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1.5">
+                  {sectors.map((sector) => {
+                    const item = items.find((i: any) => i.sector === sector);
+                    const status = item?.status || "pendente";
+                    return (
+                      <div key={sector} className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
+                        <span className="text-sm font-medium">{sector}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={status === "concluido" ? "default" : status === "nao_aplicavel" ? "secondary" : "outline"}>
+                            {status === "concluido" ? "Concluído" : status === "nao_aplicavel" ? "Não Aplicável" : "Pendente"}
+                          </Badge>
+                          <Select
+                            value={status}
+                            onValueChange={(v) => item?.id && updateItem.mutate({ id: item.id, status: v as "pendente" | "concluido" | "nao_aplicavel" })}
+                          >
+                            <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pendente">Pendente</SelectItem>
+                              <SelectItem value="concluido">Concluído</SelectItem>
+                              <SelectItem value="nao_aplicavel">Não Aplicável</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {!checklists?.length && <p className="text-center text-muted-foreground py-4">Nenhum checklist de saída criado</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== DOCUMENTOS DO COLABORADOR =====================
+function EmployeeDocumentsTab() {
+  const { user } = useAuth();
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ employeeName: "", category: "", docName: "", expiryDate: "", fileUrl: "" });
+  const utils = trpc.useUtils();
+
+  const { data: docs } = trpc.rh.listEmployeeDocuments.useQuery();
+  const createDoc = trpc.rh.createEmployeeDocument.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Documento cadastrado"); setForm({ employeeName: "", category: "", docName: "", expiryDate: "", fileUrl: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const deleteDoc = trpc.rh.deleteEmployeeDocument.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const categories = ["RG", "CPF", "Carteira de Trabalho", "Comprovante de Residência", "Diploma", "Certificado", "Exame Médico", "Outro"];
+
+  const today = new Date();
+  const isExpiringSoon = (date: string) => {
+    if (!date) return false;
+    const d = new Date(date);
+    const diff = (d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    return diff < 30 && diff > 0;
+  };
+  const isExpired = (date: string) => {
+    if (!date) return false;
+    return new Date(date) < today;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Documentos do Colaborador</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Documento</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Cadastrar Documento</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+              <Input placeholder="Nome do documento" value={form.docName} onChange={e => setForm({ ...form, docName: e.target.value })} className="min-h-[40px]" />
+              <Input type="date" placeholder="Validade" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="URL do arquivo" value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })} className="min-h-[40px]" />
+              <Button onClick={() => createDoc.mutate({ employeeId: user?.id || 1, category: form.category, documentName: form.docName, fileUrl: form.fileUrl || undefined, expiryDate: form.expiryDate || undefined, uploadedBy: user?.id })} className="w-full min-h-[40px]">Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-2">
+        {docs?.map((doc: any) => (
+          <Card key={doc.id}>
+            <CardContent className="p-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-8 w-8 text-slate-400" />
+                <div>
+                  <p className="font-medium">{doc.documentName}</p>
+                  <p className="text-sm text-muted-foreground">Colaborador #{doc.employeeId} · {doc.category}</p>
+                  {doc.expiryDate && (
+                    <Badge variant={isExpired(doc.expiryDate) ? "destructive" : isExpiringSoon(doc.expiryDate) ? "secondary" : "outline"} className="mt-1">
+                      {isExpired(doc.expiryDate) ? "Vencido" : isExpiringSoon(doc.expiryDate) ? "Vence em breve" : "Válido até " + doc.expiryDate}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {doc.fileUrl && <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="min-h-[32px]">Ver</Button></a>}
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteDoc.mutate({ id: doc.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!docs?.length && <p className="text-center text-muted-foreground py-4">Nenhum documento cadastrado</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== VAGAS (CRM DE RECRUTAMENTO) =====================
+function VacanciesTab() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ title: "", department: "", description: "", requirements: "", salaryRange: "", status: "aberta" });
+  const utils = trpc.useUtils();
+
+  const { data: vacancies } = trpc.rh.listVacancies.useQuery();
+  const createVacancy = trpc.rh.createVacancy.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Vaga criada"); setForm({ title: "", department: "", description: "", requirements: "", salaryRange: "", status: "aberta" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const updateVacancy = trpc.rh.updateVacancy.useMutation({ onSuccess: () => utils.invalidate() });
+  const deleteVacancy = trpc.rh.deleteVacancy.useMutation({ onSuccess: () => utils.invalidate() });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Vagas Disponíveis</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova Vaga</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Criar Vaga</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Título da vaga" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Departamento" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} className="min-h-[40px]" />
+              <Textarea placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+              <Textarea placeholder="Requisitos" value={form.requirements} onChange={e => setForm({ ...form, requirements: e.target.value })} />
+              <Input placeholder="Faixa salarial (ex: R$ 2.000 - R$ 3.000)" value={form.salaryRange} onChange={e => setForm({ ...form, salaryRange: e.target.value })} className="min-h-[40px]" />
+              <Button onClick={() => createVacancy.mutate(form)} className="w-full min-h-[40px]">Criar Vaga</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {vacancies?.map((v: any) => (
+          <Card key={v.id}>
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-base">{v.title}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{v.department} · {v.salaryRange || "Salário não informado"}</p>
+                </div>
+                <Badge variant={v.status === "aberta" ? "default" : "secondary"}>{v.status === "aberta" ? "Aberta" : "Fechada"}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm mb-2">{v.description}</p>
+              {v.requirements && <p className="text-xs text-muted-foreground">Requisitos: {v.requirements}</p>}
+              <div className="flex gap-2 mt-3">
+                <Button variant="outline" size="sm" className="min-h-[32px]" onClick={() => updateVacancy.mutate({ id: v.id, status: v.status === "aberta" ? "fechada" : "aberta" })}>
+                  {v.status === "aberta" ? "Fechar Vaga" : "Reabrir Vaga"}
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteVacancy.mutate({ id: v.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!vacancies?.length && <p className="text-center text-muted-foreground py-4">Nenhuma vaga criada</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== CANDIDATOS =====================
+function CandidatesTab() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", vacancyId: "" });
+  const utils = trpc.useUtils();
+
+  const { data: candidates } = trpc.rh.listCandidates.useQuery();
+  const { data: vacancies } = trpc.rh.listVacancies.useQuery();
+  const createCandidate = trpc.rh.createCandidate.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Candidato cadastrado"); setForm({ name: "", email: "", phone: "", vacancyId: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const updateStage = trpc.rh.updateCandidateStage.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const stages = ["inscrito", "triagem", "entrevista", "aprovado", "reprovado"];
+  const stageLabels: Record<string, string> = {
+    inscrito: "Inscrito", triagem: "Triagem", entrevista: "Entrevista",
+    aprovado: "Aprovado", reprovado: "Reprovado",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Candidatos</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Candidato</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Cadastrar Candidato</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="min-h-[40px]" />
+              <Input placeholder="Telefone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="min-h-[40px]" />
+              <Select value={form.vacancyId} onValueChange={(v) => setForm({ ...form, vacancyId: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Vaga" /></SelectTrigger>
+                <SelectContent>{vacancies?.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>{v.title}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button onClick={() => createCandidate.mutate({ vacancyId: Number(form.vacancyId), name: form.name, email: form.email, phone: form.phone })} className="w-full min-h-[40px]">Cadastrar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Funil visual */}
+      <div className="grid gap-2 md:grid-cols-5">
+        {stages.map(stage => {
+          const stageCandidates = candidates?.filter((c: any) => c.stage === stage) || [];
+          return (
+            <div key={stage} className="space-y-1">
+              <div className="text-xs font-semibold text-center pb-1 border-b-2 border-slate-200">{stageLabels[stage]} ({stageCandidates.length})</div>
+              {stageCandidates.map((c: any) => (
+                <Card key={c.id} className="p-2">
+                  <p className="text-xs font-medium">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">{c.email}</p>
+                  <Select value={c.stage} onValueChange={(v) => updateStage.mutate({ id: c.id, stage: v as "inscrito" | "triagem" | "entrevista" | "aprovado" | "reprovado" })}>
+                    <SelectTrigger className="h-7 mt-1 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>{stages.map(s => <SelectItem key={s} value={s}>{stageLabels[s]}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Card>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ===================== TRILHAS DE ONBOARDING =====================
+function LearningPathsTab() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", targetRole: "" });
+  const utils = trpc.useUtils();
+
+  const { data: paths } = trpc.rh.listLearningPaths.useQuery();
+  const createPath = trpc.rh.createLearningPath.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Trilha criada"); setForm({ name: "", description: "", targetRole: "" }); },
+    onError: (e) => toast.error("Erro: " + e.message),
+  });
+  const deletePath = trpc.rh.deleteLearningPath.useMutation({ onSuccess: () => utils.invalidate() });
+
+  const roles = ["admin", "rh", "vendedor", "financeiro", "gerente"];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Trilhas de Onboarding</h3>
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Nova Trilha</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Criar Trilha</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <Input placeholder="Nome da trilha" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="min-h-[40px]" />
+              <Textarea placeholder="Descrição" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+              <Select value={form.targetRole} onValueChange={(v) => setForm({ ...form, targetRole: v })}>
+                <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Cargo alvo" /></SelectTrigger>
+                <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button onClick={() => createPath.mutate({ name: form.name, role: form.targetRole, description: form.description })} className="w-full min-h-[40px]">Criar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {paths?.map((p: any) => (
+          <Card key={p.id}>
+            <CardHeader className="pb-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-base">{p.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{p.description}</p>
+                </div>
+                <Badge variant="outline">{p.role}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Cursos: {p.courses?.length || 0}</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deletePath.mutate({ id: p.id })}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!paths?.length && <p className="text-center text-muted-foreground py-4">Nenhuma trilha criada</p>}
+      </div>
+    </div>
+  );
+}
+
+// ===================== LOG DE AUDITORIA =====================
+function AuditLogsTab() {
+  const [filter, setFilter] = useState("");
+  const { data: logs } = trpc.rh.listAuditLogs.useQuery({ limit: 100 });
+
+  const actionLabels: Record<string, string> = {
+    create: "Criação", update: "Atualização", delete: "Exclusão", login: "Login", logout: "Logout",
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Log de Auditoria</h3>
+        <Input placeholder="Filtrar..." value={filter} onChange={e => setFilter(e.target.value)} className="max-w-xs min-h-[40px]" />
+      </div>
+
+      <div className="space-y-1">
+        {logs?.filter((l: any) => !filter || l.entityName?.includes(filter) || l.action?.includes(filter) || l.userName?.includes(filter))
+          .map((l: any) => (
+          <div key={l.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-slate-100">
+            <Badge variant="outline" className="shrink-0">{actionLabels[l.action] || l.action}</Badge>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{l.userName} · {l.entityName}</p>
+              <p className="text-xs text-muted-foreground">{l.details} · {new Date(l.createdAt).toLocaleString("pt-BR")}</p>
+            </div>
+          </div>
+        ))}
+        {!logs?.length && <p className="text-center text-muted-foreground py-4">Nenhum log de auditoria</p>}
       </div>
     </div>
   );

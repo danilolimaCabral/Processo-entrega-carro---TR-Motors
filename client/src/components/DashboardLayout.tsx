@@ -58,9 +58,8 @@ interface MenuItem {
 
 function getMenuItems(role: string): MenuItem[] {
   const items: MenuItem[] = [];
-  // Dashboard visible for all roles
-  items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
   if (role === "admin") {
+    items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria", group: "comercial" });
     items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque", group: "comercial" });
@@ -75,29 +74,37 @@ function getMenuItems(role: string): MenuItem[] {
     items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/", group: "sistema" });
     items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos", group: "sistema" });
   } else if (role === "vendedor") {
+    items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });
     items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria", group: "comercial" });
     items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline", group: "comercial" });
     items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque", group: "comercial" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
+    items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
+  } else if (role === "gerente") {
+    items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
+    items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });
+    items.push({ icon: Camera, label: "Vistoria Compra", shortLabel: "Vistoria", path: "/vistoria", group: "comercial" });
+    items.push({ icon: Target, label: "Pipeline CRM", shortLabel: "Pipeline", path: "/pipeline", group: "comercial" });
+    items.push({ icon: Warehouse, label: "Estoque", shortLabel: "Estoque", path: "/estoque", group: "comercial" });
+    items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
+    items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "financeiro") {
+    items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
     items.push({ icon: DollarSign, label: "Financeiro", shortLabel: "Financ", path: "/approval", group: "operacional" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
     items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "administrativo") {
+    items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
     items.push({ icon: Building2, label: "Administrativo", shortLabel: "Admin", path: "/approval", group: "operacional" });
     items.push({ icon: Briefcase, label: "Despachante", shortLabel: "Despach", path: "/despachante", group: "operacional" });
     items.push({ icon: Truck, label: "Entrega", shortLabel: "Entrega", path: "/entrega", group: "operacional" });
-    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
-    items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "aluno") {
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   } else if (role === "rh") {
+    items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
   }
   return items;
@@ -192,6 +199,7 @@ type DashboardLayoutContentProps = {
 function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
     admin: "Administrador",
+    gerente: "Gerente",
     vendedor: "Vendedor",
     financeiro: "Financeiro",
     administrativo: "Administrativo",
@@ -542,7 +550,7 @@ function DashboardLayoutContent({
                       {user?.name || "-"}
                     </p>
                     <p className="text-xs text-slate-500 truncate mt-1.5">
-                      {getRoleLabel(user?.role)}
+                      {getRoleLabel(user?.role ?? "")}
                     </p>
                   </div>
                 </button>

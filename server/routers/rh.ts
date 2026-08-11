@@ -167,7 +167,7 @@ export const rhRouter = router({
         emergencyContact: z.string().optional(),
         emergencyPhone: z.string().optional(),
         notes: z.string().optional(),
-        accessRole: z.enum(["vendedor", "financeiro", "administrativo", "aluno", "rh"]).default("vendedor"),
+        accessRole: z.enum(["vendedor", "gerente", "financeiro", "administrativo", "aluno", "rh"]).default("vendedor"),
       })
     )
     .mutation(async ({ input }) => {

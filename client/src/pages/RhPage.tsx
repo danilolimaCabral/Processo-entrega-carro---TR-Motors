@@ -352,7 +352,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     positionId: undefined as number | undefined,
     departmentId: undefined as number | undefined,
     hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo",
-    address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" as "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh",
+    address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" as "vendedor" | "gerente" | "financeiro" | "administrativo" | "aluno" | "rh",
   });
 
   const handleSubmit = () => {
@@ -454,6 +454,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="vendedor">Vendedor</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="administrativo">Administrativo</SelectItem>
                     <SelectItem value="aluno">Aluno</SelectItem>

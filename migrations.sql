@@ -39,7 +39,7 @@ CREATE TABLE `users` (
   `name` text,
   `email` varchar(320),
   `loginMethod` varchar(64),
-  `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor',
+  `role` enum('admin','gerente','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor',
   `isActive` boolean DEFAULT true NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   `updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
@@ -367,18 +367,18 @@ INSERT INTO `users` (`openId`, `passwordHash`, `name`, `email`, `loginMethod`, `
 
 -- Seed ERP Modules
 INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, `allowedRoles`, `isActive`, `sortOrder`) VALUES
-('entrega', 'Entrega de Veículo', 'Processo completo de entrega de veículos ao cliente', 'Car', '/entrega', '["admin","vendedor","financeiro","administrativo"]', true, 1),
-('documentos', 'Check Financeiro', 'Checklist financeiro e documental', 'FileCheck', '/financeiro', '["admin","vendedor","financeiro"]', true, 2),
-('dashboard', 'Dashboard', 'Painel de documentos parados por vendedor e setor', 'LayoutDashboard', '/dashboard', '["admin","vendedor","financeiro","administrativo"]', true, 3),
-('vistoria', 'Vistoria de Compra', 'Vistoria completa de veículos para compra com API FIPE', 'CarFront', '/vistoria', '["admin","vendedor"]', true, 4),
+('entrega', 'Entrega de Veículo', 'Processo completo de entrega de veículos ao cliente', 'Car', '/entrega', '["admin","gerente","financeiro","administrativo"]', true, 1),
+('documentos', 'Check Financeiro', 'Checklist financeiro e documental', 'FileCheck', '/financeiro', '["admin","financeiro"]', true, 2),
+('dashboard', 'Dashboard', 'Painel de documentos parados por vendedor e setor', 'LayoutDashboard', '/dashboard', '["admin","vendedor","gerente","financeiro","administrativo"]', true, 3),
+('vistoria', 'Vistoria de Compra', 'Vistoria completa de veículos para compra com API FIPE', 'CarFront', '/vistoria', '["admin","vendedor","gerente"]', true, 4),
 ('relatorios', 'Relatórios', 'Relatórios e análises de vendas', 'BarChart3', '/relatorios', '["admin","financeiro"]', true, 5),
-('clientes', 'Clientes', 'Cadastro e gestão de clientes', 'Users', '/clientes', '["admin","vendedor"]', true, 6),
-('veiculos', 'Estoque', 'Gestão de estoque de veículos', 'Warehouse', '/veiculos', '["admin","vendedor"]', true, 7),
+('clientes', 'Clientes', 'Cadastro e gestão de clientes', 'Users', '/clientes', '["admin","vendedor","gerente"]', true, 6),
+('veiculos', 'Estoque', 'Gestão de estoque de veículos', 'Warehouse', '/veiculos', '["admin","vendedor","gerente"]', true, 7),
 ('configuracoes', 'Configurações', 'Configurações do sistema e usuários', 'Settings', '/configuracoes', '["admin"]', true, 8),
 ('modulos', 'Gestão de Módulos', 'Ativar e desativar módulos do sistema', 'Puzzle', '/modulos', '["admin"]', true, 9),
-('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","vendedor","financeiro","administrativo"]', true, 10),
-('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","financeiro","administrativo","rh"]', true, 11),
-('ead', 'EAD - Cursos', 'Plataforma de ensino a distância com cursos, vídeos e certificados', 'GraduationCap', '/ead', '["admin","rh","aluno"]', true, 12),
+('despachante', 'Despachante', 'Gestão de documentos, serviços de despachante e registro em cartório', 'FileSpreadsheet', '/despachante', '["admin","gerente","financeiro","administrativo"]', true, 10),
+('rh', 'Recursos Humanos', 'Gestão de funcionários, departamentos, férias, ponto e feriados', 'Users', '/rh', '["admin","rh"]', true, 11),
+('ead', 'EAD - Cursos', 'Plataforma de ensino a distância com cursos, vídeos e certificados', 'GraduationCap', '/ead', '["admin","vendedor","gerente","financeiro","administrativo","rh","aluno"]', true, 12),
 ('despesas', 'Despesas', 'Controle de despesas com OCR de notas fiscais', 'Receipt', '/despesas', '["admin","rh","financeiro"]', true, 13);
 
 -- ============================================================
@@ -568,8 +568,28 @@ INSERT INTO `erp_modules` (`moduleKey`, `name`, `description`, `icon`, `route`, 
 ('rh-trilhas', 'Trilhas de Onboarding', 'Trilhas de aprendizado por cargo com quizzes e notificações', 'Route', '/rh/trilhas', '["admin","rh"]', true, 18),
 ('rh-auditoria', 'Auditoria', 'Log de auditoria de todas as ações do sistema', 'ShieldCheck', '/rh/auditoria', '["admin"]', true, 19);
 
--- Fix: Add aluno and rh to role enum (migration 0008)
-ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';
+-- Fix: manter todos os papéis vigentes na instalação já existente.
+ALTER TABLE `users` MODIFY COLUMN `role` enum('admin','gerente','vendedor','financeiro','administrativo','aluno','rh') NOT NULL DEFAULT 'vendedor';
+
+-- Matriz de acesso para bancos já existentes. A API também filtra os módulos
+-- por allowedRoles, impedindo que perfis não autorizados os recebam.
+UPDATE `erp_modules`
+SET `allowedRoles` = CASE `moduleKey`
+  WHEN 'vendas' THEN 'vendedor,gerente,admin'
+  WHEN 'checklist' THEN 'vendedor,gerente,financeiro,administrativo,admin'
+  WHEN 'financeiro' THEN 'financeiro,admin'
+  WHEN 'administrativo' THEN 'administrativo,gerente,admin'
+  WHEN 'dashboard' THEN 'admin,vendedor,gerente,financeiro,administrativo'
+  WHEN 'vistoria' THEN 'vendedor,gerente,admin'
+  WHEN 'pipeline' THEN 'vendedor,gerente,admin'
+  WHEN 'estoque' THEN 'vendedor,gerente,admin'
+  WHEN 'entrega' THEN 'admin,gerente,financeiro,administrativo'
+  WHEN 'despachante' THEN 'admin,gerente,financeiro,administrativo'
+  WHEN 'rh' THEN 'admin,rh'
+  WHEN 'ead' THEN 'admin,vendedor,gerente,financeiro,administrativo,rh,aluno'
+  ELSE `allowedRoles`
+END
+WHERE `moduleKey` IN ('vendas','checklist','financeiro','administrativo','dashboard','vistoria','pipeline','estoque','entrega','despachante','rh','ead');
 
 
 -- ==================== Salário e Ajuda de Custo ====================

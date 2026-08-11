@@ -63,5 +63,10 @@
 - [x] Exibir dados pessoais, uniformes e documentação vinculada na ficha
 
 ## Automação de usuários e permissões
-- [ ] Criar automaticamente um usuário vinculado ao cadastrar funcionário
-- [ ] Restringir alteração de funcionários e acessos ao perfil de RH
+- [x] Criar automaticamente um usuário vinculado ao cadastrar funcionário
+- [x] Restringir alteração de funcionários e acessos ao perfil de RH
+
+## Acessos por perfil
+- [ ] Configurar Danilo como vendedor com acesso apenas aos módulos de vendas
+- [ ] Aplicar módulos permitidos de forma consistente para gerente e demais perfis
+- [ ] Filtrar no sistema os módulos exibidos e retornados conforme o perfil do usuário

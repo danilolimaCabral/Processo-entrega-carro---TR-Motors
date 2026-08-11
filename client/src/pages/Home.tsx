@@ -15,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     if (!user || loading) return;
 
-    if (user.role === "vendedor") {
+    if (user.role === "vendedor" || user.role === "gerente") {
       navigate("/dashboard");
     } else if (user.role === "financeiro" || user.role === "administrativo") {
       navigate("/dashboard");
@@ -39,7 +39,7 @@ export default function Home() {
     return <AdminPage />;
   }
 
-  if (user.role === "vendedor" || user.role === "financeiro" || user.role === "administrativo") {
+  if (user.role === "vendedor" || user.role === "gerente" || user.role === "financeiro" || user.role === "administrativo") {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-[60vh]">

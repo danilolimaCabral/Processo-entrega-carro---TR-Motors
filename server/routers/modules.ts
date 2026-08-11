@@ -26,18 +26,31 @@ const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 
 export const modulesRouter = router({
   /**
-   * List all modules (admin sees all, others see only active ones for their role)
+   * Administradores veem todos os módulos; cada outro perfil recebe apenas
+   * módulos ativos cuja lista de perfis o autorize explicitamente.
    */
   list: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (ctx.user?.role === "admin") {
       return db.select().from(erp_modules).orderBy(erp_modules.sortOrder);
     }
-    return db
+    const activeModules = await db
       .select()
       .from(erp_modules)
       .where(eq(erp_modules.isActive, true))
       .orderBy(erp_modules.sortOrder);
+
+    const role = ctx.user?.role;
+    return activeModules.filter((module) => {
+      if (!role || !module.allowedRoles?.trim()) return false;
+      const rawRoles = module.allowedRoles.trim();
+      try {
+        const parsedRoles = JSON.parse(rawRoles);
+        return Array.isArray(parsedRoles) && parsedRoles.includes(role);
+      } catch {
+        return rawRoles.split(",").map((item) => item.trim()).includes(role);
+      }
+    });
   }),
 
   /**
@@ -299,7 +312,7 @@ export const modulesRouter = router({
         description: "Gerenciar vendas de veículos",
         icon: "Car",
         route: "/vendedor/dashboard",
-        allowedRoles: "vendedor,admin",
+        allowedRoles: "vendedor,gerente,admin",
         isActive: true,
         sortOrder: 1,
       },
@@ -309,7 +322,7 @@ export const modulesRouter = router({
         description: "Checklist de inspeção de veículos",
         icon: "ClipboardList",
         route: "/vendedor/dashboard",
-        allowedRoles: "vendedor,financeiro,administrativo,admin",
+        allowedRoles: "vendedor,gerente,financeiro,administrativo,admin",
         isActive: true,
         sortOrder: 2,
       },
@@ -329,7 +342,7 @@ export const modulesRouter = router({
         description: "Aprovação administrativa",
         icon: "Building2",
         route: "/approval",
-        allowedRoles: "administrativo,admin",
+        allowedRoles: "administrativo,gerente,admin",
         isActive: true,
         sortOrder: 4,
       },
@@ -339,7 +352,7 @@ export const modulesRouter = router({
         description: "Visão geral de documentos parados",
         icon: "LayoutDashboard",
         route: "/dashboard",
-        allowedRoles: "admin,vendedor,financeiro,administrativo",
+        allowedRoles: "admin,vendedor,gerente,financeiro,administrativo",
         isActive: true,
         sortOrder: 5,
       },
@@ -389,7 +402,7 @@ export const modulesRouter = router({
         description: "Vistoria completa de veículos para compra - fotos, avaliação e valor",
         icon: "Camera",
         route: "/vistoria",
-        allowedRoles: "vendedor,admin,financeiro",
+        allowedRoles: "vendedor,gerente,admin",
         isActive: true,
         sortOrder: 10,
       },
@@ -399,7 +412,7 @@ export const modulesRouter = router({
         description: "Gestão de funcionários, folha de pagamento, ponto, férias e comissões",
         icon: "UserCog",
         route: "/rh",
-        allowedRoles: "admin,financeiro,administrativo",
+        allowedRoles: "admin,rh",
         isActive: true,
         sortOrder: 11,
       },
@@ -409,7 +422,7 @@ export const modulesRouter = router({
         description: "Gestão de leads e funil de vendas",
         icon: "Target",
         route: "/pipeline",
-        allowedRoles: "vendedor,admin",
+        allowedRoles: "vendedor,gerente,admin",
         isActive: true,
         sortOrder: 12,
       },
@@ -419,7 +432,7 @@ export const modulesRouter = router({
         description: "Gestão de veículos disponíveis para venda",
         icon: "Warehouse",
         route: "/estoque",
-        allowedRoles: "vendedor,admin",
+        allowedRoles: "vendedor,gerente,admin",
         isActive: true,
         sortOrder: 13,
       },
@@ -429,7 +442,7 @@ export const modulesRouter = router({
         description: "Checklist de entrega do veículo ao cliente",
         icon: "Truck",
         route: "/entrega",
-        allowedRoles: "admin,financeiro,administrativo",
+        allowedRoles: "admin,gerente,financeiro,administrativo",
         isActive: true,
         sortOrder: 14,
       },
@@ -439,7 +452,7 @@ export const modulesRouter = router({
         description: "Plataforma de videoaulas e treinamento",
         icon: "GraduationCap",
         route: "/ead",
-        allowedRoles: "admin,vendedor,financeiro,administrativo",
+        allowedRoles: "admin,vendedor,gerente,financeiro,administrativo,rh,aluno",
         isActive: true,
         sortOrder: 15,
       },

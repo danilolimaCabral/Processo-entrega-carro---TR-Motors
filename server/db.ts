@@ -319,7 +319,7 @@ export async function deleteUser(userId: number) {
  */
 export async function updateUserRole(
   userId: number,
-  role: "admin" | "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh"
+  role: "admin" | "gerente" | "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh"
 ) {
   const db = await getDb();
   if (!db) {

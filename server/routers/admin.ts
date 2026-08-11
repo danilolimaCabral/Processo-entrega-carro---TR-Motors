@@ -78,7 +78,7 @@ export const adminRouter = router({
         name: z.string().min(1, "Nome é obrigatório"),
         email: z.string().email("Email inválido"),
         password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
-        role: z.enum(["admin", "vendedor", "financeiro", "administrativo", "aluno", "rh"]),
+        role: z.enum(["admin", "gerente", "vendedor", "financeiro", "administrativo", "aluno", "rh"]),
       })
     )
     .mutation(async ({ input }) => {
@@ -169,7 +169,7 @@ export const adminRouter = router({
     .input(
       z.object({
         userId: z.number(),
-        role: z.enum(["vendedor", "financeiro", "administrativo", "aluno", "rh", "admin"]),
+        role: z.enum(["vendedor", "gerente", "financeiro", "administrativo", "aluno", "rh", "admin"]),
       })
     )
     .mutation(async ({ input }) => {

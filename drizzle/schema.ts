@@ -25,8 +25,8 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(),
   loginMethod: varchar("loginMethod", { length: 64 }), // "oauth" or "local"
-  /** Role: admin, vendedor, financeiro, administrativo, aluno */
-  role: mysqlEnum("role", ["admin", "vendedor", "financeiro", "administrativo", "aluno", "rh"])
+  /** Role: admin, gerente, vendedor, financeiro, administrativo, aluno ou rh */
+  role: mysqlEnum("role", ["admin", "gerente", "vendedor", "financeiro", "administrativo", "aluno", "rh"])
     .default("vendedor")
     .notNull(),
   /** Whether the user account is active */

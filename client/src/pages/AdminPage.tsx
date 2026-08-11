@@ -61,6 +61,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
+  gerente: "Gerente",
   vendedor: "Vendedor",
   financeiro: "Financeiro",
   administrativo: "Administrativo",
@@ -70,12 +71,15 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-red-100 text-red-800",
+  gerente: "bg-indigo-100 text-indigo-800",
   vendedor: "bg-blue-100 text-blue-800",
   financeiro: "bg-green-100 text-green-800",
   administrativo: "bg-purple-100 text-purple-800",
   aluno: "bg-yellow-100 text-yellow-800",
   rh: "bg-teal-100 text-teal-800",
 };
+
+type AssignableRole = "admin" | "gerente" | "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh";
 
 export default function AdminPage() {
   const { logout } = useAuth();
@@ -84,7 +88,12 @@ export default function AdminPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{
+    name: string;
+    email: string;
+    password: string;
+    role: AssignableRole;
+  }>({
     name: "",
     email: "",
     password: "",
@@ -285,7 +294,7 @@ export default function AdminPage() {
                 <Select
                   value={createForm.role}
                   onValueChange={(val) =>
-                    setCreateForm({ ...createForm, role: val })
+                    setCreateForm({ ...createForm, role: val as AssignableRole })
                   }
                 >
                   <SelectTrigger>
@@ -293,6 +302,7 @@ export default function AdminPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="vendedor">Vendedor</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
                     <SelectItem value="administrativo">Administrativo</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>

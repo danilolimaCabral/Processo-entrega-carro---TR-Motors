@@ -581,10 +581,15 @@ export const rhRouter = router({
   }),
 
   // ==================== Uniformes ====================
-  listUniforms: protectedProcedure.query(async () => {
-    const db = await getDb();
-    return db.select().from(rh_uniforms).orderBy(desc(rh_uniforms.createdAt));
-  }),
+  listUniforms: protectedProcedure
+    .input(z.object({ employeeId: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (input?.employeeId) {
+        return db.select().from(rh_uniforms).where(eq(rh_uniforms.employeeId, input.employeeId)).orderBy(desc(rh_uniforms.createdAt));
+      }
+      return db.select().from(rh_uniforms).orderBy(desc(rh_uniforms.createdAt));
+    }),
 
   createUniform: protectedProcedure
     .input(

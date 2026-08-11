@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import {
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
   GraduationCap, ScrollText, UserPlus, Menu, X, LogOut, ArrowLeft,
-  Receipt, BookOpen, UserCog,
+  Receipt, BookOpen, UserCog, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -342,6 +342,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const deleteMutation = trpc.rh.deleteEmployee.useMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
 
   const [form, setForm] = useState({
     name: "", cpf: "", email: "", phone: "",
@@ -518,7 +519,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
                 const dept = departments?.find(d => d.id === emp.departmentId);
                 const pos = positions?.find(p => p.id === emp.positionId);
                 return (
-                  <tr key={emp.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr key={emp.id} onClick={() => setSelectedEmployee(emp)} className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-red-50/50">
                     <td className="p-2">
                       <div>
                         <p className="font-medium">{emp.name}</p>
@@ -531,8 +532,9 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
                     <td className="p-2"><Badge className={statusColors[emp.status] || "bg-slate-100"}>{statusLabels[emp.status] || emp.status}</Badge></td>
                     <td className="p-2">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(emp)}><Edit size={14} /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(emp.id)} className="text-red-500"><Trash2 size={14} /></Button>
+                        <Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setSelectedEmployee(emp); }} className="hidden h-8 gap-1 sm:inline-flex"><span>Ficha</span><ChevronRight size={14} /></Button>
+                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleEdit(emp); }}><Edit size={14} /></Button>
+                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleDelete(emp.id); }} className="text-red-500"><Trash2 size={14} /></Button>
                       </div>
                     </td>
                   </tr>
@@ -542,8 +544,159 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
           </tbody>
         </table>
       </div>
+      <EmployeeProfileDialog
+        employee={selectedEmployee}
+        departments={departments}
+        positions={positions}
+        open={Boolean(selectedEmployee)}
+        onOpenChange={(open) => { if (!open) setSelectedEmployee(null); }}
+      />
     </div>
   );
+}
+
+// ==================== Ficha do Colaborador ====================
+function EmployeeProfileDialog({ employee, departments, positions, open, onOpenChange }: {
+  employee: any | null;
+  departments?: any[];
+  positions?: any[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { user } = useAuth();
+  const utils = trpc.useUtils();
+  const [profileTab, setProfileTab] = useState<"dados" | "uniformes" | "documentos">("dados");
+  const [showUniformForm, setShowUniformForm] = useState(false);
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [uniformForm, setUniformForm] = useState({ type: "", size: "", quantity: "1", dateIssued: "", status: "entregue" });
+  const [documentForm, setDocumentForm] = useState({ category: "", documentName: "", expiryDate: "", fileUrl: "" });
+  const employeeId = employee?.id;
+  const { data: uniforms } = trpc.rh.listUniforms.useQuery(
+    employeeId ? { employeeId } : undefined,
+    { enabled: Boolean(employeeId) },
+  );
+  const { data: documents } = trpc.rh.listEmployeeDocuments.useQuery(
+    employeeId ? { employeeId } : undefined,
+    { enabled: Boolean(employeeId) },
+  );
+  const createUniform = trpc.rh.createUniform.useMutation({
+    onSuccess: async () => {
+      await utils.rh.listUniforms.invalidate();
+      setUniformForm({ type: "", size: "", quantity: "1", dateIssued: "", status: "entregue" });
+      setShowUniformForm(false);
+      toast.success("Uniforme vinculado ao colaborador");
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível registrar o uniforme"),
+  });
+  const deleteUniform = trpc.rh.deleteUniform.useMutation({
+    onSuccess: async () => { await utils.rh.listUniforms.invalidate(); toast.success("Uniforme removido"); },
+    onError: (error) => toast.error(error.message),
+  });
+  const createDocument = trpc.rh.createEmployeeDocument.useMutation({
+    onSuccess: async () => {
+      await utils.rh.listEmployeeDocuments.invalidate();
+      setDocumentForm({ category: "", documentName: "", expiryDate: "", fileUrl: "" });
+      setShowDocumentForm(false);
+      toast.success("Documento vinculado à ficha do colaborador");
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível adicionar o documento"),
+  });
+  const deleteDocument = trpc.rh.deleteEmployeeDocument.useMutation({
+    onSuccess: async () => { await utils.rh.listEmployeeDocuments.invalidate(); toast.success("Documento removido"); },
+    onError: (error) => toast.error(error.message),
+  });
+
+  if (!employee) return null;
+
+  const department = departments?.find((item) => item.id === employee.departmentId);
+  const position = positions?.find((item) => item.id === employee.positionId);
+  const requiredDocuments = [
+    { name: "Carteira de Trabalho (CTPS)", category: "Admissão" },
+    { name: "RG / CNH", category: "Identificação" },
+    { name: "CPF", category: "Identificação" },
+    { name: "Comprovante de Residência", category: "Comprovante" },
+    { name: "Exame Admissional", category: "Exame Médico" },
+  ];
+  const statusLabel: Record<string, string> = { ativo: "Ativo", ativo_ferias: "Em férias", afastado: "Afastado", desligado: "Desligado" };
+  const statusClass: Record<string, string> = { ativo: "bg-emerald-100 text-emerald-700", ativo_ferias: "bg-amber-100 text-amber-700", afastado: "bg-slate-100 text-slate-700", desligado: "bg-red-100 text-red-700" };
+  const categories = ["Identificação", "Admissão", "Exame Médico", "Formação", "Comprovante", "Nota Fiscal / Recibo", "Outro"];
+  const hasDocument = (name: string) => documents?.some((document: any) => document.documentName.trim().toLowerCase() === name.toLowerCase());
+  const openRequiredDocument = (name: string, category: string) => {
+    setDocumentForm({ category, documentName: name, expiryDate: "", fileUrl: "" });
+    setShowDocumentForm(true);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-0">
+        <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-slate-950 to-slate-800 px-6 py-5 text-white">
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-300">Ficha do colaborador</p>
+              <DialogTitle className="mt-1 text-2xl text-white">{employee.name}</DialogTitle>
+              <p className="mt-1 text-sm text-slate-300">{position?.title || "Cargo não informado"} · {department?.name || "Departamento não informado"}</p>
+            </div>
+            <Badge className={statusClass[employee.status] || "bg-slate-100 text-slate-700"}>{statusLabel[employee.status] || employee.status}</Badge>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-5 px-6 pb-6 pt-5">
+          <div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-slate-50 p-1">
+            {[
+              { id: "dados", label: "Dados" },
+              { id: "uniformes", label: `Uniformes${uniforms?.length ? ` (${uniforms.length})` : ""}` },
+              { id: "documentos", label: `Documentos${documents?.length ? ` (${documents.length})` : ""}` },
+            ].map((tab) => (
+              <button key={tab.id} type="button" onClick={() => setProfileTab(tab.id as "dados" | "uniformes" | "documentos")} className={profileTab === tab.id ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-red-700 shadow-sm" : "rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"}>{tab.label}</button>
+            ))}
+          </div>
+
+          {profileTab === "dados" && (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <ProfileField label="CPF" value={employee.cpf} />
+                <ProfileField label="E-mail" value={employee.email} />
+                <ProfileField label="Telefone" value={employee.phone} />
+                <ProfileField label="Admissão" value={employee.hireDate} />
+                <ProfileField label="Departamento" value={department?.name} />
+                <ProfileField label="Cargo" value={position?.title} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ProfileField label="Endereço" value={employee.address} />
+                <ProfileField label="Contato de emergência" value={[employee.emergencyContact, employee.emergencyPhone].filter(Boolean).join(" · ")} />
+              </div>
+              {employee.notes && <Card className="border-slate-200"><CardContent className="p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Observações</p><p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{employee.notes}</p></CardContent></Card>}
+            </div>
+          )}
+
+          {profileTab === "uniformes" && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-semibold text-slate-900">Uniformes vinculados</h4><p className="text-sm text-slate-500">Registre entregas e pendências deste colaborador.</p></div><Button onClick={() => setShowUniformForm((visible) => !visible)} className="bg-red-600 hover:bg-red-700"><Plus className="mr-1 h-4 w-4" /> Novo uniforme</Button></div>
+              {showUniformForm && <Card className="border-red-100 bg-red-50/40"><CardContent className="grid gap-3 p-4 sm:grid-cols-2"><Input placeholder="Tipo (ex.: Camisa polo)" value={uniformForm.type} onChange={(event) => setUniformForm({ ...uniformForm, type: event.target.value })} /><Select value={uniformForm.size || undefined} onValueChange={(value) => setUniformForm({ ...uniformForm, size: value })}><SelectTrigger><SelectValue placeholder="Tamanho" /></SelectTrigger><SelectContent>{["PP", "P", "M", "G", "GG", "XG"].map((size) => <SelectItem key={size} value={size}>{size}</SelectItem>)}</SelectContent></Select><Input type="number" min="1" placeholder="Quantidade" value={uniformForm.quantity} onChange={(event) => setUniformForm({ ...uniformForm, quantity: event.target.value })} /><Input type="date" value={uniformForm.dateIssued} onChange={(event) => setUniformForm({ ...uniformForm, dateIssued: event.target.value })} /><Select value={uniformForm.status} onValueChange={(value) => setUniformForm({ ...uniformForm, status: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="entregue">Entregue</SelectItem><SelectItem value="solicitado">Solicitado</SelectItem><SelectItem value="pendente">Pendente</SelectItem></SelectContent></Select><Button disabled={!uniformForm.type.trim() || createUniform.isPending} onClick={() => createUniform.mutate({ employeeId: employee.id, type: uniformForm.type.trim(), size: uniformForm.size || undefined, quantity: Number(uniformForm.quantity) || 1, dateIssued: uniformForm.dateIssued || undefined, status: uniformForm.status })}>{createUniform.isPending ? "Salvando..." : "Vincular uniforme"}</Button></CardContent></Card>}
+              {uniforms?.length ? uniforms.map((uniform) => <Card key={uniform.id} className="border-slate-200"><CardContent className="flex items-center justify-between gap-3 p-4"><div><p className="font-medium text-slate-900">{uniform.type} {uniform.size && <Badge variant="secondary" className="ml-2">{uniform.size}</Badge>}</p><p className="mt-1 text-sm text-slate-500">Quantidade: {uniform.quantity} · {uniform.dateIssued ? `Entrega: ${uniform.dateIssued}` : "Data não informada"}</p></div><div className="flex items-center gap-2"><Badge variant={uniform.status === "entregue" ? "default" : "secondary"}>{uniform.status}</Badge><Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm("Remover este uniforme da ficha?")) deleteUniform.mutate({ id: uniform.id }); }}><Trash2 className="h-4 w-4" /></Button></div></CardContent></Card>) : <EmptyProfileState icon={<Shirt className="h-8 w-8" />} message="Nenhum uniforme registrado para este colaborador." />}
+            </div>
+          )}
+
+          {profileTab === "documentos" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-semibold text-slate-900">Documentação vinculada</h4><p className="text-sm text-slate-500">Acompanhe documentos obrigatórios e outros arquivos desta ficha.</p></div><Button onClick={() => { setDocumentForm({ category: "", documentName: "", expiryDate: "", fileUrl: "" }); setShowDocumentForm((visible) => !visible); }} className="bg-red-600 hover:bg-red-700"><Plus className="mr-1 h-4 w-4" /> Adicionar documento</Button></div>
+              {showDocumentForm && <Card className="border-red-100 bg-red-50/40"><CardContent className="grid gap-3 p-4 sm:grid-cols-2"><Select value={documentForm.category} onValueChange={(value) => setDocumentForm({ ...documentForm, category: value })}><SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select><Input placeholder="Nome do documento" value={documentForm.documentName} onChange={(event) => setDocumentForm({ ...documentForm, documentName: event.target.value })} /><Input type="date" value={documentForm.expiryDate} onChange={(event) => setDocumentForm({ ...documentForm, expiryDate: event.target.value })} /><Input placeholder="Link do arquivo (opcional)" value={documentForm.fileUrl} onChange={(event) => setDocumentForm({ ...documentForm, fileUrl: event.target.value })} /><Button className="sm:col-span-2" disabled={!documentForm.category || !documentForm.documentName.trim() || createDocument.isPending} onClick={() => createDocument.mutate({ employeeId: employee.id, category: documentForm.category, documentName: documentForm.documentName.trim(), expiryDate: documentForm.expiryDate || undefined, fileUrl: documentForm.fileUrl || undefined, uploadedBy: user?.id })}>{createDocument.isPending ? "Salvando..." : "Vincular documento"}</Button></CardContent></Card>}
+              <Card className="border-slate-200"><CardHeader className="pb-3"><CardTitle className="text-base">Documentos obrigatórios</CardTitle></CardHeader><CardContent className="space-y-2">{requiredDocuments.map((required) => { const sent = hasDocument(required.name); return <div key={required.name} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 p-3"><div className="flex items-center gap-3"><FileText className={sent ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-amber-500"} /><div><p className="text-sm font-medium text-slate-800">{required.name}</p><p className="text-xs text-slate-500">{sent ? "Documento vinculado" : "Aguardando envio"}</p></div></div>{sent ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Enviado</Badge> : <Button variant="outline" size="sm" onClick={() => openRequiredDocument(required.name, required.category)}>Enviar</Button>}</div>; })}</CardContent></Card>
+              <div className="space-y-2"><h5 className="text-sm font-semibold text-slate-700">Arquivos adicionados</h5>{documents?.length ? documents.map((document) => <Card key={document.id} className="border-slate-200"><CardContent className="flex items-center justify-between gap-3 p-3"><div className="flex items-center gap-3"><FileText className="h-7 w-7 text-slate-400" /><div><p className="font-medium text-slate-800">{document.documentName}</p><p className="text-xs text-slate-500">{document.category}{document.expiryDate ? ` · Validade: ${document.expiryDate}` : ""}</p></div></div><div className="flex items-center gap-1">{document.fileUrl && <a href={document.fileUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm">Ver</Button></a>}<Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm("Remover este documento da ficha?")) deleteDocument.mutate({ id: document.id }); }}><Trash2 className="h-4 w-4" /></Button></div></CardContent></Card>) : <EmptyProfileState icon={<FolderArchive className="h-8 w-8" />} message="Nenhum documento vinculado a esta ficha." />}</div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProfileField({ label, value }: { label: string; value?: string | null }) {
+  return <Card className="border-slate-200"><CardContent className="p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-800">{value || "Não informado"}</p></CardContent></Card>;
+}
+
+function EmptyProfileState({ icon, message }: { icon: ReactNode; message: string }) {
+  return <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-slate-400">{icon}<p className="mt-2 text-sm">{message}</p></div>;
 }
 
 // ==================== Departments Tab ====================

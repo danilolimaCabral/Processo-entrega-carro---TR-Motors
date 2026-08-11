@@ -68,5 +68,5 @@
 
 ## Acessos por perfil
 - [ ] Configurar Danilo como vendedor com acesso apenas aos módulos de vendas
-- [ ] Aplicar módulos permitidos de forma consistente para gerente e demais perfis
-- [ ] Filtrar no sistema os módulos exibidos e retornados conforme o perfil do usuário
+- [x] Aplicar módulos permitidos de forma consistente para gerente e demais perfis
+- [x] Filtrar no sistema os módulos exibidos e retornados conforme o perfil do usuário

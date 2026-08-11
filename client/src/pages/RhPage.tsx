@@ -336,6 +336,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const { data: employees, isLoading, refetch } = trpc.rh.listEmployees.useQuery({ search: search || undefined });
   const { data: departments } = trpc.rh.listDepartments.useQuery();
   const { data: positions } = trpc.rh.listPositions.useQuery();
+  const utils = trpc.useUtils();
   const createMutation = trpc.rh.createEmployee.useMutation();
   const updateMutation = trpc.rh.updateEmployee.useMutation();
   const deleteMutation = trpc.rh.deleteEmployee.useMutation();
@@ -351,17 +352,42 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   });
 
   const handleSubmit = () => {
-    if (!form.name) { toast.error("Nome é obrigatório"); return; }
-    const data = { ...form, positionId: form.positionId, departmentId: form.departmentId };
+    if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    const optional = (value: string) => value.trim() || undefined;
+    const data = {
+      ...form,
+      name: form.name.trim(),
+      cpf: optional(form.cpf),
+      email: optional(form.email),
+      phone: optional(form.phone),
+      hireDate: optional(form.hireDate),
+      salary: optional(form.salary),
+      helpCost: optional(form.helpCost),
+      commissionPercent: optional(form.commissionPercent),
+      address: optional(form.address),
+      emergencyContact: optional(form.emergencyContact),
+      emergencyPhone: optional(form.emergencyPhone),
+      notes: optional(form.notes),
+      positionId: form.positionId,
+      departmentId: form.departmentId,
+    };
     if (editId) {
       updateMutation.mutate({ id: editId, ...data }, {
-        onSuccess: () => { toast.success("Funcionário atualizado!"); setDialogOpen(false); refetch(); },
-        onError: () => toast.error("Erro ao atualizar"),
+        onSuccess: async () => {
+          toast.success("Funcionário atualizado!");
+          setDialogOpen(false);
+          await utils.rh.listEmployees.invalidate();
+        },
+        onError: (error) => toast.error(error.message || "Não foi possível atualizar o funcionário"),
       });
     } else {
       createMutation.mutate(data, {
-        onSuccess: () => { toast.success("Funcionário cadastrado!"); setDialogOpen(false); refetch(); },
-        onError: () => toast.error("Erro ao cadastrar"),
+        onSuccess: async () => {
+          toast.success("Funcionário cadastrado!");
+          setDialogOpen(false);
+          await utils.rh.listEmployees.invalidate();
+        },
+        onError: (error) => toast.error(error.message || "Não foi possível cadastrar o funcionário"),
       });
     }
   };

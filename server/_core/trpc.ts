@@ -43,3 +43,24 @@ export const adminProcedure = t.procedure.use(
     });
   }),
 );
+
+/** Procedimentos que alteram dados e acessos de colaboradores. */
+export const hrProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || ctx.user.role !== "rh") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Somente o RH pode alterar funcionários e acessos.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  }),
+);

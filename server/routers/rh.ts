@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { eq, like, desc, and, between, or, count, inArray } from "drizzle-orm";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { getDb } from "../db";
+import { hrProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { createUserDirect, getDb, getUserByEmail } from "../db";
+import bcryptjs from "bcryptjs";
+import { TRPCError } from "@trpc/server";
+import { randomBytes } from "crypto";
 import {
   rh_departments,
   rh_positions,
@@ -146,12 +149,12 @@ export const rhRouter = router({
       return result[0] || null;
     }),
 
-  createEmployee: protectedProcedure
+  createEmployee: hrProcedure
     .input(
       z.object({
         name: z.string().min(1),
         cpf: z.string().optional(),
-        email: z.string().optional(),
+        email: z.string().email("Informe um e-mail válido para criar o acesso"),
         phone: z.string().optional(),
         positionId: z.number().optional(),
         departmentId: z.number().optional(),
@@ -164,18 +167,45 @@ export const rhRouter = router({
         emergencyContact: z.string().optional(),
         emergencyPhone: z.string().optional(),
         notes: z.string().optional(),
+        accessRole: z.enum(["vendedor", "financeiro", "administrativo", "aluno", "rh"]).default("vendedor"),
       })
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco de dados indisponível." });
+
+      const { accessRole, ...employeeInput } = input;
+      const email = employeeInput.email.trim().toLowerCase();
+      const existingUser = await getUserByEmail(email);
+      if (existingUser) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Este e-mail já possui um usuário cadastrado." });
+      }
+
       const result = await db.insert(rh_employees).values({
-        ...input,
-        status: (input.status as any) || "ativo",
+        ...employeeInput,
+        email,
+        status: (employeeInput.status as any) || "ativo",
       } as InsertEmployee);
-      return { success: true, id: result[0].insertId };
+      const employeeId = result[0].insertId;
+
+      try {
+        const temporaryPassword = `TR@${randomBytes(6).toString("base64url")}`;
+        const passwordHash = await bcryptjs.hash(temporaryPassword, 10);
+        const userId = await createUserDirect(email, employeeInput.name.trim(), passwordHash, accessRole);
+        await db.update(rh_employees).set({ userId }).where(eq(rh_employees.id, employeeId));
+
+        return { success: true, id: employeeId, userId, temporaryPassword, accessRole };
+      } catch (error) {
+        await db.delete(rh_employees).where(eq(rh_employees.id, employeeId));
+        console.error("[RH] Falha ao criar acesso automático do funcionário:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Não foi possível criar o acesso do funcionário. Nenhum cadastro foi salvo.",
+        });
+      }
     }),
 
-  updateEmployee: protectedProcedure
+  updateEmployee: hrProcedure
     .input(
       z.object({
         id: z.number(),
@@ -203,7 +233,7 @@ export const rhRouter = router({
       return { success: true };
     }),
 
-  deleteEmployee: protectedProcedure
+  deleteEmployee: hrProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();

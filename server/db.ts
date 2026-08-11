@@ -78,21 +78,22 @@ export async function createUserDirect(
   role: string,
   loginMethod: string = "local",
   isActive: boolean = true
-): Promise<void> {
+): Promise<number> {
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot create user: database not available");
-    return;
+    throw new Error("Banco de dados indisponível para criar o acesso do funcionário.");
   }
 
   // Use mysql2 pool directly via db.$client to bypass Drizzle's insert() issue
   try {
     const pool = db.$client as any;
-    await pool.execute(
+    const [result] = await pool.execute(
       `INSERT INTO users (passwordHash, name, email, loginMethod, role, isActive, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [passwordHash, name, email, loginMethod, role, isActive]
     );
+    return Number((result as any).insertId);
   } catch (error) {
     console.error("[Database] Failed to create user:", error);
     throw error;

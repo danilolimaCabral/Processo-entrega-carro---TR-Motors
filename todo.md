@@ -47,3 +47,21 @@
 - [ ] Campos adicionais no registro de venda (modelo, ano, valor, cliente)
 - [ ] Exportação de relatórios
 - [ ] Paginação nas listagens
+
+## Correção de publicação do RH
+- [x] Publicar no Railway a Pasta Digital por colaborador e o menu de RH simplificado
+
+## Correções do RH
+- [x] Corrigir o erro ao cadastrar funcionário
+
+## Configurações administrativas
+- [ ] Adicionar acesso a Departamentos em Configurações
+- [ ] Adicionar acesso a Cargos em Configurações
+
+## Ficha do colaborador
+- [x] Abrir ficha detalhada ao clicar em um funcionário
+- [x] Exibir dados pessoais, uniformes e documentação vinculada na ficha
+
+## Automação de usuários e permissões
+- [ ] Criar automaticamente um usuário vinculado ao cadastrar funcionário
+- [ ] Restringir alteração de funcionários e acessos ao perfil de RH

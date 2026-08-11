@@ -333,6 +333,7 @@ function DashboardTab() {
 
 // ==================== Employees Tab ====================
 function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: string) => void }) {
+  const { user } = useAuth();
   const { data: employees, isLoading, refetch } = trpc.rh.listEmployees.useQuery({ search: search || undefined });
   const { data: departments } = trpc.rh.listDepartments.useQuery();
   const { data: positions } = trpc.rh.listPositions.useQuery();
@@ -343,34 +344,38 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{ name: string; email: string; password: string; role: string } | null>(null);
+  const canManageEmployees = user?.role === "rh";
 
   const [form, setForm] = useState({
     name: "", cpf: "", email: "", phone: "",
     positionId: undefined as number | undefined,
     departmentId: undefined as number | undefined,
     hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo",
-    address: "", emergencyContact: "", emergencyPhone: "", notes: "",
+    address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" as "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh",
   });
 
   const handleSubmit = () => {
     if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
+    if (!editId && !form.email.trim()) { toast.error("E-mail é obrigatório para criar o acesso do funcionário"); return; }
     const optional = (value: string) => value.trim() || undefined;
+    const { accessRole, ...employeeForm } = form;
     const data = {
-      ...form,
-      name: form.name.trim(),
-      cpf: optional(form.cpf),
-      email: optional(form.email),
-      phone: optional(form.phone),
-      hireDate: optional(form.hireDate),
-      salary: optional(form.salary),
-      helpCost: optional(form.helpCost),
-      commissionPercent: optional(form.commissionPercent),
-      address: optional(form.address),
-      emergencyContact: optional(form.emergencyContact),
-      emergencyPhone: optional(form.emergencyPhone),
-      notes: optional(form.notes),
-      positionId: form.positionId,
-      departmentId: form.departmentId,
+      ...employeeForm,
+      name: employeeForm.name.trim(),
+      cpf: optional(employeeForm.cpf),
+      email: optional(employeeForm.email),
+      phone: optional(employeeForm.phone),
+      hireDate: optional(employeeForm.hireDate),
+      salary: optional(employeeForm.salary),
+      helpCost: optional(employeeForm.helpCost),
+      commissionPercent: optional(employeeForm.commissionPercent),
+      address: optional(employeeForm.address),
+      emergencyContact: optional(employeeForm.emergencyContact),
+      emergencyPhone: optional(employeeForm.emergencyPhone),
+      notes: optional(employeeForm.notes),
+      positionId: employeeForm.positionId,
+      departmentId: employeeForm.departmentId,
     };
     if (editId) {
       updateMutation.mutate({ id: editId, ...data }, {
@@ -382,11 +387,12 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
         onError: (error) => toast.error(error.message || "Não foi possível atualizar o funcionário"),
       });
     } else {
-      createMutation.mutate(data, {
-        onSuccess: async () => {
-          toast.success("Funcionário cadastrado!");
+      createMutation.mutate({ ...data, email: form.email.trim(), accessRole }, {
+        onSuccess: async (result) => {
+          toast.success("Funcionário e acesso cadastrados!");
           setDialogOpen(false);
           await utils.rh.listEmployees.invalidate();
+          setCreatedCredentials({ name: form.name.trim(), email: form.email.trim(), password: result.temporaryPassword, role: result.accessRole });
         },
         onError: (error) => toast.error(error.message || "Não foi possível cadastrar o funcionário"),
       });
@@ -400,7 +406,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
       positionId: emp.positionId || undefined, departmentId: emp.departmentId || undefined,
       hireDate: emp.hireDate || "", salary: emp.salary || "", helpCost: emp.helpCost || "", commissionPercent: emp.commissionPercent || "", status: emp.status,
       address: emp.address || "", emergencyContact: emp.emergencyContact || "",
-      emergencyPhone: emp.emergencyPhone || "", notes: emp.notes || "",
+      emergencyPhone: emp.emergencyPhone || "", notes: emp.notes || "", accessRole: "vendedor",
     });
     setDialogOpen(true);
   };
@@ -429,10 +435,10 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <Input placeholder="Buscar por nome, CPF ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", positionId: undefined, departmentId: undefined, hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "" }); } setDialogOpen(o); }}>
-          <DialogTrigger asChild>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", positionId: undefined, departmentId: undefined, hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" }); } setDialogOpen(o); }}>
+          {canManageEmployees && <DialogTrigger asChild>
             <Button size="sm"><Plus size={16} /> Novo Funcionário</Button>
-          </DialogTrigger>
+          </DialogTrigger>}
           <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editId ? "Editar" : "Novo"} Funcionário</DialogTitle></DialogHeader>
             <div className="space-y-3">
@@ -441,7 +447,21 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
                 <div className="space-y-1.5"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               </div>
-              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              <div className="space-y-1.5"><Label>{editId ? "Email" : "Email para acesso *"}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+              {!editId && <div className="space-y-1.5">
+                <Label>Perfil de acesso</Label>
+                <Select value={form.accessRole} onValueChange={(value) => setForm({ ...form, accessRole: value as typeof form.accessRole })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vendedor">Vendedor</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="administrativo">Administrativo</SelectItem>
+                    <SelectItem value="aluno">Aluno</SelectItem>
+                    <SelectItem value="rh">RH</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">Uma senha temporária segura será criada e exibida apenas ao RH após o cadastro.</p>
+              </div>}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Departamento</Label>
@@ -533,8 +553,8 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
                     <td className="p-2">
                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setSelectedEmployee(emp); }} className="hidden h-8 gap-1 sm:inline-flex"><span>Ficha</span><ChevronRight size={14} /></Button>
-                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleEdit(emp); }}><Edit size={14} /></Button>
-                        <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleDelete(emp.id); }} className="text-red-500"><Trash2 size={14} /></Button>
+                        {canManageEmployees && <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleEdit(emp); }}><Edit size={14} /></Button>}
+                        {canManageEmployees && <Button variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); handleDelete(emp.id); }} className="text-red-500"><Trash2 size={14} /></Button>}
                       </div>
                     </td>
                   </tr>
@@ -551,6 +571,18 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
         open={Boolean(selectedEmployee)}
         onOpenChange={(open) => { if (!open) setSelectedEmployee(null); }}
       />
+      <Dialog open={Boolean(createdCredentials)} onOpenChange={(open) => { if (!open) setCreatedCredentials(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Acesso criado para {createdCredentials?.name}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">Guarde e entregue esta senha ao colaborador. Por segurança, ela só é exibida nesta confirmação.</p>
+            <div><Label>Email</Label><Input readOnly value={createdCredentials?.email || ""} /></div>
+            <div><Label>Senha temporária</Label><Input readOnly value={createdCredentials?.password || ""} /></div>
+            <div><Label>Perfil</Label><Input readOnly value={createdCredentials?.role || ""} /></div>
+            <Button className="w-full" onClick={() => setCreatedCredentials(null)}>Concluído</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

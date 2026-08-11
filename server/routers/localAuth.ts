@@ -1,7 +1,7 @@
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, router } from "../_core/trpc";
+import { hrProcedure, publicProcedure, router } from "../_core/trpc";
 import { getUserByEmail, upsertUser } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "../_core/cookies";
@@ -108,7 +108,7 @@ export const localAuthRouter = router({
    * Register a new local user (admin only)
    * This is called by the admin panel to create users
    */
-  register: publicProcedure
+  register: hrProcedure
     .input(
       z.object({
         name: z.string().min(1, "Nome é obrigatório"),

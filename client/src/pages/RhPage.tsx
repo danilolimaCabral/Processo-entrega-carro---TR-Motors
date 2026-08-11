@@ -23,14 +23,13 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 
-type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "folha" | "comissoes" | "ferias" | "ponto" | "feriados" | "uniformes" | "nf_custos" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "salario" | "ajuda_custo" | "despesas" | "ead" | "usuarios";
+type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "uniformes" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "ead" | "usuarios";
 
 const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[] }[] = [
   {
     label: "",
     items: [
       { id: "dashboard", label: "Dashboard", icon: Activity },
-      { id: "despesas", label: "Despesas", icon: Receipt },
       { id: "ead", label: "EAD Videoaulas", icon: BookOpen },
     ],
   },
@@ -44,22 +43,9 @@ const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[]
     ],
   },
   {
-    label: "FINANCEIRO",
-    items: [
-      { id: "folha", label: "Folha", icon: DollarSign },
-      { id: "comissoes", label: "Comissões", icon: DollarSign },
-      { id: "salario", label: "Salário", icon: DollarSign },
-      { id: "ajuda_custo", label: "Ajuda de Custo", icon: DollarSign },
-    ],
-  },
-  {
     label: "OPERACIONAL",
     items: [
-      { id: "ferias", label: "Férias", icon: Calendar },
-      { id: "ponto", label: "Ponto", icon: Clock },
-      { id: "feriados", label: "Feriados", icon: CalendarDays },
       { id: "uniformes", label: "Uniformes", icon: Shirt },
-      { id: "nf_custos", label: "NF Custos", icon: FileText },
     ],
   },
   {
@@ -227,21 +213,12 @@ export default function RhPage() {
           {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
           {activeTab === "departamentos" && <DepartmentsTab />}
           {activeTab === "cargos" && <PositionsTab />}
-          {activeTab === "folha" && <PayrollTab />}
-          {activeTab === "comissoes" && <CommissionsTab />}
-          {activeTab === "ferias" && <LeavesTab />}
-          {activeTab === "ponto" && <AttendanceTab />}
           {activeTab === "uniformes" && <UniformsTab />}
-          {activeTab === "nf_custos" && <CostInvoicesTab />}
-          {activeTab === "feriados" && <HolidaysTab />}
           {activeTab === "desligamento" && <ExitChecklistTab />}
           {activeTab === "documentos" && <EmployeeDocumentsTab />}
           {activeTab === "vagas" && <VacanciesTab />}
           {activeTab === "candidatos" && <CandidatesTab />}
           {activeTab === "auditoria" && <AuditLogsTab />}
-          {activeTab === "salario" && <SalaryTab />}
-          {activeTab === "ajuda_custo" && <CostHelpTab />}
-          {activeTab === "despesas" && <DespesasLinkTab />}
           {activeTab === "ead" && <EadLinkTab />}
           {activeTab === "usuarios" && <CreateUsersTab />}
         </div>
@@ -1457,17 +1434,43 @@ function ExitChecklistTab() {
 function EmployeeDocumentsTab() {
   const { user } = useAuth();
   const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState({ employeeName: "", category: "", docName: "", expiryDate: "", fileUrl: "" });
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [form, setForm] = useState({ category: "", docName: "", expiryDate: "", fileUrl: "" });
   const utils = trpc.useUtils();
 
-  const { data: docs } = trpc.rh.listEmployeeDocuments.useQuery();
+  const { data: employees } = trpc.rh.listEmployees.useQuery({});
+  const { data: docs } = trpc.rh.listEmployeeDocuments.useQuery(
+    selectedEmployeeId ? { employeeId: Number(selectedEmployeeId) } : undefined,
+    { enabled: Boolean(selectedEmployeeId) },
+  );
   const createDoc = trpc.rh.createEmployeeDocument.useMutation({
-    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Documento cadastrado"); setForm({ employeeName: "", category: "", docName: "", expiryDate: "", fileUrl: "" }); },
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Documento adicionado à Pasta Digital"); setForm({ category: "", docName: "", expiryDate: "", fileUrl: "" }); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const deleteDoc = trpc.rh.deleteEmployeeDocument.useMutation({ onSuccess: () => utils.invalidate() });
 
-  const categories = ["RG", "CPF", "Carteira de Trabalho", "Comprovante de Residência", "Diploma", "Certificado", "Exame Médico", "Outro"];
+  const categories = ["Identificação", "Admissão", "Exame Médico", "Formação", "Comprovante", "Nota Fiscal / Recibo", "Outro"];
+  const requiredDocuments = [
+    { name: "Carteira de Trabalho (CTPS)", category: "Admissão" },
+    { name: "RG / CNH", category: "Identificação" },
+    { name: "CPF", category: "Identificação" },
+    { name: "Certidão de Nascimento / Casamento", category: "Admissão" },
+    { name: "Comprovante de Residência", category: "Comprovante" },
+    { name: "Exame Admissional", category: "Exame Médico" },
+    { name: "Exame Periódico", category: "Exame Médico" },
+    { name: "Foto 3×4", category: "Identificação" },
+  ];
+  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const selectedEmployee = employees?.find((employee) => String(employee.id) === selectedEmployeeId);
+  const employeeDocuments = docs || [];
+  const openUpload = (documentName: string, category: string) => {
+    if (!selectedEmployeeId) {
+      toast.error("Selecione um colaborador antes de enviar documentos");
+      return;
+    }
+    setForm({ category, docName: documentName, expiryDate: "", fileUrl: "" });
+    setShowDialog(true);
+  };
 
   const today = new Date();
   const isExpiringSoon = (date: string) => {
@@ -1482,30 +1485,79 @@ function EmployeeDocumentsTab() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Documentos do Colaborador</h3>
+    <div className="space-y-6 max-w-6xl">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">Gestão de pessoas</p>
+          <h3 className="mt-1 text-xl font-bold text-slate-900">Pasta Digital do Colaborador</h3>
+          <p className="mt-1 text-sm text-slate-500">Centralize documentos de admissão e comprovantes mensais em um só lugar.</p>
+        </div>
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
-          <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Documento</Button></DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Cadastrar Documento</DialogTitle></DialogHeader>
+          <DialogTrigger asChild><Button disabled={!selectedEmployeeId} className="min-h-[42px] bg-red-600 hover:bg-red-700"><Plus className="h-4 w-4 mr-2" /> Adicionar documento</Button></DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Adicionar à Pasta Digital</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                {selectedEmployee ? <>Colaborador: <strong className="text-slate-900">{selectedEmployee.name}</strong></> : "Selecione um colaborador na tela antes de continuar."}
+              </div>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                 <SelectTrigger className="min-h-[40px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
                 <SelectContent>{categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
               <Input placeholder="Nome do documento" value={form.docName} onChange={e => setForm({ ...form, docName: e.target.value })} className="min-h-[40px]" />
               <Input type="date" placeholder="Validade" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className="min-h-[40px]" />
-              <Input placeholder="URL do arquivo" value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })} className="min-h-[40px]" />
-              <Button onClick={() => createDoc.mutate({ employeeId: user?.id || 1, category: form.category, documentName: form.docName, fileUrl: form.fileUrl || undefined, expiryDate: form.expiryDate || undefined, uploadedBy: user?.id })} className="w-full min-h-[40px]">Salvar</Button>
+              <Input placeholder="Link do arquivo (opcional)" value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })} className="min-h-[40px]" />
+              <Button disabled={!selectedEmployeeId || !form.category || !form.docName || createDoc.isPending} onClick={() => createDoc.mutate({ employeeId: Number(selectedEmployeeId), category: form.category, documentName: form.docName, fileUrl: form.fileUrl || undefined, expiryDate: form.expiryDate || undefined, uploadedBy: user?.id })} className="w-full min-h-[40px] bg-red-600 hover:bg-red-700">{createDoc.isPending ? "Salvando..." : "Salvar documento"}</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid gap-2">
-        {docs?.map((doc: any) => (
+      <Card className="border-slate-200 shadow-sm">
+        <CardContent className="p-5">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div>
+              <Label className="text-sm font-semibold text-slate-700">Colaborador</Label>
+              <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                <SelectTrigger className="mt-2 h-11"><SelectValue placeholder="Selecione o colaborador para abrir a Pasta Digital" /></SelectTrigger>
+                <SelectContent>{employees?.map((employee) => <SelectItem key={employee.id} value={String(employee.id)}>{employee.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {selectedEmployee && <div className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-800"><strong>{selectedEmployee.name}</strong><br /><span className="text-red-600">Pasta digital ativa</span></div>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {!selectedEmployeeId ? (
+        <Card className="border-dashed border-slate-300 bg-slate-50"><CardContent className="py-14 text-center"><FolderArchive className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 font-semibold text-slate-700">Selecione um colaborador</p><p className="mt-1 text-sm text-slate-500">Os documentos obrigatórios e comprovantes aparecerão aqui.</p></CardContent></Card>
+      ) : <>
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3"><CardTitle className="text-lg">Documentos obrigatórios</CardTitle><p className="text-sm font-normal text-slate-500">Acompanhe os itens necessários para admissão e manutenção do cadastro.</p></CardHeader>
+        <CardContent className="space-y-2">
+          {requiredDocuments.map((required) => {
+            const uploaded = employeeDocuments.find((doc: any) => doc.documentName.trim().toLowerCase() === required.name.toLowerCase());
+            return <div key={required.name} className="flex flex-col gap-3 rounded-xl border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3"><div className={uploaded ? "rounded-lg bg-emerald-50 p-2 text-emerald-600" : "rounded-lg bg-amber-50 p-2 text-amber-600"}><FileText className="h-4 w-4" /></div><div><p className="font-medium text-slate-800">{required.name}</p><p className="text-xs text-slate-500">{uploaded ? "Documento cadastrado na Pasta Digital" : "Aguardando envio"}</p></div></div>
+              {uploaded ? <Badge className="w-fit bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Enviado</Badge> : <Button variant="outline" size="sm" onClick={() => openUpload(required.name, required.category)}><Plus className="mr-1 h-3.5 w-3.5" /> Enviar</Button>}
+            </div>;
+          })}
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="pb-3"><CardTitle className="text-lg">Notas Fiscais / Recibos — {new Date().getFullYear()}</CardTitle><p className="text-sm font-normal text-slate-500">Envie comprovantes mensais relacionados ao colaborador.</p></CardHeader>
+        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {months.map((month) => {
+            const documentName = `NF/Recibo - ${month} ${new Date().getFullYear()}`;
+            const sent = employeeDocuments.some((doc: any) => doc.documentName === documentName);
+            return <button type="button" onClick={() => !sent && openUpload(documentName, "Nota Fiscal / Recibo")} key={month} className={sent ? "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-4 text-center" : "rounded-xl border border-slate-200 bg-slate-50 px-3 py-4 text-center transition-colors hover:border-red-300 hover:bg-red-50"}><p className="font-semibold text-slate-800">{month}</p><p className={sent ? "mt-2 text-xs font-medium text-emerald-700" : "mt-2 text-xs font-medium text-red-600"}>{sent ? "Enviado" : "Enviar"}</p></button>;
+          })}
+        </CardContent>
+      </Card>
+
+      <div className="space-y-2">
+        <h4 className="px-1 text-sm font-semibold text-slate-700">Documentos enviados</h4>
+        {employeeDocuments.map((doc: any) => (
           <Card key={doc.id}>
             <CardContent className="p-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1527,8 +1579,9 @@ function EmployeeDocumentsTab() {
             </CardContent>
           </Card>
         ))}
-        {!docs?.length && <p className="text-center text-muted-foreground py-4">Nenhum documento cadastrado</p>}
+        {!employeeDocuments.length && <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-muted-foreground">Nenhum documento enviado para este colaborador.</p>}
       </div>
+      </>}
     </div>
   );
 }

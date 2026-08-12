@@ -113,3 +113,12 @@
 - [x] Corrigir o erro ao cadastrar uniforme no módulo de RH
 - [x] Remover o status pendente da área de uniformes
 - [x] Compactar e profissionalizar os cartões de checklist de desligamento, com áreas clicáveis, progresso e status pendente visível
+- [ ] Exibir checklists de desligamento somente após a criação e corrigir a alteração de status por área
+- [ ] Remover os botões Vagas e Candidatos do menu do módulo RH
+- [ ] Retirar férias e férias pendentes do dashboard de RH
+- [ ] Remover completamente o card de solicitações de férias do dashboard de RH
+- [ ] Padronizar a linguagem do módulo para colaborador em vez de funcionário
+- [ ] Exibir no card de cada colaborador dias de falta, documentos pendentes e NF PJ pendentes
+- [ ] Manter como obrigatórios somente RG/CNH, CPF e comprovante de residência na Pasta Digital
+- [ ] Adicionar opção Outro para incluir documento manualmente na Pasta Digital
+- [x] Implementar autenticação em dois fatores por aplicativo autenticador no acesso ao Trmotors Hub

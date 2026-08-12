@@ -1,6 +1,7 @@
 import { eq, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql2 from "mysql2/promise";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import {
   InsertUser,
   users,
@@ -22,6 +23,45 @@ import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: mysql2.Pool | null = null;
+
+const TWO_FACTOR_SECRET_PREFIX = "enc:v1:";
+
+function getTwoFactorEncryptionKey(): Buffer {
+  const keyMaterial = ENV.cookieSecret || ENV.databaseUrl || ENV.appId;
+  if (!keyMaterial) {
+    throw new Error("JWT_SECRET deve ser configurado para proteger a autenticação em dois fatores.");
+  }
+  return createHash("sha256").update(keyMaterial).digest();
+}
+
+function encryptTwoFactorSecret(secret: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", getTwoFactorEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(secret, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${TWO_FACTOR_SECRET_PREFIX}${iv.toString("base64url")}.${authTag.toString("base64url")}.${encrypted.toString("base64url")}`;
+}
+
+function decryptTwoFactorSecret(value: string): string {
+  // Compatibilidade controlada para configurações criadas antes da criptografia.
+  if (!value.startsWith(TWO_FACTOR_SECRET_PREFIX)) return value;
+
+  const [encodedIv, encodedTag, encodedSecret] = value.slice(TWO_FACTOR_SECRET_PREFIX.length).split(".");
+  if (!encodedIv || !encodedTag || !encodedSecret) {
+    throw new Error("Configuração de autenticação em dois fatores inválida.");
+  }
+
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    getTwoFactorEncryptionKey(),
+    Buffer.from(encodedIv, "base64url")
+  );
+  decipher.setAuthTag(Buffer.from(encodedTag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encodedSecret, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}
 
 // Lazily create the mysql2 pool with SSL and connection pool for Railway.
 // Railway MySQL (TiDB Cloud) requires SSL — without it, queries hang ~12s then fail with 500.
@@ -239,6 +279,59 @@ export async function getUserByEmail(email: string) {
     }));
     throw error;
   }
+}
+
+/** Dados persistidos do aplicativo autenticador de cada usuário. */
+export type TwoFactorConfig = {
+  userId: number;
+  secret: string;
+  enabled: boolean;
+};
+
+/**
+ * Mantém a criação da tabela segura em deploys já existentes, sem DROP/TRUNCATE.
+ */
+export async function ensureTwoFactorTable(): Promise<void> {
+  const pool = await getPool();
+  if (!pool) throw new Error("Banco de dados indisponível para autenticação em dois fatores.");
+
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS user_two_factor (
+      user_id INT NOT NULL PRIMARY KEY,
+      secret VARCHAR(128) NOT NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+}
+
+export async function getTwoFactorConfig(userId: number): Promise<TwoFactorConfig | null> {
+  await ensureTwoFactorTable();
+  const pool = await getPool();
+  if (!pool) return null;
+
+  const [rows] = await pool.execute(
+    "SELECT user_id AS userId, secret, enabled FROM user_two_factor WHERE user_id = ? LIMIT 1",
+    [userId]
+  );
+  const item = (rows as any[])[0];
+  return item
+    ? { userId: Number(item.userId), secret: decryptTwoFactorSecret(String(item.secret)), enabled: Boolean(item.enabled) }
+    : null;
+}
+
+export async function saveTwoFactorConfig(userId: number, secret: string, enabled: boolean): Promise<void> {
+  await ensureTwoFactorTable();
+  const pool = await getPool();
+  if (!pool) throw new Error("Banco de dados indisponível para autenticação em dois fatores.");
+
+  await pool.execute(
+    `INSERT INTO user_two_factor (user_id, secret, enabled)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE secret = VALUES(secret), enabled = VALUES(enabled), updated_at = CURRENT_TIMESTAMP`,
+    [userId, encryptTwoFactorSecret(secret), enabled ? 1 : 0]
+  );
 }
 
 /**

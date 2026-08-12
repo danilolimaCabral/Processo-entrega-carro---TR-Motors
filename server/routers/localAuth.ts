@@ -2,10 +2,95 @@ import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { TRPCError } from "@trpc/server";
 import { hrProcedure, publicProcedure, router } from "../_core/trpc";
-import { getUserByEmail, upsertUser } from "../db";
+import { getTwoFactorConfig, getUserByEmail, saveTwoFactorConfig, upsertUser } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
+import crypto from "node:crypto";
+
+const TWO_FACTOR_ISSUER = "Trmotors Hub";
+const TWO_FACTOR_CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const TWO_FACTOR_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+type TwoFactorChallenge = {
+  user: any;
+  secret: string;
+  setupRequired: boolean;
+  expiresAt: number;
+};
+
+const twoFactorChallenges = new Map<string, TwoFactorChallenge>();
+
+function generateTwoFactorSecret(): string {
+  const bytes = crypto.randomBytes(20);
+  let bits = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    bits += bytes[index].toString(2).padStart(8, "0");
+  }
+  let secret = "";
+  for (let index = 0; index + 5 <= bits.length; index += 5) {
+    secret += TWO_FACTOR_ALPHABET[parseInt(bits.slice(index, index + 5), 2)];
+  }
+  return secret;
+}
+
+function decodeTwoFactorSecret(secret: string): Buffer {
+  let bits = "";
+  for (const character of secret.replace(/\s/g, "").toUpperCase()) {
+    const value = TWO_FACTOR_ALPHABET.indexOf(character);
+    if (value < 0) throw new Error("Segredo de autenticação inválido.");
+    bits += value.toString(2).padStart(5, "0");
+  }
+  const bytes: number[] = [];
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(parseInt(bits.slice(index, index + 8), 2));
+  }
+  return Buffer.from(bytes);
+}
+
+function createTotpCode(secret: string, timeStep: number): string {
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(timeStep));
+  const hash = crypto.createHmac("sha1", decodeTwoFactorSecret(secret)).update(counter).digest();
+  const offset = hash[hash.length - 1] & 0x0f;
+  const value = ((hash[offset] & 0x7f) << 24) | ((hash[offset + 1] & 0xff) << 16) | ((hash[offset + 2] & 0xff) << 8) | (hash[offset + 3] & 0xff);
+  return String(value % 1_000_000).padStart(6, "0");
+}
+
+function isTotpCodeValid(secret: string, code: string): boolean {
+  if (!/^\d{6}$/.test(code)) return false;
+  const currentStep = Math.floor(Date.now() / 30_000);
+  return [-1, 0, 1].some((offset) => {
+    const expected = createTotpCode(secret, currentStep + offset);
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(code));
+  });
+}
+
+function createTwoFactorChallenge(user: any, secret: string, setupRequired: boolean): string {
+  const challengeId = crypto.randomUUID();
+  twoFactorChallenges.set(challengeId, {
+    user,
+    secret,
+    setupRequired,
+    expiresAt: Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS,
+  });
+  return challengeId;
+}
+
+async function createAuthenticatedSession(ctx: any, user: any) {
+  await upsertUser({ ...user, lastSignedIn: new Date() });
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const token = await sdk.createSessionToken(`local_${user.email}`, {
+    expiresInMs: thirtyDaysMs,
+    name: user.name || "Usuário",
+  });
+  ctx.res.cookie(COOKIE_NAME, token, getSessionCookieOptions(ctx.req));
+  return {
+    success: true,
+    token,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+  };
+}
 
 export const localAuthRouter = router({
   /**
@@ -74,34 +159,45 @@ export const localAuthRouter = router({
         });
       }
 
-      // Update last signed in
-      await upsertUser({
-        ...user,
-        lastSignedIn: new Date(),
-      });
+      const config = await getTwoFactorConfig(Number(user.id));
+      const setupRequired = !config?.enabled;
+      const secret = config?.secret ?? generateTwoFactorSecret();
 
-      // Generate JWT token (30 days)
-      // Use email as the unique identifier for local users
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      const token = await sdk.createSessionToken(`local_${user.email}`, {
-        expiresInMs: thirtyDaysMs,
-        name: user.name || "Usuário",
-      });
+      if (!config) {
+        await saveTwoFactorConfig(Number(user.id), secret, false);
+      }
 
-      // Set session cookie
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, token, cookieOptions);
-
+      const challengeId = createTwoFactorChallenge(user, secret, setupRequired);
       return {
         success: true,
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
+        requiresTwoFactor: true,
+        challengeId,
+        setupRequired,
+        manualKey: setupRequired ? secret : undefined,
+        otpauthUrl: setupRequired
+          ? `otpauth://totp/${encodeURIComponent(`${TWO_FACTOR_ISSUER}:${user.email}`)}?secret=${secret}&issuer=${encodeURIComponent(TWO_FACTOR_ISSUER)}&period=30&digits=6`
+          : undefined,
       };
+    }),
+
+  verifyTwoFactor: publicProcedure
+    .input(z.object({ challengeId: z.string().uuid(), code: z.string().trim() }))
+    .mutation(async ({ input, ctx }) => {
+      const challenge = twoFactorChallenges.get(input.challengeId);
+      if (!challenge || challenge.expiresAt < Date.now()) {
+        twoFactorChallenges.delete(input.challengeId);
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Esta solicitação expirou. Faça login novamente." });
+      }
+
+      if (!isTotpCodeValid(challenge.secret, input.code)) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Código de autenticação inválido." });
+      }
+
+      if (challenge.setupRequired) {
+        await saveTwoFactorConfig(Number(challenge.user.id), challenge.secret, true);
+      }
+      twoFactorChallenges.delete(input.challengeId);
+      return createAuthenticatedSession(ctx, challenge.user);
     }),
 
   /**

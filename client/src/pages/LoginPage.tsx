@@ -2,31 +2,52 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Loader2, Eye, EyeOff, Car, ClipboardCheck, GraduationCap, Users, ArrowRight, Sparkles } from "lucide-react";
+import { Loader2, Eye, EyeOff, Car, ClipboardCheck, GraduationCap, Users, ArrowRight, Sparkles, ShieldCheck, Copy, ArrowLeft } from "lucide-react";
+
+type TwoFactorLoginChallenge = {
+  requiresTwoFactor: true;
+  challengeId: string;
+  setupRequired: boolean;
+  manualKey?: string;
+};
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState<{ id: string; setupRequired: boolean; manualKey?: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+
+  const completeLogin = (data: { token?: string }) => {
+    if (data?.token) {
+      try {
+        localStorage.setItem("trmotors_auth_token", data.token);
+        sessionStorage.setItem("manus-cookie", `app_session_id=${data.token}`);
+      } catch {}
+    }
+    toast.success("Login realizado com sucesso!");
+    setTimeout(() => window.location.reload(), 700);
+  };
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
-      // Store token in localStorage for mobile WebView support
-      if (data?.token) {
-        try {
-          localStorage.setItem("trmotors_auth_token", data.token);
-          sessionStorage.setItem("manus-cookie", `app_session_id=${data.token}`);
-        } catch {}
-      }
-      toast.success("Login realizado com sucesso!");
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      const challenge = data as TwoFactorLoginChallenge;
+      setTwoFactorChallenge({
+        id: challenge.challengeId,
+        setupRequired: Boolean(challenge.setupRequired),
+        manualKey: challenge.manualKey,
+      });
+      setTwoFactorCode("");
     },
     onError: (error) => {
       toast.error(error.message || "Email ou senha incorretos");
     },
+  });
+
+  const verifyTwoFactorMutation = trpc.auth.verifyTwoFactor.useMutation({
+    onSuccess: completeLogin,
+    onError: (error) => toast.error(error.message || "Não foi possível confirmar o código."),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +58,19 @@ export default function LoginPage() {
       await loginMutation.mutateAsync({ email, password });
     } catch (err) {
       console.error("Login error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTwoFactorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twoFactorChallenge) return;
+    setIsLoading(true);
+    try {
+      await verifyTwoFactorMutation.mutateAsync({ challengeId: twoFactorChallenge.id, code: twoFactorCode });
+    } catch (err) {
+      console.error("Two-factor verification error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -113,12 +147,16 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Bem-vindo de volta</h2>
+          <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+            {twoFactorChallenge ? "Confirmação de segurança" : "Bem-vindo de volta"}
+          </h2>
           <p className="text-gray-500 text-sm mt-2 mb-8">
-            Faça login para acessar o painel da sua concessionária
+            {twoFactorChallenge
+              ? "Informe o código temporário do seu aplicativo autenticador para concluir o acesso."
+              : "Faça login para acessar o painel da sua concessionária"}
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          {!twoFactorChallenge ? <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-gray-700">Email</label>
               <Input
@@ -176,10 +214,37 @@ export default function LoginPage() {
                 </>
               )}
             </button>
-          </form>
+          </form> : <form onSubmit={handleTwoFactorSubmit} className="space-y-5">
+            <div className="rounded-2xl border border-red-100 bg-red-50/60 p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white"><ShieldCheck className="h-5 w-5" /></div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Autenticação em dois fatores</p>
+                  <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                    {twoFactorChallenge.setupRequired
+                      ? "Cadastre a chave abaixo no Google Authenticator, Microsoft Authenticator ou aplicativo equivalente."
+                      : "Abra seu aplicativo autenticador e informe o código de seis dígitos exibido."}
+                  </p>
+                </div>
+              </div>
+              {twoFactorChallenge.setupRequired && twoFactorChallenge.manualKey && <div className="mt-4 rounded-xl border border-red-100 bg-white p-3">
+                <div className="flex items-center justify-between gap-2"><span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Chave de configuração</span><button type="button" onClick={() => { navigator.clipboard?.writeText(twoFactorChallenge.manualKey!); toast.success("Chave copiada"); }} className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 hover:text-red-800"><Copy className="h-3.5 w-3.5" /> Copiar</button></div>
+                <code className="mt-2 block break-all text-sm font-bold tracking-wider text-gray-900">{twoFactorChallenge.manualKey}</code>
+              </div>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Código de autenticação</label>
+              <Input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={twoFactorCode} onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, "").slice(0, 6))} disabled={isLoading} required autoFocus className="h-14 bg-white text-center font-mono text-2xl font-bold tracking-[0.5em] border-gray-200 text-gray-900 placeholder:tracking-normal placeholder:text-gray-300 focus:border-red-500 focus:ring-red-500/15 focus:ring-4 rounded-xl" />
+            </div>
+            <button type="submit" disabled={isLoading || twoFactorCode.length !== 6} className="w-full h-12 bg-gray-900 hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-black/20 transition-all flex items-center justify-center gap-2">
+              {isLoading ? <><Loader2 className="h-5 w-5 animate-spin" /> Confirmando...</> : <>Confirmar e entrar <ArrowRight className="h-5 w-5" /></>}
+            </button>
+            <button type="button" onClick={() => { setTwoFactorChallenge(null); setTwoFactorCode(""); }} disabled={isLoading} className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-gray-500 hover:text-gray-900"><ArrowLeft className="h-4 w-4" /> Voltar ao login</button>
+          </form>}
 
           {/* Test credentials */}
-          <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
+          {!twoFactorChallenge && <div className="mt-6 p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
             <p className="text-xs font-semibold text-gray-700 mb-2">
               Acesso de demonstração
             </p>
@@ -206,7 +271,7 @@ export default function LoginPage() {
                 <span className="text-gray-300 ml-1">(copiar ao tocar)</span>
               </p>
             </div>
-          </div>
+          </div>}
 
           <p className="text-center text-xs text-gray-400 mt-8 lg:hidden">
             © {new Date().getFullYear()} Trmotors — Todos os direitos reservados

@@ -31,6 +31,7 @@ export const appRouter = router({
       } as const;
     }),
     login: localAuthRouter._def.procedures.login,
+    verifyTwoFactor: localAuthRouter._def.procedures.verifyTwoFactor,
     register: localAuthRouter._def.procedures.register,
   }),
 

@@ -88,5 +88,21 @@
 - [x] Permitir clicar em cartões pendentes da ficha para preencher os dados diretamente
 - [x] Refinar o visual dos cartões mensais de NF PJ para melhorar clareza e aparência
 - [x] Corrigir o clique nos cartões de NF PJ para abrir o formulário da competência selecionada
+- [x] Definir proposta comercial de implantação e mensalidade por módulos do Trmotors Hub
+- [x] Mapear módulos faltantes e definir roadmap de evolução da plataforma
+- [ ] Implementar central de dossiê do veículo e da venda, reunindo estoque, proposta, documentos, financeiro, despachante e entrega
+- [ ] Criar central de tarefas, notificações e alertas de prazo por responsável
+- [ ] Evoluir o Financeiro para contas a pagar/receber, fluxo de caixa, margem por veículo, DRE e exportações
+- [ ] Integrar emissão de NF-e ao fluxo de venda com XML, DANFE e status fiscal
+- [ ] Criar geração de contrato e assinatura eletrônica rastreável
+- [ ] Criar módulo de preparação do veículo, ordens de serviço, fornecedores e custo realizado
+- [ ] Criar simulador de financiamento e propostas comparativas
+- [ ] Integrar consulta veicular por provedor autorizado, com resultado anexado ao dossiê
+- [ ] Integrar site/portais de anúncio começando por um canal ou integrador homologado
+- [ ] Criar módulo de pós-venda, garantia, satisfação e indicação
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD
+- [x] Validar que o Railway está vinculado ao repositório e ramo corretos do Trmotors Hub
 - [x] Publicar em uma única atualização as correções prioritárias de RH e Configurações
+- [x] Alterar desligamento para selecionar um funcionário cadastrado e remover o campo de motivo
+- [x] Posicionar o botão de Desligamento por último no menu lateral do RH
+- [x] Remover as divisões Gestão de Pessoas e Gestão, unificando as opções no menu do RH

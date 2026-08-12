@@ -48,27 +48,12 @@ const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[]
     items: [
       { id: "dashboard", label: "Dashboard", icon: Activity },
       { id: "ead", label: "EAD Videoaulas", icon: BookOpen },
-    ],
-  },
-  {
-    label: "GESTÃO DE PESSOAS",
-    items: [
       { id: "funcionarios", label: "Funcionários", icon: Users },
-    ],
-  },
-  {
-    label: "OPERACIONAL",
-    items: [
       { id: "uniformes", label: "Uniformes", icon: Shirt },
-    ],
-  },
-  {
-    label: "GESTÃO",
-    items: [
-      { id: "desligamento", label: "Desligamento", icon: ClipboardCheck },
       { id: "documentos", label: "Documentos", icon: FolderArchive },
       { id: "vagas", label: "Vagas", icon: BriefcaseBusiness },
       { id: "candidatos", label: "Candidatos", icon: UserPlus },
+      { id: "desligamento", label: "Desligamento", icon: ClipboardCheck },
     ],
   },
 ];
@@ -1795,14 +1780,15 @@ function CostInvoicesTab() {
 
 // ===================== CHECKLIST DE SAÍDA (DESLIGAMENTO) =====================
 function ExitChecklistTab() {
-  const { user } = useAuth();
   const [showDialog, setShowDialog] = useState(false);
-  const [form, setForm] = useState({ employeeName: "", reason: "" });
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const utils = trpc.useUtils();
 
   const { data: checklists } = trpc.rh.listExitChecklists.useQuery();
+  const { data: employees = [], isLoading: isLoadingEmployees } = trpc.rh.listEmployees.useQuery();
+  const availableEmployees = employees.filter((employee) => employee.status !== "desligado");
   const createChecklist = trpc.rh.createExitChecklist.useMutation({
-    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Checklist criado"); setForm({ employeeName: "", reason: "" }); },
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); setSelectedEmployeeId(""); toast.success("Checklist criado"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const updateItem = trpc.rh.updateExitChecklistItem.useMutation({ onSuccess: () => utils.invalidate() });
@@ -1813,14 +1799,34 @@ function ExitChecklistTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Checklist de Saída (Desligamento)</h3>
-        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setSelectedEmployeeId(""); }}>
           <DialogTrigger asChild><Button className="min-h-[40px]"><Plus className="h-4 w-4 mr-1" /> Novo Desligamento</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Novo Checklist de Saída</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <Input placeholder="Nome do funcionário" value={form.employeeName} onChange={e => setForm({ ...form, employeeName: e.target.value })} className="min-h-[40px]" />
-              <Input placeholder="Motivo" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} className="min-h-[40px]" />
-              <Button onClick={() => createChecklist.mutate({ employeeId: user?.id || 1, employeeName: form.employeeName, initiatedBy: user?.id || 1, reason: form.reason })} className="w-full min-h-[40px]">Criar Checklist</Button>
+              <div className="space-y-2">
+                <Label htmlFor="exit-employee">Funcionário</Label>
+                <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                  <SelectTrigger id="exit-employee" className="min-h-[40px]">
+                    <SelectValue placeholder={isLoadingEmployees ? "Carregando funcionários..." : "Selecione um funcionário cadastrado"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEmployees.map((employee) => (
+                      <SelectItem key={employee.id} value={String(employee.id)}>{employee.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!isLoadingEmployees && !availableEmployees.length && (
+                  <p className="text-sm text-muted-foreground">Nenhum funcionário ativo encontrado.</p>
+                )}
+              </div>
+              <Button
+                onClick={() => createChecklist.mutate({ employeeId: Number(selectedEmployeeId) })}
+                disabled={!selectedEmployeeId || createChecklist.isPending}
+                className="w-full min-h-[40px]"
+              >
+                {createChecklist.isPending ? "Criando..." : "Criar Checklist"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1838,7 +1844,7 @@ function ExitChecklistTab() {
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-base">{cl.employeeName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{cl.reason} · Saída: {cl.exitDate || "N/D"}</p>
+                    <p className="text-sm text-muted-foreground">Iniciado em: {cl.initiatedAt ? new Date(cl.initiatedAt).toLocaleDateString("pt-BR") : "N/D"}</p>
                   </div>
                   <Badge variant={pct === 100 ? "default" : "secondary"}>{pct}% concluído</Badge>
                 </div>

@@ -756,18 +756,29 @@ export const rhRouter = router({
     const { exit_checklists } = await import("../../drizzle/schema");
     return db.select().from(exit_checklists).orderBy(desc(exit_checklists.createdAt));
   }),
-  createExitChecklist: protectedProcedure
-    .input(z.object({
-      employeeId: z.number(),
-      employeeName: z.string().min(1),
-      initiatedBy: z.number(),
-      reason: z.string().optional(),
-      notes: z.string().optional(),
-    }))
+  createExitChecklist: hrProcedure
+    .input(z.object({ employeeId: z.number().int().positive() }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       const { exit_checklists, exit_checklist_items, audit_logs } = await import("../../drizzle/schema");
-      const result = await db.insert(exit_checklists).values(input);
+      const employee = await db.select({ id: rh_employees.id, name: rh_employees.name, status: rh_employees.status })
+        .from(rh_employees)
+        .where(eq(rh_employees.id, input.employeeId));
+      const selectedEmployee = employee[0];
+      if (!selectedEmployee) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Funcionário não encontrado." });
+      }
+      if (selectedEmployee.status === "desligado") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Não é possível criar checklist para um funcionário desligado." });
+      }
+      if (!ctx.user) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
+      const result = await db.insert(exit_checklists).values({
+        employeeId: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        initiatedBy: ctx.user.id,
+      });
       const checklistId = result[0].insertId;
       const defaultItems = [
         { title: "Devolução de uniformes", sector: "RH", responsibleRole: "rh" },
@@ -792,7 +803,7 @@ export const rhRouter = router({
           action: "create",
           module: "rh",
           entityId: checklistId,
-          entityName: input.employeeName,
+          entityName: selectedEmployee.name,
           details: "Checklist de saída criado",
         });
       }

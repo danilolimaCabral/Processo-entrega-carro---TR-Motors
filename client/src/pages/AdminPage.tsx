@@ -83,7 +83,7 @@ const ROLE_COLORS: Record<string, string> = {
 type AssignableRole = "admin" | "gerente" | "vendedor" | "financeiro" | "administrativo" | "aluno" | "rh";
 
 export default function AdminPage() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [, navigate] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
@@ -111,7 +111,7 @@ export default function AdminPage() {
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 30000,
     refetchOnWindowFocus: false,
-    enabled: true,
+    enabled: user?.role === "admin",
   });
   const createUserMutation = trpc.admin.createUser.useMutation({
     onSuccess: () => {
@@ -185,6 +185,29 @@ export default function AdminPage() {
   const handleDeleteUser = async (userId: number) => {
     await deleteUserMutation.mutateAsync({ userId });
   };
+
+  if (user?.role !== "admin") {
+    return (
+      <DashboardLayout>
+        <Card className="max-w-xl mx-auto mt-10 border-red-100">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <ShieldCheck className="h-5 w-5 text-red-600" />
+              Acesso restrito
+            </CardTitle>
+            <CardDescription>
+              As Configurações são exclusivas para administradores do sistema.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/rh")} className="bg-red-600 hover:bg-red-700">
+              Voltar para RH
+            </Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>

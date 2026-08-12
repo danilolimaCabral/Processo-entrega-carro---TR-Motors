@@ -763,7 +763,7 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
                 </div>
               </div>
               <div className="flex items-end justify-between gap-3"><div><h4 className="text-base font-bold text-slate-900">Informações pessoais</h4><p className="mt-1 text-sm text-slate-500">Verde indica informação confirmada; vermelho mostra o que ainda precisa ser registrado.</p></div></div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {profileFields.slice(0, 6).map((field) => <ProfileField key={field.label} {...field} />)}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -806,12 +806,12 @@ function ProfileField({ label, value, icon: Icon }: { label: string; value?: str
       <CardContent className="p-0">
         <div className={completed ? "h-1 w-full bg-emerald-500" : "h-1 w-full bg-red-500"} />
         <div className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className={completed ? "flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700" : "flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700"}><Icon className="h-4 w-4" /></div>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">{label}</p>
+          <div className="flex flex-col items-start gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className={completed ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700" : "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-700"}><Icon className="h-4 w-4" /></div>
+              <p className="break-words text-xs font-bold uppercase leading-4 tracking-normal text-slate-600">{label}</p>
             </div>
-            <span className={completed ? "inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700" : "inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700"}>{completed ? <CheckCircle2 className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}{completed ? "Preenchido" : "Pendente"}</span>
+            <span className={completed ? "inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700" : "inline-flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700"}>{completed ? <CheckCircle2 className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}{completed ? "Preenchido" : "Pendente"}</span>
           </div>
           <p className={completed ? "mt-3 break-words text-sm font-semibold text-emerald-950" : "mt-3 text-sm font-semibold text-red-700"}>{completed ? value : "Não informado"}</p>
         </div>

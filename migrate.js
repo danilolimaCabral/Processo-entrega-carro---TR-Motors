@@ -87,6 +87,10 @@ async function runMigration() {
 
   const sql = fs.readFileSync(migrationsPath, 'utf-8');
   const statements = sql.split(';').filter(s => s.trim().length > 0);
+  const destructiveStatements = statements.filter((statement) => /\b(DROP|TRUNCATE)\s+TABLE\b/i.test(statement));
+  if (destructiveStatements.length > 0) {
+    throw new Error(`Migration blocked: destructive table operation detected (${destructiveStatements[0].trim().split("\n")[0]}).`);
+  }
   
   console.log(`Found ${statements.length} SQL statements to execute`);
   

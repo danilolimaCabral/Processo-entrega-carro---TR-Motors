@@ -1,15 +1,7 @@
 import { execSync } from 'child_process';
 import { spawn } from 'child_process';
 
-console.log('=== Starting migration ===');
-try {
-  execSync('node migrate.js', { stdio: 'inherit', env: process.env });
-  console.log('=== Migration complete ===');
-} catch (e) {
-  console.error('=== Migration failed, continuing anyway ===');
-}
-
-console.log('=== Starting server ===');
+console.log('=== Starting server without automatic database migrations ===');
 const server = spawn('node', ['dist/index.js'], {
   stdio: 'inherit',
   env: process.env

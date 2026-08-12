@@ -1,35 +1,7 @@
 -- Full schema migration for TR Motors - Controle de Entrega de Veículos
 -- Generated from drizzle/schema.ts
 
--- Drop existing tables (safe since we recreate everything)
-DROP TABLE IF EXISTS `rh_holidays`;
-DROP TABLE IF EXISTS `rh_attendance`;
-DROP TABLE IF EXISTS `rh_leave_requests`;
-DROP TABLE IF EXISTS `rh_employees`;
-DROP TABLE IF EXISTS `rh_positions`;
-DROP TABLE IF EXISTS `rh_departments`;
-DROP TABLE IF EXISTS `despachante_documents`;
-DROP TABLE IF EXISTS `inspection_photos`;
-DROP TABLE IF EXISTS `purchase_inspections`;
-DROP TABLE IF EXISTS `erp_modules`;
-DROP TABLE IF EXISTS `administrative_checklist_documents`;
-DROP TABLE IF EXISTS `approval_history`;
-DROP TABLE IF EXISTS `inspection_checklists`;
-DROP TABLE IF EXISTS `sale_documents`;
-DROP TABLE IF EXISTS `sale_records`;
-DROP TABLE IF EXISTS `quiz_answers`;
-DROP TABLE IF EXISTS `quiz_questions`;
-DROP TABLE IF EXISTS `quizzes`;
-DROP TABLE IF EXISTS `learning_path_courses`;
-DROP TABLE IF EXISTS `learning_paths`;
-DROP TABLE IF EXISTS `candidates`;
-DROP TABLE IF EXISTS `job_vacancies`;
-DROP TABLE IF EXISTS `employee_documents`;
-DROP TABLE IF EXISTS `exit_checklist_items`;
-DROP TABLE IF EXISTS `exit_checklists`;
-DROP TABLE IF EXISTS `uniforms`;
-DROP TABLE IF EXISTS `audit_logs`;
-DROP TABLE IF EXISTS `users`;
+-- Migrações preservam os dados existentes. Nunca remover tabelas no startup.
 
 -- Users table
 CREATE TABLE `users` (
@@ -593,8 +565,7 @@ WHERE `moduleKey` IN ('vendas','checklist','financeiro','administrativo','dashbo
 
 
 -- ==================== Salário e Ajuda de Custo ====================
-DROP TABLE IF EXISTS `salary_records`;
-DROP TABLE IF EXISTS `cost_help_requests`;
+
 
 CREATE TABLE `salary_records` (
   `id` int AUTO_INCREMENT PRIMARY KEY,

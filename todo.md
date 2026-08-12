@@ -80,6 +80,7 @@
 - [x] Corrigir a visibilidade do botão de criar funcionário reportada em produção
 - [x] Restaurar Configurações no menu exclusivo do perfil administrador
 - [x] Modernizar a ficha do colaborador com campos pendentes em vermelho e preenchidos em verde
+- [x] Corrigir a perda de usuários cadastrados após alterações e novos deploys
 - [x] Mover Departamentos e Cargos para Configurações exclusivas do administrador
 - [x] Centralizar Auditoria, Usuários e liberação de módulos em Configurações exclusivas do administrador
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD

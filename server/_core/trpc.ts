@@ -64,3 +64,24 @@ export const hrProcedure = t.procedure.use(
     });
   }),
 );
+
+/** Procedimentos de conferência e baixa financeira. */
+export const financeProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+
+    if (!ctx.user || (ctx.user.role !== "financeiro" && ctx.user.role !== "admin")) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Somente o Financeiro ou administradores podem conferir e baixar notas fiscais.",
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+      },
+    });
+  }),
+);

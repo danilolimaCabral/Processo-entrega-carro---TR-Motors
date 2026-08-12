@@ -84,6 +84,7 @@
 - [x] Corrigir a perda de usuários cadastrados após alterações e novos deploys
 - [x] Mover Departamentos e Cargos para Configurações exclusivas do administrador
 - [x] Centralizar Auditoria, Usuários e liberação de módulos em Configurações exclusivas do administrador
-- [ ] Criar fluxo mensal de nota fiscal para colaborador PJ com envio na ficha e conferência do Financeiro
+- [x] Criar grade anual de 12 meses para NF PJ com competência, número, valor, arquivo, conferência do Financeiro e cartão verde após pagamento
+- [x] Permitir clicar em cartões pendentes da ficha para preencher os dados diretamente
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD
 - [x] Publicar em uma única atualização as correções prioritárias de RH e Configurações

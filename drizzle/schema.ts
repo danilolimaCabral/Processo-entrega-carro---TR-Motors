@@ -894,6 +894,31 @@ export const employee_documents = mysqlTable("employee_documents", {
 export type EmployeeDocument = typeof employee_documents.$inferSelect;
 export type InsertEmployeeDocument = typeof employee_documents.$inferInsert;
 
+// --- 3.1. Notas Fiscais Mensais de Colaboradores PJ ---
+export const pj_monthly_invoices = mysqlTable("pj_monthly_invoices", {
+  id: int("id").autoincrement().primaryKey(),
+  employeeId: int("employee_id").notNull(),
+  employeeName: varchar("employee_name", { length: 255 }).notNull(),
+  competenceMonth: int("competence_month").notNull(),
+  competenceYear: int("competence_year").notNull(),
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  issueDate: date("issue_date"),
+  fileUrl: longtext("file_url"),
+  fileMimeType: varchar("file_mime_type", { length: 100 }),
+  status: mysqlEnum("status", ["em_conferencia", "pago", "rejeitado"]).default("em_conferencia").notNull(),
+  notes: text("notes"),
+  submittedBy: int("submitted_by"),
+  reviewedBy: int("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  paidBy: int("paid_by"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+});
+export type PjMonthlyInvoice = typeof pj_monthly_invoices.$inferSelect;
+export type InsertPjMonthlyInvoice = typeof pj_monthly_invoices.$inferInsert;
+
 // --- 4. CRM de Candidatos ---
 export const job_vacancies = mysqlTable("job_vacancies", {
   id: int("id").autoincrement().primaryKey(),

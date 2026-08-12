@@ -62,6 +62,18 @@ export default function ApprovalPanel() {
 
   const utils = trpc.useUtils();
   const { data: sales = [], isLoading } = trpc.sales.listAllSales.useQuery();
+  const canManagePjInvoices = user?.role === "financeiro" || user?.role === "admin";
+  const { data: pjInvoices = [], isLoading: isLoadingPjInvoices } = trpc.rh.listPjInvoicesForFinance.useQuery(
+    undefined,
+    { enabled: canManagePjInvoices },
+  );
+  const markPjInvoiceStatus = trpc.rh.markPjInvoiceFinancialStatus.useMutation({
+    onSuccess: async () => {
+      await utils.rh.listPjInvoicesForFinance.invalidate();
+      toast.success("Nota fiscal atualizada pelo Financeiro.");
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível atualizar a nota fiscal."),
+  });
 
   // Filter sales pending for the current department
   const filteredSales = sales.filter((sale: any) => {
@@ -248,6 +260,18 @@ export default function ApprovalPanel() {
             </CardContent>
           </Card>
         </div>
+
+        {canManagePjInvoices && (
+          <Card className="border-amber-200">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><FileCheck className="h-5 w-5 text-amber-600" /> Notas fiscais PJ em conferência</CardTitle>
+              <CardDescription>Confira competência, número, valor e arquivo. Após o pagamento, marque a NF como paga para deixar o mês verde na ficha.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingPjInvoices ? <div className="flex items-center justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-slate-400" /></div> : pjInvoices.filter((invoice: any) => invoice.status === "em_conferencia").length === 0 ? <Alert><CheckCircle2 className="h-4 w-4" /><AlertDescription>Nenhuma NF PJ aguardando conferência.</AlertDescription></Alert> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Colaborador</TableHead><TableHead>Competência</TableHead><TableHead className="hidden sm:table-cell">NF</TableHead><TableHead>Valor</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader><TableBody>{pjInvoices.filter((invoice: any) => invoice.status === "em_conferencia").map((invoice: any) => <TableRow key={invoice.id}><TableCell className="font-medium">{invoice.employeeName}</TableCell><TableCell>{String(invoice.competenceMonth).padStart(2, "0")}/{invoice.competenceYear}</TableCell><TableCell className="hidden sm:table-cell">{invoice.invoiceNumber}</TableCell><TableCell>R$ {Number(invoice.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell><TableCell className="text-right"><div className="flex justify-end gap-2">{invoice.fileUrl && <a href={invoice.fileUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm">Ver NF</Button></a>}<Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" disabled={markPjInvoiceStatus.isPending} onClick={() => markPjInvoiceStatus.mutate({ id: invoice.id, status: "pago" })}>Marcar pago</Button></div></TableCell></TableRow>)}</TableBody></Table></div>}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pending Sales Table */}
         <Card>

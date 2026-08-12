@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { eq, like, desc, and, between, or, count, inArray } from "drizzle-orm";
-import { adminProcedure, hrProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { eq, like, desc, and, between, or, count, inArray, sql } from "drizzle-orm";
+import { adminProcedure, financeProcedure, hrProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { createUserDirect, getDb, getUserByEmail } from "../db";
 import bcryptjs from "bcryptjs";
 import { TRPCError } from "@trpc/server";
@@ -16,6 +16,7 @@ import {
   rh_sales_commissions,
   rh_uniforms,
   rh_cost_invoices,
+  pj_monthly_invoices,
   type InsertDepartment,
   type InsertPosition,
   type InsertEmployee,
@@ -24,6 +25,41 @@ import {
   type InsertHoliday,
   type InsertSalesCommission,
 } from "../../drizzle/schema";
+
+let pjInvoicesTableReady: Promise<void> | null = null;
+
+async function ensurePjInvoicesTable() {
+  const db = await getDb();
+  if (!pjInvoicesTableReady) {
+    pjInvoicesTableReady = db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS pj_monthly_invoices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id INT NOT NULL,
+        employee_name VARCHAR(255) NOT NULL,
+        competence_month INT NOT NULL,
+        competence_year INT NOT NULL,
+        invoice_number VARCHAR(100) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        issue_date DATE NULL,
+        file_url LONGTEXT NULL,
+        file_mime_type VARCHAR(100) NULL,
+        status ENUM('em_conferencia','pago','rejeitado') NOT NULL DEFAULT 'em_conferencia',
+        notes TEXT NULL,
+        submitted_by INT NULL,
+        reviewed_by INT NULL,
+        reviewed_at TIMESTAMP NULL,
+        paid_by INT NULL,
+        paid_at TIMESTAMP NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_pj_invoice_competence (employee_id, competence_month, competence_year),
+        KEY idx_pj_invoice_status (status)
+      )
+    `)).then(() => undefined);
+  }
+  await pjInvoicesTableReady;
+  return db;
+}
 
 export const rhRouter = router({
   // ==================== Departments ====================
@@ -789,6 +825,122 @@ export const rhRouter = router({
           details: `Item do checklist atualizado: ${input.status}`,
         });
       }
+      return { success: true };
+    }),
+
+  // ==================== Notas Fiscais Mensais de Colaboradores PJ ====================
+  listEmployeePjInvoices: protectedProcedure
+    .input(z.object({ employeeId: z.number(), year: z.number().int().min(2020).max(2100) }))
+    .query(async ({ input }) => {
+      const db = await ensurePjInvoicesTable();
+      return db.select().from(pj_monthly_invoices)
+        .where(and(eq(pj_monthly_invoices.employeeId, input.employeeId), eq(pj_monthly_invoices.competenceYear, input.year)))
+        .orderBy(pj_monthly_invoices.competenceMonth);
+    }),
+  listPjInvoicesForFinance: financeProcedure
+    .input(z.object({ year: z.number().int().min(2020).max(2100).optional() }).optional())
+    .query(async ({ input }) => {
+      const db = await ensurePjInvoicesTable();
+      const rows = input?.year
+        ? await db.select().from(pj_monthly_invoices).where(eq(pj_monthly_invoices.competenceYear, input.year)).orderBy(desc(pj_monthly_invoices.createdAt))
+        : await db.select().from(pj_monthly_invoices).orderBy(desc(pj_monthly_invoices.createdAt));
+      return rows;
+    }),
+  submitPjInvoice: hrProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      employeeName: z.string().min(1).max(255),
+      competenceMonth: z.number().int().min(1).max(12),
+      competenceYear: z.number().int().min(2020).max(2100),
+      invoiceNumber: z.string().min(1).max(100),
+      amount: z.number().positive(),
+      issueDate: z.string().optional(),
+      notes: z.string().max(2000).optional(),
+      filename: z.string().min(1).max(180),
+      mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
+      fileData: z.string().min(1).max(14_000_000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await ensurePjInvoicesTable();
+      const { audit_logs } = await import("../../drizzle/schema");
+      const safeFilename = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const fileBuffer = Buffer.from(input.fileData, "base64");
+      if (!fileBuffer.length || fileBuffer.length > 10 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Envie um arquivo válido de até 10 MB." });
+      }
+      const storedFile = await storagePut(
+        `rh/pj-invoices/${input.employeeId}/${input.competenceYear}-${String(input.competenceMonth).padStart(2, "0")}-${Date.now()}-${safeFilename}`,
+        fileBuffer,
+        input.mimeType,
+      );
+      const invoiceData = {
+        employeeName: input.employeeName.trim(),
+        invoiceNumber: input.invoiceNumber.trim(),
+        amount: input.amount.toFixed(2),
+        issueDate: input.issueDate || null,
+        notes: input.notes?.trim() || null,
+        fileUrl: storedFile.url,
+        fileMimeType: input.mimeType,
+        status: "em_conferencia" as const,
+        submittedBy: ctx.user.id,
+        reviewedBy: null,
+        reviewedAt: null,
+        paidBy: null,
+        paidAt: null,
+      };
+      const existing = await db.select({ id: pj_monthly_invoices.id }).from(pj_monthly_invoices)
+        .where(and(
+          eq(pj_monthly_invoices.employeeId, input.employeeId),
+          eq(pj_monthly_invoices.competenceMonth, input.competenceMonth),
+          eq(pj_monthly_invoices.competenceYear, input.competenceYear),
+        ));
+      let invoiceId: number;
+      if (existing[0]) {
+        invoiceId = existing[0].id;
+        await db.update(pj_monthly_invoices).set(invoiceData).where(eq(pj_monthly_invoices.id, invoiceId));
+      } else {
+        const result = await db.insert(pj_monthly_invoices).values({
+          ...invoiceData,
+          employeeId: input.employeeId,
+          competenceMonth: input.competenceMonth,
+          competenceYear: input.competenceYear,
+        });
+        invoiceId = result[0].insertId;
+      }
+      await db.insert(audit_logs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name || ctx.user.email,
+        action: existing[0] ? "update" : "create",
+        module: "rh",
+        entityId: invoiceId,
+        entityName: `NF PJ ${input.competenceMonth}/${input.competenceYear} — ${input.employeeName}`,
+        details: `Nota fiscal de R$ ${input.amount.toFixed(2)} enviada para conferência financeira`,
+      });
+      return { success: true, id: invoiceId, url: storedFile.url };
+    }),
+  markPjInvoiceFinancialStatus: financeProcedure
+    .input(z.object({ id: z.number(), status: z.enum(["pago", "rejeitado"]), notes: z.string().max(2000).optional() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await ensurePjInvoicesTable();
+      const { audit_logs } = await import("../../drizzle/schema");
+      const isPaid = input.status === "pago";
+      await db.update(pj_monthly_invoices).set({
+        status: input.status,
+        notes: input.notes?.trim() || null,
+        reviewedBy: ctx.user.id,
+        reviewedAt: new Date(),
+        paidBy: isPaid ? ctx.user.id : null,
+        paidAt: isPaid ? new Date() : null,
+      }).where(eq(pj_monthly_invoices.id, input.id));
+      await db.insert(audit_logs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name || ctx.user.email,
+        action: "update",
+        module: "financeiro",
+        entityId: input.id,
+        entityName: "Nota fiscal PJ",
+        details: `NF PJ marcada como ${isPaid ? "paga" : "rejeitada"} pelo Financeiro`,
+      });
       return { success: true };
     }),
 

@@ -585,6 +585,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
         positions={positions}
         open={Boolean(selectedEmployee)}
         onOpenChange={(open) => { if (!open) setSelectedEmployee(null); }}
+        onEditEmployee={(employee) => { setSelectedEmployee(null); handleEdit(employee); }}
       />
       <Dialog open={Boolean(createdCredentials)} onOpenChange={(open) => { if (!open) setCreatedCredentials(null); }}>
         <DialogContent className="max-w-md">
@@ -603,27 +604,35 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
 }
 
 // ==================== Ficha do Colaborador ====================
-function EmployeeProfileDialog({ employee, departments, positions, open, onOpenChange }: {
+function EmployeeProfileDialog({ employee, departments, positions, open, onOpenChange, onEditEmployee }: {
   employee: any | null;
   departments?: any[];
   positions?: any[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEditEmployee?: (employee: any) => void;
 }) {
   const { user } = useAuth();
   const utils = trpc.useUtils();
-  const [profileTab, setProfileTab] = useState<"dados" | "uniformes" | "documentos">("dados");
+  const [profileTab, setProfileTab] = useState<"dados" | "uniformes" | "documentos" | "nf_pj">("dados");
   const [showUniformForm, setShowUniformForm] = useState(false);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [showPjInvoiceForm, setShowPjInvoiceForm] = useState(false);
   const [uniformForm, setUniformForm] = useState({ type: "", size: "", quantity: "1", dateIssued: "", status: "entregue" });
   const [documentForm, setDocumentForm] = useState<{ category: string; documentName: string; expiryDate: string; file: File | null }>({ category: "", documentName: "", expiryDate: "", file: null });
+  const [pjInvoiceForm, setPjInvoiceForm] = useState({ competenceMonth: new Date().getMonth() + 1, invoiceNumber: "", amount: "", issueDate: "", notes: "", file: null as File | null });
   const employeeId = employee?.id;
+  const invoiceYear = new Date().getFullYear();
   const { data: uniforms } = trpc.rh.listUniforms.useQuery(
     employeeId ? { employeeId } : undefined,
     { enabled: Boolean(employeeId) },
   );
   const { data: documents } = trpc.rh.listEmployeeDocuments.useQuery(
     employeeId ? { employeeId } : undefined,
+    { enabled: Boolean(employeeId) },
+  );
+  const { data: pjInvoices } = trpc.rh.listEmployeePjInvoices.useQuery(
+    employeeId ? { employeeId, year: invoiceYear } : undefined,
     { enabled: Boolean(employeeId) },
   );
   const createUniform = trpc.rh.createUniform.useMutation({
@@ -652,6 +661,15 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
     onSuccess: async () => { await utils.rh.listEmployeeDocuments.invalidate(); toast.success("Documento removido"); },
     onError: (error) => toast.error(error.message),
   });
+  const submitPjInvoice = trpc.rh.submitPjInvoice.useMutation({
+    onSuccess: async () => {
+      await utils.rh.listEmployeePjInvoices.invalidate();
+      setPjInvoiceForm({ competenceMonth: new Date().getMonth() + 1, invoiceNumber: "", amount: "", issueDate: "", notes: "", file: null });
+      setShowPjInvoiceForm(false);
+      toast.success("NF PJ enviada ao Financeiro para conferência.");
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível enviar a nota fiscal."),
+  });
 
   if (!employee) return null;
 
@@ -679,6 +697,9 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
   ];
   const completedFields = profileFields.filter((field) => hasProfileValue(field.value)).length;
   const pendingFields = profileFields.length - completedFields;
+  const canManageProfile = user?.role === "rh" || user?.role === "admin";
+  const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const invoicesByMonth = new Map((pjInvoices || []).map((invoice: any) => [invoice.competenceMonth, invoice]));
   const hasDocument = (name: string) => documents?.some((document: any) => document.documentName.trim().toLowerCase() === name.toLowerCase());
   const openRequiredDocument = (name: string, category: string) => {
     setDocumentForm({ category, documentName: name, expiryDate: "", file: null });
@@ -716,6 +737,40 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
       toast.error(error instanceof Error ? error.message : "Não foi possível preparar o arquivo.");
     }
   };
+  const openPjInvoiceForm = (month: number, invoice?: any) => {
+    setPjInvoiceForm({
+      competenceMonth: month,
+      invoiceNumber: invoice?.invoiceNumber || "",
+      amount: invoice?.amount || "",
+      issueDate: invoice?.issueDate || "",
+      notes: invoice?.notes || "",
+      file: null,
+    });
+    setShowPjInvoiceForm(true);
+  };
+  const submitMonthlyPjInvoice = async () => {
+    if (!pjInvoiceForm.file) { toast.error("Selecione a NF em PDF ou imagem antes de enviar."); return; }
+    if (!pjInvoiceForm.invoiceNumber.trim() || !Number(pjInvoiceForm.amount)) { toast.error("Informe o número e o valor da nota fiscal."); return; }
+    if (!isAcceptedDocumentFile(pjInvoiceForm.file) || pjInvoiceForm.file.size > 10 * 1024 * 1024) { toast.error("Envie um PDF, JPG, PNG ou WEBP de até 10 MB."); return; }
+    try {
+      const fileData = await documentFileToBase64(pjInvoiceForm.file);
+      submitPjInvoice.mutate({
+        employeeId: employee.id,
+        employeeName: employee.name,
+        competenceMonth: pjInvoiceForm.competenceMonth,
+        competenceYear: invoiceYear,
+        invoiceNumber: pjInvoiceForm.invoiceNumber.trim(),
+        amount: Number(pjInvoiceForm.amount),
+        issueDate: pjInvoiceForm.issueDate || undefined,
+        notes: pjInvoiceForm.notes.trim() || undefined,
+        filename: pjInvoiceForm.file.name,
+        mimeType: pjInvoiceForm.file.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+        fileData,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível preparar o arquivo.");
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -732,13 +787,14 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
         </DialogHeader>
 
         <div className="space-y-5 bg-slate-50/70 px-4 pb-6 pt-5 sm:px-7 sm:pb-8">
-          <div className="grid grid-cols-3 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+          <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-4">
             {[
               { id: "dados", label: "Dados" },
               { id: "uniformes", label: `Uniformes${uniforms?.length ? ` (${uniforms.length})` : ""}` },
               { id: "documentos", label: `Documentos${documents?.length ? ` (${documents.length})` : ""}` },
+              { id: "nf_pj", label: "NF PJ mensal" },
             ].map((tab) => (
-              <button key={tab.id} type="button" onClick={() => setProfileTab(tab.id as "dados" | "uniformes" | "documentos")} className={profileTab === tab.id ? "rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white shadow-sm" : "rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"}>{tab.label}</button>
+              <button key={tab.id} type="button" onClick={() => setProfileTab(tab.id as "dados" | "uniformes" | "documentos" | "nf_pj")} className={profileTab === tab.id ? "rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white shadow-sm" : "rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"}>{tab.label}</button>
             ))}
           </div>
 
@@ -764,12 +820,37 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
               </div>
               <div className="flex items-end justify-between gap-3"><div><h4 className="text-base font-bold text-slate-900">Informações pessoais</h4><p className="mt-1 text-sm text-slate-500">Verde indica informação confirmada; vermelho mostra o que ainda precisa ser registrado.</p></div></div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {profileFields.slice(0, 6).map((field) => <ProfileField key={field.label} {...field} />)}
+                {profileFields.slice(0, 6).map((field) => <ProfileField key={field.label} {...field} onClick={!hasProfileValue(field.value) && canManageProfile ? () => onEditEmployee?.(employee) : undefined} />)}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {profileFields.slice(6).map((field) => <ProfileField key={field.label} {...field} />)}
+                {profileFields.slice(6).map((field) => <ProfileField key={field.label} {...field} onClick={!hasProfileValue(field.value) && canManageProfile ? () => onEditEmployee?.(employee) : undefined} />)}
               </div>
               {employee.notes && <Card className="border-slate-200 bg-white shadow-sm"><CardContent className="p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Observações</p><p className="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{employee.notes}</p></CardContent></Card>}
+            </div>
+          )}
+
+          {profileTab === "nf_pj" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-semibold text-slate-900">Notas fiscais PJ — {invoiceYear}</h4>
+                  <p className="text-sm text-slate-500">Todos os meses ficam visíveis. Envie a NF do mês e acompanhe a conferência e a baixa pelo Financeiro.</p>
+                </div>
+                {canManageProfile && <Button className="bg-red-600 hover:bg-red-700" onClick={() => openPjInvoiceForm(new Date().getMonth() + 1)}><Upload className="mr-1 h-4 w-4" /> Enviar NF</Button>}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {months.map((monthName, index) => {
+                  const month = index + 1;
+                  const invoice: any = invoicesByMonth.get(month);
+                  const paid = invoice?.status === "pago";
+                  const underReview = invoice?.status === "em_conferencia";
+                  const rejected = invoice?.status === "rejeitado";
+                  const cardClass = paid ? "border-emerald-200 bg-emerald-50" : underReview ? "border-amber-200 bg-amber-50" : rejected ? "border-red-200 bg-red-50" : "border-slate-200 bg-white";
+                  const statusLabel = paid ? "Pago" : underReview ? "Em conferência" : rejected ? "Rejeitada" : "Aguardando NF";
+                  return <Card key={month} role={canManageProfile ? "button" : undefined} tabIndex={canManageProfile ? 0 : undefined} onClick={() => canManageProfile && openPjInvoiceForm(month, invoice)} onKeyDown={(event) => { if (canManageProfile && (event.key === "Enter" || event.key === " ")) openPjInvoiceForm(month, invoice); }} className={`${cardClass} overflow-hidden transition-all ${canManageProfile ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md" : ""}`}><CardContent className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{monthName}</p><p className="mt-0.5 text-xs text-slate-500">Competência {String(month).padStart(2, "0")}/{invoiceYear}</p></div><Badge className={paid ? "bg-emerald-100 text-emerald-700" : underReview ? "bg-amber-100 text-amber-700" : rejected ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}>{statusLabel}</Badge></div>{invoice ? <div className="mt-4 space-y-1 text-sm"><p className="font-semibold text-slate-800">R$ {Number(invoice.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p><p className="text-xs text-slate-500">NF {invoice.invoiceNumber}</p></div> : <div className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-500"><Upload className="h-4 w-4" /> Clique para enviar</div>}</CardContent></Card>;
+                })}
+              </div>
+              {showPjInvoiceForm && canManageProfile && <Card className="border-red-100 bg-red-50/40"><CardContent className="space-y-3 p-4"><div className="flex items-center justify-between"><div><p className="font-bold text-slate-900">NF de {months[pjInvoiceForm.competenceMonth - 1]}</p><p className="text-xs text-slate-500">Informe os dados da nota e envie o arquivo para a fila do Financeiro.</p></div><Button variant="ghost" size="sm" onClick={() => setShowPjInvoiceForm(false)}>Fechar</Button></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label>Número da NF *</Label><Input value={pjInvoiceForm.invoiceNumber} onChange={(event) => setPjInvoiceForm({ ...pjInvoiceForm, invoiceNumber: event.target.value })} placeholder="Ex.: 000123" /></div><div className="space-y-1.5"><Label>Valor total *</Label><Input type="number" min="0.01" step="0.01" value={pjInvoiceForm.amount} onChange={(event) => setPjInvoiceForm({ ...pjInvoiceForm, amount: event.target.value })} placeholder="0,00" /></div><div className="space-y-1.5"><Label>Data de emissão</Label><Input type="date" value={pjInvoiceForm.issueDate} onChange={(event) => setPjInvoiceForm({ ...pjInvoiceForm, issueDate: event.target.value })} /></div><div className="space-y-1.5"><Label>Arquivo da NF *</Label><Input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setPjInvoiceForm({ ...pjInvoiceForm, file: event.target.files?.[0] || null })} /></div></div><div className="space-y-1.5"><Label>Observações para o Financeiro</Label><Textarea value={pjInvoiceForm.notes} onChange={(event) => setPjInvoiceForm({ ...pjInvoiceForm, notes: event.target.value })} placeholder="Informações adicionais para conferência" /></div><Button disabled={submitPjInvoice.isPending} onClick={submitMonthlyPjInvoice} className="bg-red-600 hover:bg-red-700">{submitPjInvoice.isPending ? "Enviando..." : "Enviar para conferência financeira"}</Button></CardContent></Card>}
             </div>
           )}
 
@@ -799,10 +880,10 @@ function hasProfileValue(value?: string | null) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function ProfileField({ label, value, icon: Icon }: { label: string; value?: string | null; icon: React.ComponentType<{ className?: string }> }) {
+function ProfileField({ label, value, icon: Icon, onClick }: { label: string; value?: string | null; icon: React.ComponentType<{ className?: string }>; onClick?: () => void }) {
   const completed = hasProfileValue(value);
   return (
-    <Card className={completed ? "overflow-hidden border-emerald-200 bg-emerald-50/60 shadow-sm" : "overflow-hidden border-red-200 bg-red-50/70 shadow-sm"}>
+    <Card role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onClick={onClick} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }} className={`${completed ? "overflow-hidden border-emerald-200 bg-emerald-50/60 shadow-sm" : "overflow-hidden border-red-200 bg-red-50/70 shadow-sm"} ${onClick ? "cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md" : ""}`}>
       <CardContent className="p-0">
         <div className={completed ? "h-1 w-full bg-emerald-500" : "h-1 w-full bg-red-500"} />
         <div className="p-4">
@@ -814,6 +895,7 @@ function ProfileField({ label, value, icon: Icon }: { label: string; value?: str
             <span className={completed ? "inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700" : "inline-flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700"}>{completed ? <CheckCircle2 className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}{completed ? "Preenchido" : "Pendente"}</span>
           </div>
           <p className={completed ? "mt-3 break-words text-sm font-semibold text-emerald-950" : "mt-3 text-sm font-semibold text-red-700"}>{completed ? value : "Não informado"}</p>
+          {onClick && <p className="mt-2 text-xs font-semibold text-red-600">Clique para preencher</p>}
         </div>
       </CardContent>
     </Card>

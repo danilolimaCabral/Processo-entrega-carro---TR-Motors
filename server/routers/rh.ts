@@ -666,13 +666,21 @@ export const rhRouter = router({
         size: z.string().optional(),
         quantity: z.number().default(1),
         dateIssued: z.string().optional(),
-        status: z.string().default("entregue"),
+        status: z.enum(["entregue", "solicitado"]).default("entregue"),
         notes: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
       const db = await getDb();
-      await db.insert(rh_uniforms).values(input);
+      // Alguns bancos criados antes das migrações atuais não possuem defaults
+      // para os timestamps. Informá-los explicitamente mantém o cadastro
+      // compatível sem alterar ou recriar dados existentes.
+      const now = new Date();
+      await db.insert(rh_uniforms).values({
+        ...input,
+        createdAt: now,
+        updatedAt: now,
+      });
       return { success: true };
     }),
 

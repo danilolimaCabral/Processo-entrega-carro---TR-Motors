@@ -1632,7 +1632,6 @@ function UniformsTab() {
                 <SelectContent>
                   <SelectItem value="entregue">Entregue</SelectItem>
                   <SelectItem value="solicitado">Solicitado</SelectItem>
-                  <SelectItem value="pendente">Pendente</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={handleCreate} className="w-full min-h-[40px]">Salvar</Button>
@@ -1642,11 +1641,10 @@ function UniformsTab() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-blue-600">{uniforms?.length || 0}</div><div className="text-xs text-muted-foreground">Total Uniformes</div></CardContent></Card>
         <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-green-600">{uniforms?.filter(u => u.status === "entregue").length || 0}</div><div className="text-xs text-muted-foreground">Entregues</div></CardContent></Card>
-        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-yellow-600">{uniforms?.filter(u => u.status === "pendente").length || 0}</div><div className="text-xs text-muted-foreground">Pendentes</div></CardContent></Card>
-        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-purple-600">{uniforms?.filter(u => u.status === "solicitado").length || 0}</div><div className="text-xs text-muted-foreground">Solicitados</div></CardContent></Card>
+        <Card><CardContent className="p-3 text-center"><div className="text-2xl font-bold text-purple-600">{uniforms?.filter(u => u.status === "solicitado" || u.status === "pendente").length || 0}</div><div className="text-xs text-muted-foreground">Solicitados</div></CardContent></Card>
       </div>
 
       {/* List */}
@@ -1661,7 +1659,7 @@ function UniformsTab() {
                   <p className="text-sm text-muted-foreground">{emp?.name || "Funcionário"} · Qtd: {u.quantity} · {u.dateIssued ? `Entrega: ${u.dateIssued}` : "Sem data"}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={u.status === "entregue" ? "default" : u.status === "pendente" ? "secondary" : "outline"}>{u.status}</Badge>
+                  <Badge variant={u.status === "entregue" ? "default" : "outline"}>{u.status === "pendente" ? "solicitado" : u.status}</Badge>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => deleteUniform.mutate({ id: u.id })}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </CardContent>
@@ -1842,33 +1840,48 @@ function ExitChecklistTab() {
           const total = items.length || sectors.length;
           const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
           return (
-            <Card key={cl.id}>
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-base">{cl.employeeName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">Iniciado em: {cl.initiatedAt ? new Date(cl.initiatedAt).toLocaleDateString("pt-BR") : "N/D"}</p>
+            <Card key={cl.id} className="overflow-hidden border-slate-200 shadow-sm">
+              <CardHeader className="space-y-3 p-4 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-base">{cl.employeeName}</CardTitle>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Iniciado em {cl.initiatedAt ? new Date(cl.initiatedAt).toLocaleDateString("pt-BR") : "N/D"}</p>
                   </div>
-                  <Badge variant={pct === 100 ? "default" : "secondary"}>{pct}% concluído</Badge>
+                  <Badge className={pct === 100 ? "shrink-0 bg-emerald-600" : "shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100"}>
+                    {pct === 100 ? "Concluído" : `${total - completed} pendência${total - completed === 1 ? "" : "s"}`}
+                  </Badge>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{completed} de {total} áreas concluídas</span>
+                    <span className="font-medium text-foreground">{pct}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-1.5">
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100 border-t border-slate-100">
                   {sectors.map((sector) => {
                     const item = items.find((i: any) => i.sector === sector);
                     const status = item?.status || "pendente";
+                    const isPending = status === "pendente";
                     return (
-                      <div key={sector} className="flex items-center justify-between p-2 rounded-lg bg-slate-50">
-                        <span className="text-sm font-medium">{sector}</span>
+                      <div key={sector} className={`flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between ${isPending ? "bg-amber-50/50" : "bg-white"}`}>
                         <div className="flex items-center gap-2">
-                          <Badge variant={status === "concluido" ? "default" : status === "nao_aplicavel" ? "secondary" : "outline"}>
+                          <span className={`h-2 w-2 shrink-0 rounded-full ${status === "concluido" ? "bg-emerald-500" : status === "nao_aplicavel" ? "bg-slate-300" : "bg-amber-500"}`} />
+                          <span className="text-sm font-medium text-slate-700">{sector}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 sm:justify-end">
+                          <Badge className={status === "concluido" ? "bg-emerald-600" : status === "nao_aplicavel" ? "bg-slate-100 text-slate-600 hover:bg-slate-100" : "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-100"} variant={status === "concluido" ? "default" : "outline"}>
                             {status === "concluido" ? "Concluído" : status === "nao_aplicavel" ? "Não Aplicável" : "Pendente"}
                           </Badge>
                           <Select
                             value={status}
                             onValueChange={(v) => item?.id && updateItem.mutate({ id: item.id, status: v as "pendente" | "concluido" | "nao_aplicavel" })}
                           >
-                            <SelectTrigger className="w-[140px] h-8"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-8 w-[136px] bg-white text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="pendente">Pendente</SelectItem>
                               <SelectItem value="concluido">Concluído</SelectItem>

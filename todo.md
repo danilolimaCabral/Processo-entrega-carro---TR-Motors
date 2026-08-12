@@ -108,3 +108,8 @@
 - [x] Remover as divisões Gestão de Pessoas e Gestão, unificando as opções no menu do RH
 - [x] Reorganizar o cadastro de funcionário em abas para dados básicos, endereço, contatos, documentação e informações de trabalho
 - [x] Remover os campos de salário e comissão do cadastro inicial de funcionário
+- [ ] Exibir no dashboard de RH documentos pendentes, NF PJ mensal pendente e faltas registradas
+- [ ] Permitir registrar e consultar faltas dentro da ficha individual do funcionário
+- [x] Corrigir o erro ao cadastrar uniforme no módulo de RH
+- [x] Remover o status pendente da área de uniformes
+- [x] Compactar e profissionalizar os cartões de checklist de desligamento, com áreas clicáveis, progresso e status pendente visível

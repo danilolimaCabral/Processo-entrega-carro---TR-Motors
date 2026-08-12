@@ -87,5 +87,6 @@
 - [x] Criar grade anual de 12 meses para NF PJ com competência, número, valor, arquivo, conferência do Financeiro e cartão verde após pagamento
 - [x] Permitir clicar em cartões pendentes da ficha para preencher os dados diretamente
 - [x] Refinar o visual dos cartões mensais de NF PJ para melhorar clareza e aparência
+- [x] Corrigir o clique nos cartões de NF PJ para abrir o formulário da competência selecionada
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD
 - [x] Publicar em uma única atualização as correções prioritárias de RH e Configurações

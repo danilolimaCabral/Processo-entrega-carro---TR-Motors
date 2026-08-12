@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { eq, like, desc, and, between, or, count, inArray } from "drizzle-orm";
-import { hrProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { adminProcedure, hrProcedure, protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { createUserDirect, getDb, getUserByEmail } from "../db";
 import bcryptjs from "bcryptjs";
 import { TRPCError } from "@trpc/server";
@@ -32,7 +32,7 @@ export const rhRouter = router({
     return db.select().from(rh_departments).orderBy(desc(rh_departments.createdAt));
   }),
 
-  createDepartment: protectedProcedure
+  createDepartment: adminProcedure
     .input(
       z.object({
         name: z.string().min(1),
@@ -45,7 +45,7 @@ export const rhRouter = router({
       return { success: true, id: result[0].insertId };
     }),
 
-  updateDepartment: protectedProcedure
+  updateDepartment: adminProcedure
     .input(
       z.object({
         id: z.number(),
@@ -60,7 +60,7 @@ export const rhRouter = router({
       return { success: true };
     }),
 
-  deleteDepartment: protectedProcedure
+  deleteDepartment: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -74,7 +74,7 @@ export const rhRouter = router({
     return db.select().from(rh_positions).orderBy(desc(rh_positions.createdAt));
   }),
 
-  createPosition: protectedProcedure
+  createPosition: adminProcedure
     .input(
       z.object({
         title: z.string().min(1),
@@ -89,7 +89,7 @@ export const rhRouter = router({
       return { success: true, id: result[0].insertId };
     }),
 
-  updatePosition: protectedProcedure
+  updatePosition: adminProcedure
     .input(
       z.object({
         id: z.number(),
@@ -106,7 +106,7 @@ export const rhRouter = router({
       return { success: true };
     }),
 
-  deletePosition: protectedProcedure
+  deletePosition: adminProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -1131,7 +1131,7 @@ export const rhRouter = router({
     }),
 
   // ==================== Audit Logs ====================
-  listAuditLogs: protectedProcedure
+  listAuditLogs: adminProcedure
     .input(z.object({ module: z.string().optional(), limit: z.number().default(50) }).optional())
     .query(async ({ input }) => {
       const db = await getDb();

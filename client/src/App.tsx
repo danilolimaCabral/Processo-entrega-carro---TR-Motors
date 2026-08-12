@@ -18,6 +18,7 @@ import PipelinePage from "./pages/PipelinePage";
 import DeliveryPage from "./pages/DeliveryPage";
 import EadPage from "./pages/EadPage";
 import ExpensesPage from "./pages/ExpensesPage";
+import AdminPage from "./pages/AdminPage";
 
 /**
  * Wrapper para a página pública de acompanhamento de processo.
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/dashboard" component={DashboardPage} />
       {/* Gestão de módulos (admin) */}
       <Route path="/modulos" component={ModulesPage} />
+      <Route path="/configuracoes" component={AdminPage} />
       {/* Vistoria de compra */}
       <Route path="/vistoria" component={PurchaseInspectionPage} />
       <Route path="/vistoria/nova" component={PurchaseInspectionPage} />

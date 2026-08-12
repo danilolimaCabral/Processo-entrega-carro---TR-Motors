@@ -55,8 +55,8 @@
 - [x] Corrigir o erro ao cadastrar funcionário
 
 ## Configurações administrativas
-- [ ] Adicionar acesso a Departamentos em Configurações
-- [ ] Adicionar acesso a Cargos em Configurações
+- [x] Adicionar acesso a Departamentos em Configurações
+- [x] Adicionar acesso a Cargos em Configurações
 
 ## Ficha do colaborador
 - [x] Abrir ficha detalhada ao clicar em um funcionário
@@ -74,3 +74,10 @@
 ## Documentação digital do colaborador
 - [x] Permitir o upload e armazenamento de arquivos na documentação do colaborador
 - [x] Remover a necessidade de informar link manual para anexar documentos
+
+## Correções de RH e Configurações
+- [x] Restaurar o botão de cadastrar funcionário para o perfil de RH
+- [x] Mover Departamentos e Cargos para Configurações exclusivas do administrador
+- [x] Centralizar Auditoria, Usuários e liberação de módulos em Configurações exclusivas do administrador
+- [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD
+- [ ] Publicar em uma única atualização as correções prioritárias de RH e Configurações

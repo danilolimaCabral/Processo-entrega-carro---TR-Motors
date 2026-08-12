@@ -71,8 +71,7 @@ function getMenuItems(role: string): MenuItem[] {
     items.push({ icon: UserCog, label: "RH", shortLabel: "RH", path: "/rh", group: "gestao" });
     items.push({ icon: Receipt, label: "Despesas", shortLabel: "Desp.", path: "/despesas", group: "gestao" });
     items.push({ icon: GraduationCap, label: "EAD Videoaulas", shortLabel: "EAD", path: "/ead", group: "gestao" });
-    items.push({ icon: Users, label: "Usuários", shortLabel: "Users", path: "/", group: "sistema" });
-    items.push({ icon: Blocks, label: "Módulos", shortLabel: "Módulos", path: "/modulos", group: "sistema" });
+    items.push({ icon: Settings, label: "Configurações", shortLabel: "Config", path: "/configuracoes", group: "sistema" });
   } else if (role === "vendedor") {
     items.push({ icon: LayoutDashboard, label: "Dashboard", shortLabel: "Dash", path: "/dashboard", group: "principal" });
     items.push({ icon: Car, label: "Vendas", shortLabel: "Vendas", path: "/vendedor/dashboard", group: "comercial" });

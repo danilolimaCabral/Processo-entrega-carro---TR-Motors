@@ -53,9 +53,6 @@ const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[]
     label: "GESTÃO DE PESSOAS",
     items: [
       { id: "funcionarios", label: "Funcionários", icon: Users },
-      { id: "usuarios", label: "Criar Usuários", icon: UserCog },
-      { id: "departamentos", label: "Departamentos", icon: Building2 },
-      { id: "cargos", label: "Cargos", icon: Briefcase },
     ],
   },
   {
@@ -71,7 +68,6 @@ const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[]
       { id: "documentos", label: "Documentos", icon: FolderArchive },
       { id: "vagas", label: "Vagas", icon: BriefcaseBusiness },
       { id: "candidatos", label: "Candidatos", icon: UserPlus },
-      { id: "auditoria", label: "Auditoria", icon: ScrollText },
     ],
   },
 ];
@@ -781,7 +777,7 @@ function EmptyProfileState({ icon, message }: { icon: ReactNode; message: string
 }
 
 // ==================== Departments Tab ====================
-function DepartmentsTab() {
+export function DepartmentsTab() {
   const { data: departments, refetch } = trpc.rh.listDepartments.useQuery();
   const createMutation = trpc.rh.createDepartment.useMutation();
   const deleteMutation = trpc.rh.deleteDepartment.useMutation();
@@ -835,7 +831,7 @@ function DepartmentsTab() {
 }
 
 // ==================== Positions Tab ====================
-function PositionsTab() {
+export function PositionsTab() {
   const { data: positions, refetch } = trpc.rh.listPositions.useQuery();
   const createMutation = trpc.rh.createPosition.useMutation();
   const deleteMutation = trpc.rh.deletePosition.useMutation();
@@ -2005,7 +2001,7 @@ function CandidatesTab() {
 }
 
 // ===================== LOG DE AUDITORIA =====================
-function AuditLogsTab() {
+export function AuditLogsTab() {
   const [filter, setFilter] = useState("");
   const { data: logs } = trpc.rh.listAuditLogs.useQuery({ limit: 100 });
 

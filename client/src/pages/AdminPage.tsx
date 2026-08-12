@@ -58,6 +58,7 @@ import {
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/DashboardLayout";
+import { DepartmentsTab, PositionsTab, AuditLogsTab } from "./RhPage";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -221,10 +222,10 @@ export default function AdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="h-7 w-7 text-red-600" />
-              Painel Administrativo
+              Configurações
             </h1>
             <p className="text-slate-500 mt-1 text-sm">
-              Gerenciamento de usuários e sistema
+              Usuários, módulos, estrutura organizacional e auditoria
             </p>
           </div>
           <Button
@@ -236,6 +237,19 @@ export default function AdminPage() {
             Sair
           </Button>
         </div>
+
+        <Card className="border-red-100">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Configurações administrativas</CardTitle>
+            <CardDescription>Somente administradores podem alterar estas informações.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4">
+            <Button variant="outline" className="justify-start gap-2" onClick={() => navigate("/modulos")}><Blocks className="h-4 w-4" /> Liberar módulos</Button>
+            <Button variant="outline" className="justify-start gap-2" onClick={() => document.getElementById("departamentos-config")?.scrollIntoView({ behavior: "smooth" })}><Users className="h-4 w-4" /> Departamentos</Button>
+            <Button variant="outline" className="justify-start gap-2" onClick={() => document.getElementById("cargos-config")?.scrollIntoView({ behavior: "smooth" })}><ShieldCheck className="h-4 w-4" /> Cargos</Button>
+            <Button variant="outline" className="justify-start gap-2" onClick={() => document.getElementById("auditoria-config")?.scrollIntoView({ behavior: "smooth" })}><LayoutDashboard className="h-4 w-4" /> Auditoria</Button>
+          </CardContent>
+        </Card>
 
         {/* Create User Dialog */}
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -631,6 +645,18 @@ export default function AdminPage() {
             )}
           </CardContent>
         </Card>
+
+        <section id="departamentos-config" className="scroll-mt-6">
+          <DepartmentsTab />
+        </section>
+
+        <section id="cargos-config" className="scroll-mt-6">
+          <PositionsTab />
+        </section>
+
+        <section id="auditoria-config" className="scroll-mt-6">
+          <AuditLogsTab />
+        </section>
       </div>
     </DashboardLayout>
   );

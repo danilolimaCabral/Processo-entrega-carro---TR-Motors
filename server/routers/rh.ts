@@ -5,6 +5,7 @@ import { createUserDirect, getDb, getUserByEmail } from "../db";
 import bcryptjs from "bcryptjs";
 import { TRPCError } from "@trpc/server";
 import { randomBytes } from "crypto";
+import { storagePut } from "../storage";
 import {
   rh_departments,
   rh_positions,
@@ -801,6 +802,52 @@ export const rhRouter = router({
         return db.select().from(employee_documents).where(eq(employee_documents.employeeId, input.employeeId)).orderBy(desc(employee_documents.createdAt));
       }
       return db.select().from(employee_documents).orderBy(desc(employee_documents.createdAt));
+    }),
+  uploadEmployeeDocument: hrProcedure
+    .input(z.object({
+      employeeId: z.number(),
+      category: z.string().min(1),
+      documentName: z.string().min(1),
+      expiryDate: z.string().optional(),
+      filename: z.string().min(1).max(180),
+      mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
+      fileData: z.string().min(1).max(14_000_000),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { employee_documents, audit_logs } = await import("../../drizzle/schema");
+      const safeFilename = input.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const fileBuffer = Buffer.from(input.fileData, "base64");
+
+      if (!fileBuffer.length || fileBuffer.length > 10 * 1024 * 1024) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Envie um arquivo válido de até 10 MB." });
+      }
+
+      const storedFile = await storagePut(
+        `rh/employee-documents/${input.employeeId}/${Date.now()}-${safeFilename}`,
+        fileBuffer,
+        input.mimeType,
+      );
+      const result = await db.insert(employee_documents).values({
+        employeeId: input.employeeId,
+        category: input.category,
+        documentName: input.documentName,
+        fileUrl: storedFile.url,
+        fileMimeType: input.mimeType,
+        expiryDate: input.expiryDate,
+        uploadedBy: ctx.user.id,
+      });
+      await db.insert(audit_logs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name || ctx.user.email,
+        action: "create",
+        module: "rh",
+        entityId: result[0].insertId,
+        entityName: input.documentName,
+        details: `Arquivo enviado para a Pasta Digital: ${input.category}`,
+      });
+
+      return { success: true, id: result[0].insertId, url: storedFile.url };
     }),
   createEmployeeDocument: protectedProcedure
     .input(z.object({

@@ -70,3 +70,7 @@
 - [ ] Configurar Danilo como vendedor com acesso apenas aos módulos de vendas
 - [x] Aplicar módulos permitidos de forma consistente para gerente e demais perfis
 - [x] Filtrar no sistema os módulos exibidos e retornados conforme o perfil do usuário
+
+## Documentação digital do colaborador
+- [ ] Permitir o upload e armazenamento de arquivos na documentação do colaborador
+- [ ] Remover a necessidade de informar link manual para anexar documentos

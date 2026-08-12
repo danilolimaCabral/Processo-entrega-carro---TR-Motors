@@ -18,12 +18,28 @@ import {
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
   GraduationCap, ScrollText, UserPlus, Menu, X, LogOut, ArrowLeft,
-  Receipt, BookOpen, UserCog, ChevronRight,
+  Receipt, BookOpen, UserCog, ChevronRight, Upload,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 
 type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "uniformes" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "ead" | "usuarios";
+
+const documentFileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onerror = () => reject(new Error("Não foi possível ler o arquivo selecionado."));
+  reader.onload = () => {
+    const result = reader.result;
+    if (typeof result !== "string" || !result.includes(",")) {
+      reject(new Error("Arquivo inválido."));
+      return;
+    }
+    resolve(result.split(",")[1]);
+  };
+  reader.readAsDataURL(file);
+});
+
+const isAcceptedDocumentFile = (file: File) => ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type);
 
 const navGroups: { label: string; items: { id: Tab; label: string; icon: any }[] }[] = [
   {
@@ -602,7 +618,7 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
   const [showUniformForm, setShowUniformForm] = useState(false);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [uniformForm, setUniformForm] = useState({ type: "", size: "", quantity: "1", dateIssued: "", status: "entregue" });
-  const [documentForm, setDocumentForm] = useState({ category: "", documentName: "", expiryDate: "", fileUrl: "" });
+  const [documentForm, setDocumentForm] = useState<{ category: string; documentName: string; expiryDate: string; file: File | null }>({ category: "", documentName: "", expiryDate: "", file: null });
   const employeeId = employee?.id;
   const { data: uniforms } = trpc.rh.listUniforms.useQuery(
     employeeId ? { employeeId } : undefined,
@@ -625,14 +641,14 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
     onSuccess: async () => { await utils.rh.listUniforms.invalidate(); toast.success("Uniforme removido"); },
     onError: (error) => toast.error(error.message),
   });
-  const createDocument = trpc.rh.createEmployeeDocument.useMutation({
+  const uploadDocument = trpc.rh.uploadEmployeeDocument.useMutation({
     onSuccess: async () => {
       await utils.rh.listEmployeeDocuments.invalidate();
-      setDocumentForm({ category: "", documentName: "", expiryDate: "", fileUrl: "" });
+      setDocumentForm({ category: "", documentName: "", expiryDate: "", file: null });
       setShowDocumentForm(false);
-      toast.success("Documento vinculado à ficha do colaborador");
+      toast.success("Arquivo armazenado na Pasta Digital");
     },
-    onError: (error) => toast.error(error.message || "Não foi possível adicionar o documento"),
+    onError: (error) => toast.error(error.message || "Não foi possível enviar o arquivo"),
   });
   const deleteDocument = trpc.rh.deleteEmployeeDocument.useMutation({
     onSuccess: async () => { await utils.rh.listEmployeeDocuments.invalidate(); toast.success("Documento removido"); },
@@ -655,8 +671,40 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
   const categories = ["Identificação", "Admissão", "Exame Médico", "Formação", "Comprovante", "Nota Fiscal / Recibo", "Outro"];
   const hasDocument = (name: string) => documents?.some((document: any) => document.documentName.trim().toLowerCase() === name.toLowerCase());
   const openRequiredDocument = (name: string, category: string) => {
-    setDocumentForm({ category, documentName: name, expiryDate: "", fileUrl: "" });
+    setDocumentForm({ category, documentName: name, expiryDate: "", file: null });
     setShowDocumentForm(true);
+  };
+  const selectProfileDocumentFile = (file: File | null) => {
+    if (!file) return;
+    if (!isAcceptedDocumentFile(file) || file.size > 10 * 1024 * 1024) {
+      toast.error("Envie um PDF, JPG, PNG ou WEBP de até 10 MB.");
+      return;
+    }
+    setDocumentForm((current) => ({
+      ...current,
+      file,
+      documentName: current.documentName || file.name.replace(/\.[^.]+$/, ""),
+    }));
+  };
+  const submitProfileDocument = async () => {
+    if (!documentForm.file) {
+      toast.error("Selecione o arquivo que deseja armazenar.");
+      return;
+    }
+    try {
+      const fileData = await documentFileToBase64(documentForm.file);
+      uploadDocument.mutate({
+        employeeId: employee.id,
+        category: documentForm.category,
+        documentName: documentForm.documentName.trim(),
+        expiryDate: documentForm.expiryDate || undefined,
+        filename: documentForm.file.name,
+        mimeType: documentForm.file.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+        fileData,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível preparar o arquivo.");
+    }
   };
 
   return (
@@ -712,8 +760,8 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
 
           {profileTab === "documentos" && (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-semibold text-slate-900">Documentação vinculada</h4><p className="text-sm text-slate-500">Acompanhe documentos obrigatórios e outros arquivos desta ficha.</p></div><Button onClick={() => { setDocumentForm({ category: "", documentName: "", expiryDate: "", fileUrl: "" }); setShowDocumentForm((visible) => !visible); }} className="bg-red-600 hover:bg-red-700"><Plus className="mr-1 h-4 w-4" /> Adicionar documento</Button></div>
-              {showDocumentForm && <Card className="border-red-100 bg-red-50/40"><CardContent className="grid gap-3 p-4 sm:grid-cols-2"><Select value={documentForm.category} onValueChange={(value) => setDocumentForm({ ...documentForm, category: value })}><SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select><Input placeholder="Nome do documento" value={documentForm.documentName} onChange={(event) => setDocumentForm({ ...documentForm, documentName: event.target.value })} /><Input type="date" value={documentForm.expiryDate} onChange={(event) => setDocumentForm({ ...documentForm, expiryDate: event.target.value })} /><Input placeholder="Link do arquivo (opcional)" value={documentForm.fileUrl} onChange={(event) => setDocumentForm({ ...documentForm, fileUrl: event.target.value })} /><Button className="sm:col-span-2" disabled={!documentForm.category || !documentForm.documentName.trim() || createDocument.isPending} onClick={() => createDocument.mutate({ employeeId: employee.id, category: documentForm.category, documentName: documentForm.documentName.trim(), expiryDate: documentForm.expiryDate || undefined, fileUrl: documentForm.fileUrl || undefined, uploadedBy: user?.id })}>{createDocument.isPending ? "Salvando..." : "Vincular documento"}</Button></CardContent></Card>}
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h4 className="font-semibold text-slate-900">Documentação vinculada</h4><p className="text-sm text-slate-500">Envie e armazene documentos obrigatórios e outros arquivos nesta ficha.</p></div><Button onClick={() => { setDocumentForm({ category: "", documentName: "", expiryDate: "", file: null }); setShowDocumentForm((visible) => !visible); }} className="bg-red-600 hover:bg-red-700"><Plus className="mr-1 h-4 w-4" /> Adicionar documento</Button></div>
+              {showDocumentForm && <Card className="border-red-100 bg-red-50/40"><CardContent className="grid gap-3 p-4 sm:grid-cols-2"><Select value={documentForm.category} onValueChange={(value) => setDocumentForm({ ...documentForm, category: value })}><SelectTrigger><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select><Input placeholder="Nome do documento" value={documentForm.documentName} onChange={(event) => setDocumentForm({ ...documentForm, documentName: event.target.value })} /><Input type="date" value={documentForm.expiryDate} onChange={(event) => setDocumentForm({ ...documentForm, expiryDate: event.target.value })} /><div className="sm:col-span-2"><Label htmlFor="profile-document-file">Arquivo</Label><Input id="profile-document-file" className="mt-1 cursor-pointer bg-white" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => selectProfileDocumentFile(event.target.files?.[0] || null)} /><p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG ou WEBP, até 10 MB{documentForm.file ? ` · ${documentForm.file.name}` : ""}</p></div><Button className="sm:col-span-2" disabled={!documentForm.category || !documentForm.documentName.trim() || !documentForm.file || uploadDocument.isPending} onClick={submitProfileDocument}>{uploadDocument.isPending ? "Enviando arquivo..." : "Enviar e armazenar documento"}</Button></CardContent></Card>}
               <Card className="border-slate-200"><CardHeader className="pb-3"><CardTitle className="text-base">Documentos obrigatórios</CardTitle></CardHeader><CardContent className="space-y-2">{requiredDocuments.map((required) => { const sent = hasDocument(required.name); return <div key={required.name} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 p-3"><div className="flex items-center gap-3"><FileText className={sent ? "h-4 w-4 text-emerald-600" : "h-4 w-4 text-amber-500"} /><div><p className="text-sm font-medium text-slate-800">{required.name}</p><p className="text-xs text-slate-500">{sent ? "Documento vinculado" : "Aguardando envio"}</p></div></div>{sent ? <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Enviado</Badge> : <Button variant="outline" size="sm" onClick={() => openRequiredDocument(required.name, required.category)}>Enviar</Button>}</div>; })}</CardContent></Card>
               <div className="space-y-2"><h5 className="text-sm font-semibold text-slate-700">Arquivos adicionados</h5>{documents?.length ? documents.map((document) => <Card key={document.id} className="border-slate-200"><CardContent className="flex items-center justify-between gap-3 p-3"><div className="flex items-center gap-3"><FileText className="h-7 w-7 text-slate-400" /><div><p className="font-medium text-slate-800">{document.documentName}</p><p className="text-xs text-slate-500">{document.category}{document.expiryDate ? ` · Validade: ${document.expiryDate}` : ""}</p></div></div><div className="flex items-center gap-1">{document.fileUrl && <a href={document.fileUrl} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm">Ver</Button></a>}<Button variant="ghost" size="icon" className="text-red-500" onClick={() => { if (confirm("Remover este documento da ficha?")) deleteDocument.mutate({ id: document.id }); }}><Trash2 className="h-4 w-4" /></Button></div></CardContent></Card>) : <EmptyProfileState icon={<FolderArchive className="h-8 w-8" />} message="Nenhum documento vinculado a esta ficha." />}</div>
             </div>
@@ -1644,10 +1692,9 @@ function ExitChecklistTab() {
 
 // ===================== DOCUMENTOS DO COLABORADOR =====================
 function EmployeeDocumentsTab() {
-  const { user } = useAuth();
   const [showDialog, setShowDialog] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [form, setForm] = useState({ category: "", docName: "", expiryDate: "", fileUrl: "" });
+  const [form, setForm] = useState<{ category: string; docName: string; expiryDate: string; file: File | null }>({ category: "", docName: "", expiryDate: "", file: null });
   const utils = trpc.useUtils();
 
   const { data: employees } = trpc.rh.listEmployees.useQuery({});
@@ -1655,8 +1702,8 @@ function EmployeeDocumentsTab() {
     selectedEmployeeId ? { employeeId: Number(selectedEmployeeId) } : undefined,
     { enabled: Boolean(selectedEmployeeId) },
   );
-  const createDoc = trpc.rh.createEmployeeDocument.useMutation({
-    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Documento adicionado à Pasta Digital"); setForm({ category: "", docName: "", expiryDate: "", fileUrl: "" }); },
+  const uploadDoc = trpc.rh.uploadEmployeeDocument.useMutation({
+    onSuccess: () => { utils.invalidate(); setShowDialog(false); toast.success("Arquivo armazenado na Pasta Digital"); setForm({ category: "", docName: "", expiryDate: "", file: null }); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
   const deleteDoc = trpc.rh.deleteEmployeeDocument.useMutation({ onSuccess: () => utils.invalidate() });
@@ -1680,8 +1727,36 @@ function EmployeeDocumentsTab() {
       toast.error("Selecione um colaborador antes de enviar documentos");
       return;
     }
-    setForm({ category, docName: documentName, expiryDate: "", fileUrl: "" });
+    setForm({ category, docName: documentName, expiryDate: "", file: null });
     setShowDialog(true);
+  };
+  const selectDocumentFile = (file: File | null) => {
+    if (!file) return;
+    if (!isAcceptedDocumentFile(file) || file.size > 10 * 1024 * 1024) {
+      toast.error("Envie um PDF, JPG, PNG ou WEBP de até 10 MB.");
+      return;
+    }
+    setForm((current) => ({ ...current, file, docName: current.docName || file.name.replace(/\.[^.]+$/, "") }));
+  };
+  const submitDocument = async () => {
+    if (!selectedEmployeeId || !form.file) {
+      toast.error("Selecione um colaborador e o arquivo que deseja armazenar.");
+      return;
+    }
+    try {
+      const fileData = await documentFileToBase64(form.file);
+      uploadDoc.mutate({
+        employeeId: Number(selectedEmployeeId),
+        category: form.category,
+        documentName: form.docName.trim(),
+        expiryDate: form.expiryDate || undefined,
+        filename: form.file.name,
+        mimeType: form.file.type as "application/pdf" | "image/jpeg" | "image/png" | "image/webp",
+        fileData,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível preparar o arquivo.");
+    }
   };
 
   const today = new Date();
@@ -1718,8 +1793,8 @@ function EmployeeDocumentsTab() {
               </Select>
               <Input placeholder="Nome do documento" value={form.docName} onChange={e => setForm({ ...form, docName: e.target.value })} className="min-h-[40px]" />
               <Input type="date" placeholder="Validade" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className="min-h-[40px]" />
-              <Input placeholder="Link do arquivo (opcional)" value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })} className="min-h-[40px]" />
-              <Button disabled={!selectedEmployeeId || !form.category || !form.docName || createDoc.isPending} onClick={() => createDoc.mutate({ employeeId: Number(selectedEmployeeId), category: form.category, documentName: form.docName, fileUrl: form.fileUrl || undefined, expiryDate: form.expiryDate || undefined, uploadedBy: user?.id })} className="w-full min-h-[40px] bg-red-600 hover:bg-red-700">{createDoc.isPending ? "Salvando..." : "Salvar documento"}</Button>
+              <div><Label htmlFor="digital-folder-file">Arquivo</Label><Input id="digital-folder-file" className="mt-1 cursor-pointer" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => selectDocumentFile(e.target.files?.[0] || null)} /><p className="mt-1 text-xs text-slate-500">PDF, JPG, PNG ou WEBP, até 10 MB{form.file ? ` · ${form.file.name}` : ""}</p></div>
+              <Button disabled={!selectedEmployeeId || !form.category || !form.docName || !form.file || uploadDoc.isPending} onClick={submitDocument} className="w-full min-h-[40px] bg-red-600 hover:bg-red-700"><Upload className="mr-2 h-4 w-4" />{uploadDoc.isPending ? "Enviando arquivo..." : "Enviar e armazenar documento"}</Button>
             </div>
           </DialogContent>
         </Dialog>

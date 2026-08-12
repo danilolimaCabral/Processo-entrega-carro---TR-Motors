@@ -24,7 +24,7 @@ export default function Home() {
     } else if (user.role === "rh") {
       navigate("/rh");
     } else if (user.role === "admin") {
-      navigate("/rh");
+      navigate("/configuracoes");
     }
   }, [user, loading, navigate]);
 

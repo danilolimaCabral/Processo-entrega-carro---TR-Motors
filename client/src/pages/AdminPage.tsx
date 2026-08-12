@@ -54,6 +54,7 @@ import {
   Blocks,
   Users,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -141,6 +142,15 @@ export default function AdminPage() {
     },
   });
 
+  const resetTwoFactorMutation = trpc.admin.resetTwoFactor.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message || "Autenticador redefinido com sucesso!");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao redefinir o autenticador");
+    },
+  });
+
   const toggleActiveMutation = trpc.admin.toggleActive.useMutation({
     onSuccess: () => {
       toast.success("Status atualizado!");
@@ -173,6 +183,10 @@ export default function AdminPage() {
       userId: resetForm.userId,
       newPassword: resetForm.newPassword,
     });
+  };
+
+  const handleResetTwoFactor = async (userId: number) => {
+    await resetTwoFactorMutation.mutateAsync({ userId });
   };
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
@@ -500,6 +514,33 @@ export default function AdminPage() {
                               Redefinir Senha
                             </Button>
 
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="outline" size="sm" className="gap-1">
+                                  <KeyRound className="h-3 w-3" />
+                                  Redefinir 2FA
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <div className="space-y-2">
+                                  <h2 className="text-lg font-semibold">Redefinir autenticador</h2>
+                                  <p className="text-sm text-slate-600">
+                                    No próximo acesso, {user.name} deverá cadastrar uma nova chave no aplicativo autenticador.
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 justify-end">
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleResetTwoFactor(user.id)}
+                                    disabled={resetTwoFactorMutation.isPending}
+                                    className="bg-red-600 text-white hover:bg-red-700"
+                                  >
+                                    {resetTwoFactorMutation.isPending ? "Redefinindo..." : "Redefinir 2FA"}
+                                  </AlertDialogAction>
+                                </div>
+                              </AlertDialogContent>
+                            </AlertDialog>
+
                             <Button
                               variant="outline"
                               size="sm"
@@ -617,6 +658,32 @@ export default function AdminPage() {
                           <Edit className="h-3 w-3 mr-1" />
                           Senha
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="flex-1 text-xs min-h-[40px]">
+                              <KeyRound className="h-3 w-3 mr-1" />
+                              2FA
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <div className="space-y-2">
+                              <h2 className="text-lg font-semibold">Redefinir autenticador</h2>
+                              <p className="text-sm text-slate-600">
+                                No próximo acesso, {user.name} deverá cadastrar uma nova chave no aplicativo autenticador.
+                              </p>
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleResetTwoFactor(user.id)}
+                                disabled={resetTwoFactorMutation.isPending}
+                                className="bg-red-600 text-white hover:bg-red-700"
+                              >
+                                {resetTwoFactorMutation.isPending ? "Redefinindo..." : "Redefinir 2FA"}
+                              </AlertDialogAction>
+                            </div>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <Button
                           variant="outline"
                           size="sm"

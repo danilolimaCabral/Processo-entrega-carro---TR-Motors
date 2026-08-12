@@ -335,6 +335,18 @@ export async function saveTwoFactorConfig(userId: number, secret: string, enable
 }
 
 /**
+ * Remove a vinculação TOTP de um usuário para que ele faça uma nova configuração
+ * no próximo login. A ação é restrita ao fluxo administrativo.
+ */
+export async function resetTwoFactorConfig(userId: number): Promise<void> {
+  await ensureTwoFactorTable();
+  const pool = await getPool();
+  if (!pool) throw new Error("Banco de dados indisponível para redefinir a autenticação em dois fatores.");
+
+  await pool.execute("DELETE FROM user_two_factor WHERE user_id = ?", [userId]);
+}
+
+/**
  * Get user by ID
  */
 export async function getUserById(id: number) {

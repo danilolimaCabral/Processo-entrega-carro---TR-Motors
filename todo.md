@@ -122,3 +122,4 @@
 - [ ] Manter como obrigatórios somente RG/CNH, CPF e comprovante de residência na Pasta Digital
 - [ ] Adicionar opção Outro para incluir documento manualmente na Pasta Digital
 - [x] Implementar autenticação em dois fatores por aplicativo autenticador no acesso ao Trmotors Hub
+- [x] Permitir que o administrador redefina o autenticador de um usuário para novo cadastro no próximo login

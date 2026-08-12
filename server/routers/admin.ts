@@ -11,6 +11,7 @@ import {
   deleteUser,
   updateUserRole,
   createUserDirect,
+  resetTwoFactorConfig,
 } from "../db";
 
 /**
@@ -132,6 +133,28 @@ export const adminRouter = router({
       return {
         success: true,
         message: "Senha redefinida com sucesso",
+      };
+    }),
+
+  /**
+   * Remove o vínculo atual com o aplicativo autenticador.
+   * No próximo login, o usuário será obrigado a cadastrar uma nova chave TOTP.
+   */
+  resetTwoFactor: adminProcedure
+    .input(z.object({ userId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const user = await getUserById(input.userId);
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Usuário não encontrado",
+        });
+      }
+
+      await resetTwoFactorConfig(input.userId);
+      return {
+        success: true,
+        message: "Autenticador redefinido. No próximo acesso, o usuário deverá configurar uma nova chave.",
       };
     }),
 

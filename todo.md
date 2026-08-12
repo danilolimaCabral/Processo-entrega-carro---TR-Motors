@@ -80,4 +80,4 @@
 - [x] Mover Departamentos e Cargos para Configurações exclusivas do administrador
 - [x] Centralizar Auditoria, Usuários e liberação de módulos em Configurações exclusivas do administrador
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD
-- [ ] Publicar em uma única atualização as correções prioritárias de RH e Configurações
+- [x] Publicar em uma única atualização as correções prioritárias de RH e Configurações

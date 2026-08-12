@@ -18,7 +18,8 @@ import {
   UserCheck, UserX, Coffee, CalendarDays, Activity, DollarSign,
   Shirt, FileText, ClipboardCheck, FolderArchive, BriefcaseBusiness,
   GraduationCap, ScrollText, UserPlus, Menu, X, LogOut, ArrowLeft,
-  Receipt, BookOpen, UserCog, ChevronRight, Upload,
+  Receipt, BookOpen, UserCog, ChevronRight, Upload, IdCard, Mail, Phone,
+  MapPin, ShieldAlert, CheckCircle2,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
@@ -666,6 +667,18 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
   const statusLabel: Record<string, string> = { ativo: "Ativo", ativo_ferias: "Em férias", afastado: "Afastado", desligado: "Desligado" };
   const statusClass: Record<string, string> = { ativo: "bg-emerald-100 text-emerald-700", ativo_ferias: "bg-amber-100 text-amber-700", afastado: "bg-slate-100 text-slate-700", desligado: "bg-red-100 text-red-700" };
   const categories = ["Identificação", "Admissão", "Exame Médico", "Formação", "Comprovante", "Nota Fiscal / Recibo", "Outro"];
+  const profileFields = [
+    { label: "CPF", value: employee.cpf, icon: IdCard },
+    { label: "E-mail", value: employee.email, icon: Mail },
+    { label: "Telefone", value: employee.phone, icon: Phone },
+    { label: "Admissão", value: employee.hireDate, icon: CalendarDays },
+    { label: "Departamento", value: department?.name, icon: Building2 },
+    { label: "Cargo", value: position?.title, icon: Briefcase },
+    { label: "Endereço", value: employee.address, icon: MapPin },
+    { label: "Contato de emergência", value: [employee.emergencyContact, employee.emergencyPhone].filter(Boolean).join(" · "), icon: ShieldAlert },
+  ];
+  const completedFields = profileFields.filter((field) => hasProfileValue(field.value)).length;
+  const pendingFields = profileFields.length - completedFields;
   const hasDocument = (name: string) => documents?.some((document: any) => document.documentName.trim().toLowerCase() === name.toLowerCase());
   const openRequiredDocument = (name: string, category: string) => {
     setDocumentForm({ category, documentName: name, expiryDate: "", file: null });
@@ -706,44 +719,57 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto p-0">
-        <DialogHeader className="border-b border-slate-200 bg-gradient-to-r from-slate-950 to-slate-800 px-6 py-5 text-white">
+      <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto border-0 p-0 shadow-2xl sm:rounded-[28px]">
+        <DialogHeader className="border-b border-white/10 bg-[radial-gradient(circle_at_top_right,_#334155,_#0f172a_48%,_#020617)] px-5 py-5 text-white sm:px-7 sm:py-6">
           <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-red-300">Ficha do colaborador</p>
-              <DialogTitle className="mt-1 text-2xl text-white">{employee.name}</DialogTitle>
-              <p className="mt-1 text-sm text-slate-300">{position?.title || "Cargo não informado"} · {department?.name || "Departamento não informado"}</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-red-300">Ficha do colaborador</p>
+              <DialogTitle className="mt-1.5 text-2xl font-bold tracking-tight text-white sm:text-3xl">{employee.name}</DialogTitle>
+              <p className="mt-1.5 text-sm text-slate-300">{position?.title || "Cargo não informado"} <span className="mx-1 text-slate-500">•</span> {department?.name || "Departamento não informado"}</p>
             </div>
-            <Badge className={statusClass[employee.status] || "bg-slate-100 text-slate-700"}>{statusLabel[employee.status] || employee.status}</Badge>
+            <Badge className={`${statusClass[employee.status] || "bg-slate-100 text-slate-700"} rounded-full px-3 py-1 text-xs font-bold shadow-sm`}>{statusLabel[employee.status] || employee.status}</Badge>
           </div>
         </DialogHeader>
 
-        <div className="space-y-5 px-6 pb-6 pt-5">
-          <div className="grid grid-cols-3 rounded-xl border border-slate-200 bg-slate-50 p-1">
+        <div className="space-y-5 bg-slate-50/70 px-4 pb-6 pt-5 sm:px-7 sm:pb-8">
+          <div className="grid grid-cols-3 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
             {[
               { id: "dados", label: "Dados" },
               { id: "uniformes", label: `Uniformes${uniforms?.length ? ` (${uniforms.length})` : ""}` },
               { id: "documentos", label: `Documentos${documents?.length ? ` (${documents.length})` : ""}` },
             ].map((tab) => (
-              <button key={tab.id} type="button" onClick={() => setProfileTab(tab.id as "dados" | "uniformes" | "documentos")} className={profileTab === tab.id ? "rounded-lg bg-white px-3 py-2 text-sm font-semibold text-red-700 shadow-sm" : "rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800"}>{tab.label}</button>
+              <button key={tab.id} type="button" onClick={() => setProfileTab(tab.id as "dados" | "uniformes" | "documentos")} className={profileTab === tab.id ? "rounded-xl bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white shadow-sm" : "rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"}>{tab.label}</button>
             ))}
           </div>
 
           {profileTab === "dados" && (
-            <div className="space-y-4">
+            <div className="space-y-5">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex flex-col gap-4 bg-gradient-to-r from-slate-950 to-slate-800 px-4 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <div>
+                    <p className="text-sm font-bold">Status do cadastro</p>
+                    <p className="mt-0.5 text-xs text-slate-300">Acompanhe rapidamente as informações desta ficha.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-1.5 text-xs font-bold text-emerald-200 ring-1 ring-inset ring-emerald-400/30"><CheckCircle2 className="h-3.5 w-3.5" /> {completedFields} preenchido{completedFields !== 1 ? "s" : ""}</div>
+                    <div className="flex items-center gap-2 rounded-full bg-red-400/15 px-3 py-1.5 text-xs font-bold text-red-200 ring-1 ring-inset ring-red-400/30"><ShieldAlert className="h-3.5 w-3.5" /> {pendingFields} pendente{pendingFields !== 1 ? "s" : ""}</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-slate-100 text-center sm:grid-cols-4 sm:divide-x">
+                  <div className="px-3 py-3"><p className="text-lg font-bold text-slate-900">{profileFields.length}</p><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Campos</p></div>
+                  <div className="px-3 py-3"><p className="text-lg font-bold text-emerald-600">{completedFields}</p><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Preenchidos</p></div>
+                  <div className="px-3 py-3"><p className="text-lg font-bold text-red-600">{pendingFields}</p><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Pendentes</p></div>
+                  <div className="px-3 py-3"><p className="text-lg font-bold text-slate-900">{Math.round((completedFields / profileFields.length) * 100)}%</p><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cadastro</p></div>
+                </div>
+              </div>
+              <div className="flex items-end justify-between gap-3"><div><h4 className="text-base font-bold text-slate-900">Informações pessoais</h4><p className="mt-1 text-sm text-slate-500">Verde indica informação confirmada; vermelho mostra o que ainda precisa ser registrado.</p></div></div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <ProfileField label="CPF" value={employee.cpf} />
-                <ProfileField label="E-mail" value={employee.email} />
-                <ProfileField label="Telefone" value={employee.phone} />
-                <ProfileField label="Admissão" value={employee.hireDate} />
-                <ProfileField label="Departamento" value={department?.name} />
-                <ProfileField label="Cargo" value={position?.title} />
+                {profileFields.slice(0, 6).map((field) => <ProfileField key={field.label} {...field} />)}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <ProfileField label="Endereço" value={employee.address} />
-                <ProfileField label="Contato de emergência" value={[employee.emergencyContact, employee.emergencyPhone].filter(Boolean).join(" · ")} />
+                {profileFields.slice(6).map((field) => <ProfileField key={field.label} {...field} />)}
               </div>
-              {employee.notes && <Card className="border-slate-200"><CardContent className="p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Observações</p><p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{employee.notes}</p></CardContent></Card>}
+              {employee.notes && <Card className="border-slate-200 bg-white shadow-sm"><CardContent className="p-4"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Observações</p><p className="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{employee.notes}</p></CardContent></Card>}
             </div>
           )}
 
@@ -769,8 +795,29 @@ function EmployeeProfileDialog({ employee, departments, positions, open, onOpenC
   );
 }
 
-function ProfileField({ label, value }: { label: string; value?: string | null }) {
-  return <Card className="border-slate-200"><CardContent className="p-3"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 text-sm font-medium text-slate-800">{value || "Não informado"}</p></CardContent></Card>;
+function hasProfileValue(value?: string | null) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function ProfileField({ label, value, icon: Icon }: { label: string; value?: string | null; icon: React.ComponentType<{ className?: string }> }) {
+  const completed = hasProfileValue(value);
+  return (
+    <Card className={completed ? "overflow-hidden border-emerald-200 bg-emerald-50/60 shadow-sm" : "overflow-hidden border-red-200 bg-red-50/70 shadow-sm"}>
+      <CardContent className="p-0">
+        <div className={completed ? "h-1 w-full bg-emerald-500" : "h-1 w-full bg-red-500"} />
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className={completed ? "flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700" : "flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-700"}><Icon className="h-4 w-4" /></div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">{label}</p>
+            </div>
+            <span className={completed ? "inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700" : "inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-[10px] font-bold text-red-700"}>{completed ? <CheckCircle2 className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}{completed ? "Preenchido" : "Pendente"}</span>
+          </div>
+          <p className={completed ? "mt-3 break-words text-sm font-semibold text-emerald-950" : "mt-3 text-sm font-semibold text-red-700"}>{completed ? value : "Não informado"}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function EmptyProfileState({ icon, message }: { icon: ReactNode; message: string }) {

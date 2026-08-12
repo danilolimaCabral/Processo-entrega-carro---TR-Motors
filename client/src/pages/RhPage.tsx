@@ -10,6 +10,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
@@ -25,6 +26,15 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation } from "wouter";
 
 type Tab = "dashboard" | "funcionarios" | "departamentos" | "cargos" | "uniformes" | "desligamento" | "documentos" | "vagas" | "candidatos" | "auditoria" | "ead" | "usuarios";
+
+const employeeFormTabs = [
+  { value: "dados", label: "Dados" },
+  { value: "documentos", label: "Documentos" },
+  { value: "contatos", label: "Contatos" },
+  { value: "endereco", label: "Endereço" },
+  { value: "trabalho", label: "Trabalho" },
+] as const;
+type EmployeeFormTab = (typeof employeeFormTabs)[number]["value"];
 
 const documentFileToBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
@@ -341,6 +351,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const deleteMutation = trpc.rh.deleteEmployee.useMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [employeeFormTab, setEmployeeFormTab] = useState<EmployeeFormTab>("dados");
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<{ name: string; email: string; password: string; role: string } | null>(null);
   // RH gerencia o processo; o administrador mantém acesso de superusuário.
@@ -353,6 +364,18 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo",
     address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" as "vendedor" | "gerente" | "financeiro" | "administrativo" | "aluno" | "rh",
   });
+
+  const resetEmployeeForm = () => {
+    setEditId(null);
+    setEmployeeFormTab("dados");
+    setForm({ name: "", cpf: "", email: "", phone: "", positionId: undefined, departmentId: undefined, hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" });
+  };
+
+  const moveEmployeeFormTab = (direction: -1 | 1) => {
+    const currentIndex = employeeFormTabs.findIndex((tab) => tab.value === employeeFormTab);
+    const nextTab = employeeFormTabs[currentIndex + direction];
+    if (nextTab) setEmployeeFormTab(nextTab.value);
+  };
 
   const handleSubmit = () => {
     if (!form.name.trim()) { toast.error("Nome é obrigatório"); return; }
@@ -400,6 +423,7 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
 
   const handleEdit = (emp: any) => {
     setEditId(emp.id);
+    setEmployeeFormTab("dados");
     setForm({
       name: emp.name, cpf: emp.cpf || "", email: emp.email || "", phone: emp.phone || "",
       positionId: emp.positionId || undefined, departmentId: emp.departmentId || undefined,
@@ -434,83 +458,62 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 items-center">
         <Input placeholder="Buscar por nome, CPF ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Dialog open={dialogOpen} onOpenChange={(o) => { if (!o) { setEditId(null); setForm({ name: "", cpf: "", email: "", phone: "", positionId: undefined, departmentId: undefined, hireDate: "", salary: "", helpCost: "", commissionPercent: "", status: "ativo", address: "", emergencyContact: "", emergencyPhone: "", notes: "", accessRole: "vendedor" }); } setDialogOpen(o); }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetEmployeeForm(); setDialogOpen(open); }}>
           {canManageEmployees && <DialogTrigger asChild>
             <Button size="sm"><Plus size={16} /> Novo Funcionário</Button>
           </DialogTrigger>}
-          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editId ? "Editar" : "Novo"} Funcionário</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div className="space-y-1.5"><Label>Nome *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              </div>
-              <div className="space-y-1.5"><Label>{editId ? "Email" : "Email para acesso *"}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
-              {!editId && <div className="space-y-1.5">
-                <Label>Perfil de acesso</Label>
-                <Select value={form.accessRole} onValueChange={(value) => setForm({ ...form, accessRole: value as typeof form.accessRole })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vendedor">Vendedor</SelectItem>
-                    <SelectItem value="gerente">Gerente</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="administrativo">Administrativo</SelectItem>
-                    <SelectItem value="aluno">Aluno</SelectItem>
-                    <SelectItem value="rh">RH</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-500">Uma senha temporária segura será criada e exibida apenas ao RH após o cadastro.</p>
-              </div>}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Departamento</Label>
-                  <Select value={form.departmentId ? String(form.departmentId) : undefined} onValueChange={(v) => setForm({ ...form, departmentId: Number(v) })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <p className="text-sm text-muted-foreground">Preencha por etapa. Os campos de salário e comissão são tratados fora deste cadastro inicial.</p>
+            <Tabs value={employeeFormTab} onValueChange={(value) => setEmployeeFormTab(value as EmployeeFormTab)} className="mt-2">
+              <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-md bg-slate-100 p-1">
+                {employeeFormTabs.map((tab) => <TabsTrigger key={tab.value} value={tab.value} className="h-8 flex-none px-3 text-xs sm:text-sm">{tab.label}</TabsTrigger>)}
+              </TabsList>
+
+              <TabsContent value="dados" className="space-y-4 pt-3">
+                <div className="space-y-1.5"><Label>Nome completo *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label>{editId ? "E-mail" : "E-mail para acesso *"}</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+                {!editId && <div className="space-y-1.5">
+                  <Label>Perfil de acesso</Label>
+                  <Select value={form.accessRole} onValueChange={(value) => setForm({ ...form, accessRole: value as typeof form.accessRole })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {departments?.map(d => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+                      <SelectItem value="vendedor">Vendedor</SelectItem><SelectItem value="gerente">Gerente</SelectItem><SelectItem value="financeiro">Financeiro</SelectItem><SelectItem value="administrativo">Administrativo</SelectItem><SelectItem value="aluno">Aluno</SelectItem><SelectItem value="rh">RH</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Cargo</Label>
-                  <Select value={form.positionId ? String(form.positionId) : undefined} onValueChange={(v) => setForm({ ...form, positionId: Number(v) })}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {positions?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <p className="text-xs text-slate-500">Uma senha temporária segura será exibida apenas ao RH após o cadastro.</p>
+                </div>}
+              </TabsContent>
+
+              <TabsContent value="documentos" className="space-y-4 pt-3">
+                <div className="space-y-1.5"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} placeholder="000.000.000-00" /></div>
+                <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-sm text-muted-foreground">Os documentos digitalizados podem ser anexados na ficha do colaborador depois do cadastro.</p>
+              </TabsContent>
+
+              <TabsContent value="contatos" className="space-y-4 pt-3">
+                <div className="space-y-1.5"><Label>Telefone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(00) 00000-0000" /></div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label>Contato de emergência</Label><Input value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></div><div className="space-y-1.5"><Label>Telefone de emergência</Label><Input value={form.emergencyPhone} onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })} placeholder="(00) 00000-0000" /></div></div>
+              </TabsContent>
+
+              <TabsContent value="endereco" className="space-y-4 pt-3">
+                <div className="space-y-1.5"><Label>Endereço residencial</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Rua, número, complemento, bairro, cidade e UF" /></div>
+              </TabsContent>
+
+              <TabsContent value="trabalho" className="space-y-4 pt-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label>Departamento</Label><Select value={form.departmentId ? String(form.departmentId) : undefined} onValueChange={(value) => setForm({ ...form, departmentId: Number(value) })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger><SelectContent>{departments?.map((department) => <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-1.5"><Label>Cargo</Label><Select value={form.positionId ? String(form.positionId) : undefined} onValueChange={(value) => setForm({ ...form, positionId: Number(value) })}><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger><SelectContent>{positions?.map((position) => <SelectItem key={position.id} value={String(position.id)}>{position.title}</SelectItem>)}</SelectContent></Select></div></div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="space-y-1.5"><Label>Data de admissão</Label><Input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} /></div><div className="space-y-1.5"><Label>Ajuda de custo (R$)</Label><Input type="number" value={form.helpCost} onChange={(e) => setForm({ ...form, helpCost: e.target.value })} placeholder="0,00" /></div></div>
+                <div className="space-y-1.5"><Label>Status</Label><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ativo">Ativo</SelectItem><SelectItem value="ativo_ferias">Ativo (férias)</SelectItem><SelectItem value="afastado">Afastado</SelectItem><SelectItem value="desligado">Desligado</SelectItem></SelectContent></Select></div>
+                <div className="space-y-1.5"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
+              </TabsContent>
+            </Tabs>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+              <span className="text-xs text-muted-foreground">Etapa {employeeFormTabs.findIndex((tab) => tab.value === employeeFormTab) + 1} de {employeeFormTabs.length}</span>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                <Button type="button" variant="secondary" onClick={() => moveEmployeeFormTab(-1)} disabled={employeeFormTab === "dados"}>Anterior</Button>
+                <Button type="button" variant="secondary" onClick={() => moveEmployeeFormTab(1)} disabled={employeeFormTab === "trabalho"}>Próxima</Button>
+                <Button type="button" onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>{createMutation.isPending || updateMutation.isPending ? "Salvando..." : "Salvar"}</Button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Data Admissão</Label><Input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>Salário (R$)</Label><Input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Ajuda de Custo (R$)</Label><Input type="number" value={form.helpCost} onChange={(e) => setForm({ ...form, helpCost: e.target.value })} placeholder="0,00" /></div>
-                <div className="space-y-1.5"><Label>Comissão Vendas (%)</Label><Input type="number" value={form.commissionPercent} onChange={(e) => setForm({ ...form, commissionPercent: e.target.value })} placeholder="0,00" step="0.01" /></div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="ativo_ferias">Ativo (Férias)</SelectItem>
-                    <SelectItem value="afastado">Afastado</SelectItem>
-                    <SelectItem value="desligado">Desligado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5"><Label>Endereço</Label><Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Contato Emergência</Label><Input value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label>Tel. Emergência</Label><Input value={form.emergencyPhone} onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })} /></div>
-              </div>
-              <div className="space-y-1.5"><Label>Observações</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} /></div>
-              <Button onClick={handleSubmit} className="w-full" disabled={createMutation.isPending || updateMutation.isPending}>
-                {createMutation.isPending || updateMutation.isPending ? "Salvando..." : "Salvar"}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>

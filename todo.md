@@ -106,3 +106,5 @@
 - [x] Alterar desligamento para selecionar um funcionário cadastrado e remover o campo de motivo
 - [x] Posicionar o botão de Desligamento por último no menu lateral do RH
 - [x] Remover as divisões Gestão de Pessoas e Gestão, unificando as opções no menu do RH
+- [x] Reorganizar o cadastro de funcionário em abas para dados básicos, endereço, contatos, documentação e informações de trabalho
+- [x] Remover os campos de salário e comissão do cadastro inicial de funcionário

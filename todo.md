@@ -72,5 +72,5 @@
 - [x] Filtrar no sistema os módulos exibidos e retornados conforme o perfil do usuário
 
 ## Documentação digital do colaborador
-- [ ] Permitir o upload e armazenamento de arquivos na documentação do colaborador
-- [ ] Remover a necessidade de informar link manual para anexar documentos
+- [x] Permitir o upload e armazenamento de arquivos na documentação do colaborador
+- [x] Remover a necessidade de informar link manual para anexar documentos

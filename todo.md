@@ -77,6 +77,7 @@
 
 ## Correções de RH e Configurações
 - [x] Restaurar o botão de cadastrar funcionário para o perfil de RH
+- [x] Corrigir a visibilidade do botão de criar funcionário reportada em produção
 - [x] Mover Departamentos e Cargos para Configurações exclusivas do administrador
 - [x] Centralizar Auditoria, Usuários e liberação de módulos em Configurações exclusivas do administrador
 - [ ] Permitir perfil principal com módulos adicionais por usuário, como Vendedor + EAD

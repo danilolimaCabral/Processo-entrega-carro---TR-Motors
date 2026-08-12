@@ -49,10 +49,10 @@ export const hrProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== "rh") {
+    if (!ctx.user || (ctx.user.role !== "rh" && ctx.user.role !== "admin")) {
       throw new TRPCError({
         code: "FORBIDDEN",
-        message: "Somente o RH pode alterar funcionários e acessos.",
+        message: "Somente o RH ou administradores podem alterar funcionários e acessos.",
       });
     }
 

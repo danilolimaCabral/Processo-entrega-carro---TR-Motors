@@ -357,7 +357,8 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const [editId, setEditId] = useState<number | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
   const [createdCredentials, setCreatedCredentials] = useState<{ name: string; email: string; password: string; role: string } | null>(null);
-  const canManageEmployees = user?.role === "rh";
+  // RH gerencia o processo; o administrador mantém acesso de superusuário.
+  const canManageEmployees = user?.role === "rh" || user?.role === "admin";
 
   const [form, setForm] = useState({
     name: "", cpf: "", email: "", phone: "",

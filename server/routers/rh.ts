@@ -748,17 +748,17 @@ export const rhRouter = router({
       // Mantém compatibilidade com instalações antigas que não tinham defaults
       // para alguns campos opcionais e para os timestamps.
       const now = new Date();
-      await db.insert(rh_uniforms).values({
-        employeeId: input.employeeId,
-        type: input.type,
-        size: input.size ?? null,
-        quantity: input.quantity,
-        dateIssued: input.dateIssued ?? null,
-        status: input.status,
-        notes: input.notes?.trim() || "",
-        createdAt: now,
-        updatedAt: now,
-      });
+      // O Drizzle inclui `id = default` ao inserir pelo schema. Algumas tabelas
+      // antigas do Railway rejeitam essa forma mesmo após a normalização; ao
+      // omitir a coluna do identificador, o MySQL aplica o AUTO_INCREMENT.
+      await db.execute(sql`
+        INSERT INTO rh_uniforms (
+          employee_id, type, size, quantity, date_issued, status, notes, created_at, updated_at
+        ) VALUES (
+          ${input.employeeId}, ${input.type}, ${input.size ?? null}, ${input.quantity},
+          ${input.dateIssued ?? null}, ${input.status}, ${input.notes?.trim() || ""}, ${now}, ${now}
+        )
+      `);
       return { success: true };
     }),
 

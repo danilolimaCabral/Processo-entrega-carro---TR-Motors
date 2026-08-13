@@ -129,3 +129,4 @@
 - [ ] Corrigir a persistência de status e trocar os seletores expostos por painel interno ao clicar em cada área do checklist de desligamento
 - [x] Corrigir a nova falha ao salvar uniforme quando o banco rejeita os campos created_at e updated_at
 - [x] Normalizar a tabela legada de uniformes e enviar todos os campos explicitamente no cadastro
+- [x] Omitir o identificador automático do insert de uniformes para compatibilidade com a tabela legada do Railway

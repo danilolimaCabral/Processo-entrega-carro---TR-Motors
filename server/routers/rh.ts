@@ -727,7 +727,7 @@ export const rhRouter = router({
     .query(async ({ input }) => {
       const db = await ensureRhUniformsTable();
       const filter = input?.employeeId ? sql`WHERE employee_id = ${input.employeeId}` : sql``;
-      const rows = await db.execute(sql`
+      const [rows] = await db.execute(sql`
         SELECT id, employee_id AS employeeId, type, size, quantity,
           date_issued AS dateIssued, status, notes,
           created_at AS createdAt, updated_at AS updatedAt

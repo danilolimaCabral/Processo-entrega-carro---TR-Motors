@@ -132,3 +132,4 @@
 - [x] Omitir o identificador automático do insert de uniformes para compatibilidade com a tabela legada do Railway
 - [x] Garantir e completar a estrutura da tabela legada antes de listar ou cadastrar uniformes
 - [x] Publicar e validar o fluxo estável de uniformes separado da tabela legada incompatível
+- [x] Corrigir a resposta da listagem de uniformes para exibir o registro salvo sem metadados internos do MySQL

@@ -63,17 +63,13 @@ async function ensurePjInvoicesTable() {
   return db;
 }
 
-/**
- * Versões antigas da tabela de uniformes foram criadas sem AUTO_INCREMENT
- * ou sem defaults compatíveis com a aplicação atual. A normalização é
- * idempotente e preserva todos os registros já existentes.
- */
+/** A tabela antiga de uniformes pode ter estrutura incompatível no Railway. */
 async function ensureRhUniformsTable() {
   const db = await getDb();
   if (!rhUniformsTableReady) {
     rhUniformsTableReady = (async () => {
       await db.execute(sql.raw(`
-        CREATE TABLE IF NOT EXISTS rh_uniforms (
+        CREATE TABLE IF NOT EXISTS rh_uniform_records (
           id INT NOT NULL AUTO_INCREMENT,
           employee_id INT NOT NULL,
           type VARCHAR(50) NOT NULL,
@@ -85,30 +81,8 @@ async function ensureRhUniformsTable() {
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
-          KEY rh_uniforms_employee_id_idx (employee_id)
+          KEY rh_uniform_records_employee_id_idx (employee_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      `));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS employee_id INT NOT NULL DEFAULT 0`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT ''`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS size VARCHAR(10) NULL`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS date_issued DATE NULL`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'entregue'`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS notes TEXT NULL`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`));
-      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`));
-      await db.execute(sql.raw(`
-        ALTER TABLE rh_uniforms
-          MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT,
-          MODIFY COLUMN employee_id INT NOT NULL,
-          MODIFY COLUMN type VARCHAR(50) NOT NULL,
-          MODIFY COLUMN size VARCHAR(10) NULL,
-          MODIFY COLUMN quantity INT NOT NULL DEFAULT 1,
-          MODIFY COLUMN date_issued DATE NULL,
-          MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'entregue',
-          MODIFY COLUMN notes TEXT NULL,
-          MODIFY COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          MODIFY COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       `));
     })();
   }
@@ -752,10 +726,19 @@ export const rhRouter = router({
     .input(z.object({ employeeId: z.number().optional() }).optional())
     .query(async ({ input }) => {
       const db = await ensureRhUniformsTable();
-      if (input?.employeeId) {
-        return db.select().from(rh_uniforms).where(eq(rh_uniforms.employeeId, input.employeeId)).orderBy(desc(rh_uniforms.createdAt));
-      }
-      return db.select().from(rh_uniforms).orderBy(desc(rh_uniforms.createdAt));
+      const filter = input?.employeeId ? sql`WHERE employee_id = ${input.employeeId}` : sql``;
+      const rows = await db.execute(sql`
+        SELECT id, employee_id AS employeeId, type, size, quantity,
+          date_issued AS dateIssued, status, notes,
+          created_at AS createdAt, updated_at AS updatedAt
+        FROM rh_uniform_records
+        ${filter}
+        ORDER BY created_at DESC
+      `);
+      return rows as Array<{
+        id: number; employeeId: number; type: string; size: string | null; quantity: number;
+        dateIssued: string | null; status: string; notes: string | null; createdAt: Date; updatedAt: Date;
+      }>;
     }),
 
   createUniform: protectedProcedure
@@ -772,14 +755,9 @@ export const rhRouter = router({
     )
     .mutation(async ({ input }) => {
       const db = await ensureRhUniformsTable();
-      // Mantém compatibilidade com instalações antigas que não tinham defaults
-      // para alguns campos opcionais e para os timestamps.
       const now = new Date();
-      // O Drizzle inclui `id = default` ao inserir pelo schema. Algumas tabelas
-      // antigas do Railway rejeitam essa forma mesmo após a normalização; ao
-      // omitir a coluna do identificador, o MySQL aplica o AUTO_INCREMENT.
       await db.execute(sql`
-        INSERT INTO rh_uniforms (
+        INSERT INTO rh_uniform_records (
           employee_id, type, size, quantity, date_issued, status, notes, created_at, updated_at
         ) VALUES (
           ${input.employeeId}, ${input.type}, ${input.size ?? null}, ${input.quantity},
@@ -792,8 +770,8 @@ export const rhRouter = router({
   deleteUniform: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      const db = await getDb();
-      await db.delete(rh_uniforms).where(eq(rh_uniforms.id, input.id));
+      const db = await ensureRhUniformsTable();
+      await db.execute(sql`DELETE FROM rh_uniform_records WHERE id = ${input.id}`);
       return { success: true };
     }),
 

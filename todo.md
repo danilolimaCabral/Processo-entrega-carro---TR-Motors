@@ -131,3 +131,4 @@
 - [x] Normalizar a tabela legada de uniformes e enviar todos os campos explicitamente no cadastro
 - [x] Omitir o identificador automático do insert de uniformes para compatibilidade com a tabela legada do Railway
 - [x] Garantir e completar a estrutura da tabela legada antes de listar ou cadastrar uniformes
+- [x] Publicar e validar o fluxo estável de uniformes separado da tabela legada incompatível

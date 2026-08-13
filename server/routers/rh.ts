@@ -28,6 +28,7 @@ import {
 } from "../../drizzle/schema";
 
 let pjInvoicesTableReady: Promise<void> | null = null;
+let rhUniformsTableReady: Promise<void> | null = null;
 
 async function ensurePjInvoicesTable() {
   const db = await getDb();
@@ -59,6 +60,32 @@ async function ensurePjInvoicesTable() {
     `)).then(() => undefined);
   }
   await pjInvoicesTableReady;
+  return db;
+}
+
+/**
+ * Versões antigas da tabela de uniformes foram criadas sem AUTO_INCREMENT
+ * ou sem defaults compatíveis com a aplicação atual. A normalização é
+ * idempotente e preserva todos os registros já existentes.
+ */
+async function ensureRhUniformsTable() {
+  const db = await getDb();
+  if (!rhUniformsTableReady) {
+    rhUniformsTableReady = db.execute(sql.raw(`
+      ALTER TABLE rh_uniforms
+        MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT,
+        MODIFY COLUMN employee_id INT NOT NULL,
+        MODIFY COLUMN type VARCHAR(50) NOT NULL,
+        MODIFY COLUMN size VARCHAR(10) NULL,
+        MODIFY COLUMN quantity INT NOT NULL DEFAULT 1,
+        MODIFY COLUMN date_issued DATE NULL,
+        MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'entregue',
+        MODIFY COLUMN notes TEXT NULL,
+        MODIFY COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        MODIFY COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    `)).then(() => undefined);
+  }
+  await rhUniformsTableReady;
   return db;
 }
 
@@ -717,13 +744,18 @@ export const rhRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      const db = await getDb();
-      // Alguns bancos criados antes das migrações atuais não possuem defaults
-      // para os timestamps. Informá-los explicitamente mantém o cadastro
-      // compatível sem alterar ou recriar dados existentes.
+      const db = await ensureRhUniformsTable();
+      // Mantém compatibilidade com instalações antigas que não tinham defaults
+      // para alguns campos opcionais e para os timestamps.
       const now = new Date();
       await db.insert(rh_uniforms).values({
-        ...input,
+        employeeId: input.employeeId,
+        type: input.type,
+        size: input.size ?? null,
+        quantity: input.quantity,
+        dateIssued: input.dateIssued ?? null,
+        status: input.status,
+        notes: input.notes?.trim() || "",
         createdAt: now,
         updatedAt: now,
       });

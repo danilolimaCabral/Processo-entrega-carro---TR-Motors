@@ -71,19 +71,46 @@ async function ensurePjInvoicesTable() {
 async function ensureRhUniformsTable() {
   const db = await getDb();
   if (!rhUniformsTableReady) {
-    rhUniformsTableReady = db.execute(sql.raw(`
-      ALTER TABLE rh_uniforms
-        MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT,
-        MODIFY COLUMN employee_id INT NOT NULL,
-        MODIFY COLUMN type VARCHAR(50) NOT NULL,
-        MODIFY COLUMN size VARCHAR(10) NULL,
-        MODIFY COLUMN quantity INT NOT NULL DEFAULT 1,
-        MODIFY COLUMN date_issued DATE NULL,
-        MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'entregue',
-        MODIFY COLUMN notes TEXT NULL,
-        MODIFY COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        MODIFY COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    `)).then(() => undefined);
+    rhUniformsTableReady = (async () => {
+      await db.execute(sql.raw(`
+        CREATE TABLE IF NOT EXISTS rh_uniforms (
+          id INT NOT NULL AUTO_INCREMENT,
+          employee_id INT NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          size VARCHAR(10) NULL,
+          quantity INT NOT NULL DEFAULT 1,
+          date_issued DATE NULL,
+          status VARCHAR(20) NOT NULL DEFAULT 'entregue',
+          notes TEXT NULL,
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY rh_uniforms_employee_id_idx (employee_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS employee_id INT NOT NULL DEFAULT 0`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT ''`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS size VARCHAR(10) NULL`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS quantity INT NOT NULL DEFAULT 1`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS date_issued DATE NULL`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'entregue'`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS notes TEXT NULL`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`));
+      await db.execute(sql.raw(`ALTER TABLE rh_uniforms ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`));
+      await db.execute(sql.raw(`
+        ALTER TABLE rh_uniforms
+          MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT,
+          MODIFY COLUMN employee_id INT NOT NULL,
+          MODIFY COLUMN type VARCHAR(50) NOT NULL,
+          MODIFY COLUMN size VARCHAR(10) NULL,
+          MODIFY COLUMN quantity INT NOT NULL DEFAULT 1,
+          MODIFY COLUMN date_issued DATE NULL,
+          MODIFY COLUMN status VARCHAR(20) NOT NULL DEFAULT 'entregue',
+          MODIFY COLUMN notes TEXT NULL,
+          MODIFY COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          MODIFY COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      `));
+    })();
   }
   await rhUniformsTableReady;
   return db;
@@ -724,7 +751,7 @@ export const rhRouter = router({
   listUniforms: protectedProcedure
     .input(z.object({ employeeId: z.number().optional() }).optional())
     .query(async ({ input }) => {
-      const db = await getDb();
+      const db = await ensureRhUniformsTable();
       if (input?.employeeId) {
         return db.select().from(rh_uniforms).where(eq(rh_uniforms.employeeId, input.employeeId)).orderBy(desc(rh_uniforms.createdAt));
       }

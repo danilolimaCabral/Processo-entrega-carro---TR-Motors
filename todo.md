@@ -130,3 +130,4 @@
 - [x] Corrigir a nova falha ao salvar uniforme quando o banco rejeita os campos created_at e updated_at
 - [x] Normalizar a tabela legada de uniformes e enviar todos os campos explicitamente no cadastro
 - [x] Omitir o identificador automático do insert de uniformes para compatibilidade com a tabela legada do Railway
+- [x] Garantir e completar a estrutura da tabela legada antes de listar ou cadastrar uniformes

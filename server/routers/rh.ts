@@ -17,6 +17,7 @@ import {
   rh_uniforms,
   rh_cost_invoices,
   pj_monthly_invoices,
+  employee_documents,
   type InsertDepartment,
   type InsertPosition,
   type InsertEmployee,
@@ -647,6 +648,51 @@ export const rhRouter = router({
     };
   }),
 
+  /** Pendências operacionais visíveis no cartão de cada colaborador ativo. */
+  dashboardCollaborators: protectedProcedure.query(async () => {
+    const db = await ensurePjInvoicesTable();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const [employees, documents, invoices, absences] = await Promise.all([
+      db.select().from(rh_employees).where(eq(rh_employees.status, "ativo")),
+      db.select().from(employee_documents),
+      db.select().from(pj_monthly_invoices).where(and(
+        eq(pj_monthly_invoices.competenceMonth, currentMonth),
+        eq(pj_monthly_invoices.competenceYear, currentYear),
+      )),
+      db.select().from(rh_leave_requests).where(and(
+        inArray(rh_leave_requests.type, ["falta_justificada", "falta_injustificada"]),
+        inArray(rh_leave_requests.status, ["pendente", "aprovado"]),
+      )),
+    ]);
+
+    const normalize = (value: string | null | undefined) => (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const hasRequiredDocument = (employeeId: number, requirement: "identidade" | "cpf" | "residencia") => {
+      const names = documents
+        .filter((document) => document.employeeId === employeeId)
+        .map((document) => normalize(document.documentName));
+      if (requirement === "identidade") return names.some((name) => name.includes("rg") || name.includes("cnh"));
+      if (requirement === "cpf") return names.some((name) => name.includes("cpf"));
+      return names.some((name) => name.includes("comprovante") && name.includes("resid"));
+    };
+
+    return employees.map((employee) => {
+      const pendingDocuments = (["identidade", "cpf", "residencia"] as const)
+        .filter((requirement) => !hasRequiredDocument(employee.id, requirement)).length;
+      const pendingPjInvoices = invoices.filter((invoice) => invoice.employeeId === employee.id && invoice.status !== "pago").length;
+      const absenceCount = absences.filter((absence) => absence.employeeId === employee.id).length;
+      return {
+        id: employee.id,
+        name: employee.name,
+        hireDate: employee.hireDate,
+        pendingDocuments,
+        pendingPjInvoices,
+        absenceCount,
+      };
+    });
+  }),
+
   // ==================== Uniformes ====================
   listUniforms: protectedProcedure
     .input(z.object({ employeeId: z.number().optional() }).optional())
@@ -761,8 +807,21 @@ export const rhRouter = router({
   // ==================== Exit Checklists (Desligamento) ====================
   listExitChecklists: protectedProcedure.query(async () => {
     const db = await getDb();
-    const { exit_checklists } = await import("../../drizzle/schema");
-    return db.select().from(exit_checklists).orderBy(desc(exit_checklists.createdAt));
+    const { exit_checklists, exit_checklist_items } = await import("../../drizzle/schema");
+    const [checklists, items] = await Promise.all([
+      db.select().from(exit_checklists).orderBy(desc(exit_checklists.createdAt)),
+      db.select().from(exit_checklist_items),
+    ]);
+    const sectors = ["RH", "TI", "Financeiro", "Operacional", "Direção"];
+    return checklists.map((checklist) => {
+      const checklistItems = items.filter((item) => item.checklistId === checklist.id);
+      return {
+        ...checklist,
+        // Checklists antigos podem ter mais de um item por área. Para a visão
+        // operacional, cada área aparece apenas uma vez.
+        items: sectors.map((sector) => checklistItems.find((item) => item.sector === sector)).filter(Boolean),
+      };
+    });
   }),
   createExitChecklist: hrProcedure
     .input(z.object({ employeeId: z.number().int().positive() }))
@@ -789,11 +848,11 @@ export const rhRouter = router({
       });
       const checklistId = result[0].insertId;
       const defaultItems = [
-        { title: "Devolução de uniformes", sector: "RH", responsibleRole: "rh" },
-        { title: "Entrega de crachá/equipamentos", sector: "TI", responsibleRole: "admin" },
-        { title: "Liberação de pagamentos pendentes", sector: "Financeiro", responsibleRole: "financeiro" },
-        { title: "Entrevista de desligamento", sector: "RH", responsibleRole: "rh" },
-        { title: "Desativação de acessos", sector: "TI", responsibleRole: "admin" },
+        { title: "Regularização de pendências do colaborador", sector: "RH", responsibleRole: "rh" },
+        { title: "Devolução de acessos e equipamentos", sector: "TI", responsibleRole: "admin" },
+        { title: "Conferência de pagamentos e benefícios", sector: "Financeiro", responsibleRole: "financeiro" },
+        { title: "Transferência das atividades em andamento", sector: "Operacional", responsibleRole: "admin" },
+        { title: "Validação final do desligamento", sector: "Direção", responsibleRole: "admin" },
       ];
       for (const item of defaultItems) {
         await db.insert(exit_checklist_items).values({
@@ -844,6 +903,49 @@ export const rhRouter = router({
           details: `Item do checklist atualizado: ${input.status}`,
         });
       }
+      return { success: true };
+    }),
+  setExitChecklistSectorStatus: hrProcedure
+    .input(z.object({
+      checklistId: z.number().int().positive(),
+      sector: z.enum(["RH", "TI", "Financeiro", "Operacional", "Direção"]),
+      status: z.enum(["pendente", "concluido", "nao_aplicavel"]),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      const { exit_checklist_items, audit_logs } = await import("../../drizzle/schema");
+      const roleBySector = { RH: "rh", TI: "admin", Financeiro: "financeiro", Operacional: "admin", "Direção": "admin" } as const;
+      const existing = await db.select({ id: exit_checklist_items.id })
+        .from(exit_checklist_items)
+        .where(and(eq(exit_checklist_items.checklistId, input.checklistId), eq(exit_checklist_items.sector, input.sector)))
+        .limit(1);
+      const completionData = input.status === "concluido"
+        ? { completedAt: new Date(), completedBy: ctx.user.id }
+        : { completedAt: null, completedBy: null };
+      let itemId: number;
+      if (existing[0]) {
+        itemId = existing[0].id;
+        await db.update(exit_checklist_items).set({ status: input.status, ...completionData }).where(eq(exit_checklist_items.id, itemId));
+      } else {
+        const result = await db.insert(exit_checklist_items).values({
+          checklistId: input.checklistId,
+          title: `Validação da área ${input.sector}`,
+          sector: input.sector,
+          responsibleRole: roleBySector[input.sector],
+          status: input.status,
+          ...completionData,
+        });
+        itemId = result[0].insertId;
+      }
+      await db.insert(audit_logs).values({
+        userId: ctx.user.id,
+        userName: ctx.user.name || ctx.user.email,
+        action: "update",
+        module: "rh",
+        entityId: itemId,
+        entityName: `Checklist ${input.sector}`,
+        details: `Status da área ${input.sector} atualizado para ${input.status}`,
+      });
       return { success: true };
     }),
 

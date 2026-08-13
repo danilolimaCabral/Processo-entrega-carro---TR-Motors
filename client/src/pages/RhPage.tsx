@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ export default function RhPage() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [employeeToOpen, setEmployeeToOpen] = useState<number | null>(null);
 
   const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeTab)?.label || "RH";
   const handleLogout = () => { logout(); setLocation("/"); };
@@ -217,8 +218,8 @@ export default function RhPage() {
 
         {/* Content */}
         <div className="p-4 lg:p-6">
-          {activeTab === "dashboard" && <DashboardTab />}
-          {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} />}
+          {activeTab === "dashboard" && <DashboardTab onOpenEmployee={(employeeId) => { setEmployeeToOpen(employeeId); setSearch(""); setActiveTab("funcionarios"); }} />}
+          {activeTab === "funcionarios" && <EmployeesTab search={search} setSearch={setSearch} openEmployeeId={employeeToOpen} onExternalEmployeeOpened={() => setEmployeeToOpen(null)} />}
           {activeTab === "departamentos" && <DepartmentsTab />}
           {activeTab === "cargos" && <PositionsTab />}
           {activeTab === "uniformes" && <UniformsTab />}
@@ -236,111 +237,68 @@ export default function RhPage() {
 }
 
 // ==================== Dashboard Tab ====================
-function DashboardTab() {
+function DashboardTab({ onOpenEmployee }: { onOpenEmployee: (employeeId: number) => void }) {
   const { data: stats } = trpc.rh.dashboardStats.useQuery();
-  const { data: employees } = trpc.rh.listEmployees.useQuery();
-  const { data: pendingLeaves } = trpc.rh.listLeaveRequests.useQuery({ status: "pendente" });
+  const { data: collaborators, isLoading } = trpc.rh.dashboardCollaborators.useQuery();
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg"><Users size={20} className="text-blue-600" /></div>
-            <div>
-              <p className="text-2xl font-bold">{stats?.totalEmployees || 0}</p>
-              <p className="text-xs text-slate-500">Total Funcionários</p>
-            </div>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="rounded-lg bg-blue-100 p-2"><Users size={20} className="text-blue-600" /></div>
+            <div><p className="text-2xl font-bold">{stats?.totalEmployees || 0}</p><p className="text-xs text-slate-500">Total de colaboradores</p></div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg"><UserCheck size={20} className="text-green-600" /></div>
-            <div>
-              <p className="text-2xl font-bold">{stats?.activeEmployees || 0}</p>
-              <p className="text-xs text-slate-500">Ativos</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg"><Coffee size={20} className="text-yellow-600" /></div>
-            <div>
-              <p className="text-2xl font-bold">{stats?.onVacation || 0}</p>
-              <p className="text-xs text-slate-500">De Férias</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg"><Calendar size={20} className="text-orange-600" /></div>
-            <div>
-              <p className="text-2xl font-bold">{stats?.pendingLeaves || 0}</p>
-              <p className="text-xs text-slate-500">Férias Pendentes</p>
-            </div>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="rounded-lg bg-green-100 p-2"><UserCheck size={20} className="text-green-600" /></div>
+            <div><p className="text-2xl font-bold">{stats?.activeEmployees || 0}</p><p className="text-xs text-slate-500">Colaboradores ativos</p></div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Solicitações de Férias Pendentes</CardTitle>
+          <CardTitle className="text-lg">Colaboradores ativos</CardTitle>
+          <p className="text-sm text-muted-foreground">Acompanhe as pendências e abra a ficha completa ao clicar no cartão.</p>
         </CardHeader>
         <CardContent>
-          {pendingLeaves && pendingLeaves.length > 0 ? (
-            <div className="space-y-2">
-              {pendingLeaves.slice(0, 5).map((item) => (
-                <div key={item.leave.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Users size={16} className="text-slate-400" />
-                    <div>
-                      <p className="font-medium text-sm">{item.employee.name}</p>
-                      <p className="text-xs text-slate-500">{item.leave.type} - {item.leave.startDate} até {item.leave.endDate}</p>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando pendências dos colaboradores...</p>
+          ) : collaborators && collaborators.length > 0 ? (
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              {collaborators.map((collaborator) => (
+                <button key={collaborator.id} type="button" onClick={() => onOpenEmployee(collaborator.id)} className="group rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-red-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600"><Users size={18} /></div>
+                      <div className="min-w-0"><p className="truncate font-semibold text-slate-900">{collaborator.name}</p><p className="text-xs text-slate-500">{collaborator.hireDate || "Data de admissão não informada"}</p></div>
                     </div>
+                    <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-slate-300 transition-colors group-hover:text-red-500" />
                   </div>
-                  <Badge variant="outline" className="text-yellow-600 border-yellow-300">Pendente</Badge>
-                </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <DashboardPendingMetric icon={<FileText size={15} />} label="Documentos" value={collaborator.pendingDocuments} tone={collaborator.pendingDocuments > 0 ? "amber" : "emerald"} />
+                    <DashboardPendingMetric icon={<Receipt size={15} />} label="NF PJ" value={collaborator.pendingPjInvoices} tone={collaborator.pendingPjInvoices > 0 ? "amber" : "emerald"} />
+                    <DashboardPendingMetric icon={<CalendarDays size={15} />} label="Faltas" value={collaborator.absenceCount} tone={collaborator.absenceCount > 0 ? "red" : "emerald"} />
+                  </div>
+                </button>
               ))}
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Nenhuma solicitação pendente.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Quick Employee List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Funcionários Ativos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {employees && employees.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {employees.filter(e => e.status === "ativo").slice(0, 8).map((emp) => (
-                <div key={emp.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Users size={14} className="text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{emp.name}</p>
-                    <p className="text-xs text-slate-500">{emp.hireDate || "Sem data"}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Nenhum funcionário cadastrado.</p>
-          )}
+          ) : <p className="text-sm text-slate-500">Nenhum colaborador ativo cadastrado.</p>}
         </CardContent>
       </Card>
     </div>
   );
 }
 
+function DashboardPendingMetric({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: "amber" | "emerald" | "red" }) {
+  const colors = { amber: "bg-amber-50 text-amber-700", emerald: "bg-emerald-50 text-emerald-700", red: "bg-red-50 text-red-700" };
+  return <div className={`rounded-lg p-2.5 ${colors[tone]}`}><div className="mb-1 flex items-center gap-1.5 text-xs font-medium">{icon}<span className="truncate">{label}</span></div><p className="text-lg font-bold leading-none">{value}</p><p className="mt-1 text-[10px] opacity-80">{value === 1 ? "pendente" : "pendentes"}</p></div>;
+}
+
 // ==================== Employees Tab ====================
-function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: string) => void }) {
+function EmployeesTab({ search, setSearch, openEmployeeId, onExternalEmployeeOpened }: { search: string; setSearch: (s: string) => void; openEmployeeId?: number | null; onExternalEmployeeOpened?: () => void }) {
   const { user } = useAuth();
   const { data: employees, isLoading, refetch } = trpc.rh.listEmployees.useQuery({ search: search || undefined });
   const { data: departments } = trpc.rh.listDepartments.useQuery();
@@ -356,6 +314,15 @@ function EmployeesTab({ search, setSearch }: { search: string; setSearch: (s: st
   const [createdCredentials, setCreatedCredentials] = useState<{ name: string; email: string; password: string; role: string } | null>(null);
   // RH gerencia o processo; o administrador mantém acesso de superusuário.
   const canManageEmployees = user?.role === "rh" || user?.role === "admin";
+
+  useEffect(() => {
+    if (!openEmployeeId || !employees) return;
+    const employee = employees.find((item) => item.id === openEmployeeId);
+    if (employee) {
+      setSelectedEmployee(employee);
+      onExternalEmployeeOpened?.();
+    }
+  }, [employees, onExternalEmployeeOpened, openEmployeeId]);
 
   const [form, setForm] = useState({
     name: "", cpf: "", email: "", phone: "",
@@ -1783,6 +1750,7 @@ function CostInvoicesTab() {
 function ExitChecklistTab() {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [selectedArea, setSelectedArea] = useState<{ checklistId: number; employeeName: string; sector: "RH" | "TI" | "Financeiro" | "Operacional" | "Direção"; status: "pendente" | "concluido" | "nao_aplicavel" } | null>(null);
   const utils = trpc.useUtils();
 
   const { data: checklists } = trpc.rh.listExitChecklists.useQuery();
@@ -1792,7 +1760,14 @@ function ExitChecklistTab() {
     onSuccess: () => { utils.invalidate(); setShowDialog(false); setSelectedEmployeeId(""); toast.success("Checklist criado"); },
     onError: (e) => toast.error("Erro: " + e.message),
   });
-  const updateItem = trpc.rh.updateExitChecklistItem.useMutation({ onSuccess: () => utils.invalidate() });
+  const updateArea = trpc.rh.setExitChecklistSectorStatus.useMutation({
+    onSuccess: async () => {
+      await utils.rh.listExitChecklists.invalidate();
+      setSelectedArea(null);
+      toast.success("Status da área atualizado");
+    },
+    onError: (error) => toast.error(error.message || "Não foi possível atualizar o status"),
+  });
 
   const sectors = ["RH", "TI", "Financeiro", "Operacional", "Direção"];
 
@@ -1836,8 +1811,8 @@ function ExitChecklistTab() {
       <div className="grid gap-3">
         {checklists?.map((cl: any) => {
           const items = cl.items || [];
-          const completed = items.filter((i: any) => i.status === "concluido").length;
-          const total = items.length || sectors.length;
+          const completed = sectors.filter((sector) => items.find((item: any) => item.sector === sector)?.status === "concluido").length;
+          const total = sectors.length;
           const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
           return (
             <Card key={cl.id} className="overflow-hidden border-slate-200 shadow-sm">
@@ -1868,28 +1843,18 @@ function ExitChecklistTab() {
                     const status = item?.status || "pendente";
                     const isPending = status === "pendente";
                     return (
-                      <div key={sector} className={`flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between ${isPending ? "bg-amber-50/50" : "bg-white"}`}>
+                      <button key={sector} type="button" onClick={() => setSelectedArea({ checklistId: cl.id, employeeName: cl.employeeName, sector: sector as "RH" | "TI" | "Financeiro" | "Operacional" | "Direção", status })} className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-red-50/60 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 ${isPending ? "bg-amber-50/50" : "bg-white"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`h-2 w-2 shrink-0 rounded-full ${status === "concluido" ? "bg-emerald-500" : status === "nao_aplicavel" ? "bg-slate-300" : "bg-amber-500"}`} />
                           <span className="text-sm font-medium text-slate-700">{sector}</span>
                         </div>
-                        <div className="flex items-center justify-between gap-2 sm:justify-end">
+                        <div className="flex items-center gap-2">
                           <Badge className={status === "concluido" ? "bg-emerald-600" : status === "nao_aplicavel" ? "bg-slate-100 text-slate-600 hover:bg-slate-100" : "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-100"} variant={status === "concluido" ? "default" : "outline"}>
                             {status === "concluido" ? "Concluído" : status === "nao_aplicavel" ? "Não Aplicável" : "Pendente"}
                           </Badge>
-                          <Select
-                            value={status}
-                            onValueChange={(v) => item?.id && updateItem.mutate({ id: item.id, status: v as "pendente" | "concluido" | "nao_aplicavel" })}
-                          >
-                            <SelectTrigger className="h-8 w-[136px] bg-white text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pendente">Pendente</SelectItem>
-                              <SelectItem value="concluido">Concluído</SelectItem>
-                              <SelectItem value="nao_aplicavel">Não Aplicável</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1899,6 +1864,27 @@ function ExitChecklistTab() {
         })}
         {!checklists?.length && <p className="text-center text-muted-foreground py-4">Nenhum checklist de saída criado</p>}
       </div>
+      <Dialog open={Boolean(selectedArea)} onOpenChange={(open) => { if (!open) setSelectedArea(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Atualizar área do checklist</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{selectedArea?.employeeName}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-900">Área: {selectedArea?.sector}</p>
+            </div>
+            <div className="grid gap-2">
+              {([
+                ["concluido", "Concluir área", "bg-emerald-600 hover:bg-emerald-700"],
+                ["pendente", "Manter pendente", "bg-amber-500 hover:bg-amber-600"],
+                ["nao_aplicavel", "Não aplicável", "bg-slate-600 hover:bg-slate-700"],
+              ] as const).map(([status, label, className]) => (
+                <Button key={status} disabled={!selectedArea || updateArea.isPending} className={`min-h-[44px] justify-start ${className}`} onClick={() => selectedArea && updateArea.mutate({ checklistId: selectedArea.checklistId, sector: selectedArea.sector, status })}>{label}</Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">A atualização é salva imediatamente e aparece no progresso deste desligamento.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

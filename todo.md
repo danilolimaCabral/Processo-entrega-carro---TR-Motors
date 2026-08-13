@@ -123,3 +123,7 @@
 - [ ] Adicionar opção Outro para incluir documento manualmente na Pasta Digital
 - [x] Implementar autenticação em dois fatores por aplicativo autenticador no acesso ao Trmotors Hub
 - [x] Permitir que o administrador redefina o autenticador de um usuário para novo cadastro no próximo login
+- [x] Corrigir a persistência de status e trocar os seletores expostos por painel interno ao clicar em cada área do checklist de desligamento
+- [x] Remover os cards De Férias e Férias Pendentes, além do bloco Solicitações de Férias Pendentes, do dashboard de RH
+- [x] Exibir em cada cartão de colaborador documentos pendentes, NF PJ pendente do mês e faltas registradas, com acesso à ficha ao clicar
+- [ ] Corrigir a persistência de status e trocar os seletores expostos por painel interno ao clicar em cada área do checklist de desligamento
